@@ -113,10 +113,9 @@ module.exports = {
     }
 
     // load the archive
-    var archive
     await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
       checkin('searching for dat')
-      archive = await datLibrary.getOrLoadArchive(key)
+      await datLibrary.getOrLoadArchive(key)
     })
 
     // make sure the path is good

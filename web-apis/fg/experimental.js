@@ -1,3 +1,5 @@
+/* globals Request Response */
+
 const {EventTargetFromStream} = require('./event-target')
 const errors = require('beaker-error-constants')
 

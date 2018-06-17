@@ -1,4 +1,4 @@
-const {join as joinPaths} = require('path')
+const {join} = require('path')
 const globals = require('./globals')
 const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
@@ -11,18 +11,18 @@ module.exports = {
   dbs,
 
   setup (opts) {
-    for (var k in opts) {
+    for (let k in opts) {
       globals[k] = opts
     }
 
     // setup databases
-    for (var k in dbs) {
+    for (let k in dbs) {
       if (dbs[k].setup) {
         dbs[k].setup(opts)
       }
     }
 
     // setup dat
-    dat.library.setup({logfilePath: joinPaths(globals.userDataPath, 'dat.log')})
+    dat.library.setup({logfilePath: join(globals.userDataPath, 'dat.log')})
   }
 }

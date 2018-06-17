@@ -1,8 +1,8 @@
-const globals from '../../globals'
-const assert from 'assert'
-const normalizeUrl from 'normalize-url'
-const {PermissionsError} from 'beaker-error-constants'
-const bookmarksDb from '../dbs/bookmarks'
+const globals = require('../../globals')
+const assert = require('assert')
+const normalizeUrl = require('normalize-url')
+const {PermissionsError} = require('beaker-error-constants')
+const bookmarksDb = require('../dbs/bookmarks')
 const {queryPermission} = globals.permsAPI
 
 const NORMALIZE_OPTS = {

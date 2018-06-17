@@ -6,7 +6,7 @@ const Stat = require('./stat')
 
 const LOAD_PROMISE = Symbol('LOAD_PROMISE')
 const URL_PROMISE = Symbol('URL_PROMISE')
-const NETWORK_ACT_STREAM = Symbol()
+const NETWORK_ACT_STREAM = Symbol() // eslint-disable-line
 
 exports.setup = function (rpc) {
   // create the rpc apis

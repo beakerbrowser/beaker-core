@@ -4,7 +4,7 @@
   "description": "Beaker browser's core software",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint **/*.js --fix",
+    "lint": "eslint index.js globals.js webview.js **/*.js */**/*.js --ignore-pattern 'node_modules/*' --fix --quiet",
     "test": "ava ./*-test.js -s -T15000"
   },
   "repository": {

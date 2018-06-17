@@ -8,9 +8,8 @@ const pda = require('pauls-dat-api')
 const concat = require('concat-stream')
 const pick = require('lodash.pick')
 const datDns = require('../../dat/dns')
-const * as datLibrary = require('../../dat/library')
-const * as archivesDb = require('../../dbs/archives')
-const {getPermissions} = require('../../dbs/sitedata')
+const datLibrary = require('../../dat/library')
+const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
 const {
   DAT_MANIFEST_FILENAME,
@@ -153,7 +152,7 @@ module.exports = {
         // check that the local sync path is valid
         if (info && info.userSettings.localSyncPath) {
           const stat = await new Promise(resolve => {
-            fs.stat(info.userSettings.localSyncPath, (err, st) => resolve(st))
+            fs.stat(info.userSettings.localSyncPath, (_, st) => resolve(st))
           })
           if (!stat || !stat.isDirectory()) {
             info.localSyncPathIsMissing = true
@@ -495,7 +494,7 @@ module.exports = {
 
     // TODO do we need to replace this? -prf
     // if (await checkFolderIsEmpty(opts.dst) === false) {
-      // return
+    // return
     // }
 
     var {checkoutFS, filepath} = await lookupArchive(opts.src, opts)
@@ -746,4 +745,3 @@ async function lookupUrlDatKey (url) {
 function massageHistoryObj ({name, version, type}) {
   return {path: name, version, type}
 }
-

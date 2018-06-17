@@ -1,14 +1,12 @@
-/* globals DatArchive */
+const {EventTarget, bindEventStream, fromEventStream} = require('./event-target')
+const errors = require('beaker-error-constants')
 
-const {EventTarget, bindEventStream, fromEventStream} = require('./event-target'
-const errors = require('beaker-error-constants'
-
-const archivesManifest = require('../manifests/internal/archives'
-const bookmarksManifest = require('../manifests/internal/bookmarks'
-const historyManifest = require('../manifests/internal/history'
-const downloadsManifest = require('../manifests/internal/downloads'
-const sitedataManifest = require('../manifests/internal/sitedata'
-const beakerBrowserManifest = require('../manifests/internal/browser'
+const archivesManifest = require('../manifests/internal/archives')
+const bookmarksManifest = require('../manifests/internal/bookmarks')
+const historyManifest = require('../manifests/internal/history')
+const downloadsManifest = require('../manifests/internal/downloads')
+const sitedataManifest = require('../manifests/internal/sitedata')
+const beakerBrowserManifest = require('../manifests/internal/browser')
 
 exports.setup = function (rpc) {
   const beaker = {}

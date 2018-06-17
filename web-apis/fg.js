@@ -1,6 +1,6 @@
-const DatArchive = require('./bg/dat-archive')
-const beaker = require('./bg/beaker')
-const experimental = require('./bg/experimental')
+const DatArchive = require('./fg/dat-archive')
+const beaker = require('./fg/beaker')
+const experimental = require('./fg/experimental')
 
 exports.setup = function ({rpcAPI}) {
   // setup APIs

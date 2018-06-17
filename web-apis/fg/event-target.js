@@ -1,9 +1,9 @@
 // this emulates the implementation of event-targets by browsers
 
-const LISTENERS = Symbol()
-const CREATE_STREAM = Symbol()
-const STREAM_EVENTS = Symbol()
-const STREAM = Symbol()
+const LISTENERS = Symbol() // eslint-disable-line
+const CREATE_STREAM = Symbol() // eslint-disable-line
+const STREAM_EVENTS = Symbol() // eslint-disable-line
+const STREAM = Symbol() // eslint-disable-line
 
 class EventTarget {
   constructor () {
@@ -92,7 +92,7 @@ exports.EventTarget = EventTarget
 exports.EventTargetFromStream = EventTargetFromStream
 exports.Event = Event
 
-exports.bindEventStream = function (stream, target) {
+const bindEventStream = exports.bindEventStream = function (stream, target) {
   stream.on('data', data => {
     var event = data[1] || {}
     event.type = data[0]
@@ -100,7 +100,7 @@ exports.bindEventStream = function (stream, target) {
   })
 }
 
-exports.fromEventStream = function (stream) {
+const fromEventStream = exports.fromEventStream = function (stream) {
   var target = new EventTarget()
   bindEventStream(stream, target)
   target.close = () => {
