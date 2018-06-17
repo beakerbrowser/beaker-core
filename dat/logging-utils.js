@@ -1,6 +1,6 @@
 const datEncoding = require('dat-encoding')
 
-exports.findFullDiscoveryKey = function (archivesByDKey, key) {
+const findFullDiscoveryKey = exports.findFullDiscoveryKey = function (archivesByDKey, key) {
   key = Buffer.isBuffer(key) ? key.toString('hex') : key
   // HACK
   // if the key is short, try to find the full thing in our list
@@ -17,7 +17,7 @@ exports.findFullDiscoveryKey = function (archivesByDKey, key) {
   return key
 }
 
-exports.getDNSMessageDiscoveryKey = function (archivesByDKey, msg) {
+const getDNSMessageDiscoveryKey = exports.getDNSMessageDiscoveryKey = function (archivesByDKey, msg) {
   var key
   function check (obj) {
     if (!key && obj.name.endsWith('.dat.local')) {
@@ -34,7 +34,7 @@ function has (str, v) {
   return str.indexOf(v) !== -1
 }
 
-exports.addArchiveSwarmLogging = function ({archivesByDKey, log, archiveSwarm}) {
+const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archivesByDKey, log, archiveSwarm}) {
   archiveSwarm.on('listening', () => {
     archiveSwarm._discovery.dns.on('traffic', (type, details) => {
       let archive = archivesByDKey[getDNSMessageDiscoveryKey(archivesByDKey, details.message)]
@@ -158,7 +158,7 @@ exports.addArchiveSwarmLogging = function ({archivesByDKey, log, archiveSwarm}) 
   })
 }
 
-exports.renderDNSTraffic = function ({questions, answers, additionals}) {
+const renderDNSTraffic = exports.renderDNSTraffic = function ({questions, answers, additionals}) {
   var messageParts = []
   if (questions && (!answers || !answers.length) && (!additionals || !additionals.length)) {
     questions.forEach(q => {

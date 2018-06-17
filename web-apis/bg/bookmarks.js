@@ -2,8 +2,7 @@ const globals = require('../../globals')
 const assert = require('assert')
 const normalizeUrl = require('normalize-url')
 const {PermissionsError} = require('beaker-error-constants')
-const bookmarksDb = require('../dbs/bookmarks')
-const {queryPermission} = globals.permsAPI
+const bookmarksDb = require('../../dbs/bookmarks')
 
 const NORMALIZE_OPTS = {
   stripFragment: false,
@@ -103,7 +102,7 @@ async function assertPermission (sender, perm) {
   if (sender.getURL().startsWith('beaker:')) {
     return true
   }
-  if (await queryPermission(perm, sender)) return true
+  if (await globals.permsAPI.queryPermission(perm, sender)) return true
   throw new PermissionsError()
 }
 

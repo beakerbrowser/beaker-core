@@ -18,7 +18,7 @@ exports.setup = function () {
   schedule(DAT_GC_FIRST_COLLECT_WAIT)
 }
 
-exports.collect = async function ({olderThan, isOwner} = {}) {
+const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
   // clear any scheduled GC
   if (nextGCTimeout) {
     clearTimeout(nextGCTimeout)

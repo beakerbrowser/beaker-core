@@ -1,3 +1,4 @@
+module.exports = `
 CREATE TABLE profiles (
   id INTEGER PRIMARY KEY NOT NULL,
   url TEXT,
@@ -68,3 +69,4 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Explore the p2
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
 
 PRAGMA user_version = 1;
+`

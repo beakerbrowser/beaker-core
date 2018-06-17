@@ -1,3 +1,4 @@
+module.exports = `
 
 -- join table to list the archive's type fields
 CREATE TABLE archives_meta_type (
@@ -6,3 +7,4 @@ CREATE TABLE archives_meta_type (
 );
 
 PRAGMA user_version = 9;
+`

@@ -1,5 +1,4 @@
 const globals = require('../globals')
-const rpc = globals.rpcAPI
 
 const SECURE_ORIGIN_REGEX = /^(beaker:|dat:|https:|http:\/\/localhost(\/|:))/i
 
@@ -16,8 +15,6 @@ const archivesAPI = require('./bg/archives')
 const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
-const downloadsAPI = globals.downloadsWebAPI
-const beakerBrowserAPI = globals.browserWebAPI
 
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')
@@ -38,19 +35,19 @@ const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
 
 exports.setup = function () {
   // internal apis
-  rpc.exportAPI('archives', archivesManifest, archivesAPI, internalOnly)
-  rpc.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, internalOnly)
-  rpc.exportAPI('history', historyManifest, historyAPI, internalOnly)
-  rpc.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
-  rpc.exportAPI('downloads', downloadsManifest, downloadsAPI, internalOnly)
-  rpc.exportAPI('beaker-browser', beakerBrowserManifest, beakerBrowserAPI, internalOnly)
+  globals.rpcAPI.exportAPI('archives', archivesManifest, archivesAPI, internalOnly)
+  globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, internalOnly)
+  globals.rpcAPI.exportAPI('history', historyManifest, historyAPI, internalOnly)
+  globals.rpcAPI.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
+  globals.rpcAPI.exportAPI('downloads', downloadsManifest, globals.downloadsWebAPI, internalOnly)
+  globals.rpcAPI.exportAPI('beaker-browser', beakerBrowserManifest, globals.browserWebAPI, internalOnly)
 
   // external apis
-  rpc.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
+  globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
 
   // experimental apis
-  rpc.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
-  rpc.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
+  globals.rpcAPI.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
+  globals.rpcAPI.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
 }
 
 function internalOnly (event, methodName, args) {

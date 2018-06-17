@@ -4,7 +4,6 @@ const through2 = require('through2')
 const datLibrary = require('../../../dat/library')
 const archivesDb = require('../../../dbs/archives')
 const {PermissionsError} = require('beaker-error-constants')
-const {checkLabsPerm} = globals.labAPI
 
 // constants
 // =
@@ -33,7 +32,7 @@ function add (isRequest) {
   return async function (url, {duration} = {}) {
     var key = datLibrary.fromURLToKey(url)
     if (isRequest) await checkIsntOwner(key)
-    await checkLabsPerm({
+    await globals.permsAPI.checkLabsPerm({
       perm: isRequest ? `${REQUEST_ADD_PERM_ID}:${key}` : API_PERM_ID,
       labApi: LAB_API_ID,
       apiDocsUrl: API_DOCS_URL,
@@ -57,7 +56,7 @@ function remove (isRequest) {
   return async function (url) {
     var key = datLibrary.fromURLToKey(url)
     if (isRequest) await checkIsntOwner(key)
-    await checkLabsPerm({
+    await globals.permsAPI.checkLabsPerm({
       perm: isRequest ? `${REQUEST_REMOVE_PERM_ID}:${key}` : API_PERM_ID,
       labApi: LAB_API_ID,
       apiDocsUrl: API_DOCS_URL,
@@ -77,7 +76,7 @@ module.exports = {
   requestRemove: remove(true),
 
   async get (url) {
-    await checkLabsPerm({
+    await globals.permsAPI.checkLabsPerm({
       perm: API_PERM_ID,
       labApi: LAB_API_ID,
       apiDocsUrl: API_DOCS_URL,
@@ -89,7 +88,7 @@ module.exports = {
   },
 
   async list (query = {}) {
-    await checkLabsPerm({
+    await globals.permsAPI.checkLabsPerm({
       perm: API_PERM_ID,
       labApi: LAB_API_ID,
       apiDocsUrl: API_DOCS_URL,
@@ -105,7 +104,7 @@ module.exports = {
   },
 
   async createEventStream () {
-    await checkLabsPerm({
+    await globals.permsAPI.checkLabsPerm({
       perm: API_PERM_ID,
       labApi: LAB_API_ID,
       apiDocsUrl: API_DOCS_URL,

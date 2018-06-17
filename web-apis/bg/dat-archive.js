@@ -1,6 +1,4 @@
 const globals = require('../../globals')
-const {queryPermission, grantPermission, requestPermission} = globals.permsAPI
-const {showModal} = globals.uiAPI
 const path = require('path')
 const fs = require('fs')
 const parseDatURL = require('parse-dat-url')
@@ -50,7 +48,7 @@ module.exports = {
       // run the creation modal
       let res
       try {
-        res = await showModal(this.sender, 'create-archive', {title, description, type, networked, links})
+        res = await globals.uiAPI.showModal(this.sender, 'create-archive', {title, description, type, networked, links})
       } catch (e) {
         if (e.name !== 'Error') {
           throw e // only rethrow if a specific error
@@ -85,7 +83,7 @@ module.exports = {
     }
 
     // grant write permissions to the creating app
-    grantPermission('modifyDat:' + newArchiveKey, this.sender.getURL())
+    globals.permsAPI.grantPermission('modifyDat:' + newArchiveKey, this.sender.getURL())
     return newArchiveUrl
   },
 
@@ -104,7 +102,7 @@ module.exports = {
       let isSelfFork = key1 === key2
       let res
       try {
-        res = await showModal(this.sender, 'fork-archive', {url, title, description, type, networked, links, isSelfFork})
+        res = await globals.uiAPI.showModal(this.sender, 'fork-archive', {url, title, description, type, networked, links, isSelfFork})
       } catch (e) {
         if (e.name !== 'Error') {
           throw e // only rethrow if a specific error
@@ -123,7 +121,7 @@ module.exports = {
 
     // grant write permissions to the creating app
     let newArchiveKey = await lookupUrlDatKey(newArchiveUrl)
-    grantPermission('modifyDat:' + newArchiveKey, this.sender.getURL())
+    globals.permsAPI.grantPermission('modifyDat:' + newArchiveKey, this.sender.getURL())
     return newArchiveUrl
   },
 
@@ -440,7 +438,7 @@ module.exports = {
     // initiate the modal
     var res
     try {
-      res = await showModal(this.sender, 'select-archive', {title, buttonLabel, filters})
+      res = await globals.uiAPI.showModal(this.sender, 'select-archive', {title, buttonLabel, filters})
     } catch (e) {
       if (e.name !== 'Error') {
         throw e // only rethrow if a specific error
@@ -551,7 +549,7 @@ async function assertCreateArchivePermission (sender) {
   }
 
   // ask the user
-  let allowed = await requestPermission('createDat', sender)
+  let allowed = await globals.permsAPI.requestPermission('createDat', sender)
   if (!allowed) {
     throw new UserDeniedError()
   }
@@ -584,11 +582,11 @@ async function assertWritePermission (archive, sender) {
   }
 
   // ensure the sender is allowed to write
-  var allowed = await queryPermission(perm, sender)
+  var allowed = await globals.permsAPI.queryPermission(perm, sender)
   if (allowed) return true
 
   // ask the user
-  allowed = await requestPermission(perm, sender, { title: details.title })
+  allowed = await globals.permsAPI.requestPermission(perm, sender, { title: details.title })
   if (!allowed) throw new UserDeniedError()
   return true
 }
@@ -604,7 +602,7 @@ async function assertDeleteArchivePermission (archive, sender) {
 
   // ask the user
   var details = await datLibrary.getArchiveInfo(archiveKey)
-  var allowed = await requestPermission(perm, sender, { title: details.title })
+  var allowed = await globals.permsAPI.requestPermission(perm, sender, { title: details.title })
   if (!allowed) throw new UserDeniedError()
   return true
 }

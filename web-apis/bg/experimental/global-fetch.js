@@ -3,7 +3,6 @@ const http = require('http')
 const https = require('https')
 const concat = require('concat-stream')
 const {URL} = require('url')
-const {checkLabsPerm} = globals.labAPI
 
 // constants
 // =
@@ -28,7 +27,7 @@ module.exports = {
     }
 
     // check perms
-    await checkLabsPerm({
+    await globals.permsAPI.checkLabsPerm({
       perm: API_PERM_ID + ':' + reqOptions.protocol + '//' + reqOptions.host,
       labApi: LAB_API_ID,
       apiDocsUrl: API_DOCS_URL,

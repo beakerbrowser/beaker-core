@@ -6,5 +6,8 @@ module.exports = {
 
   // dependencies
   permsAPI: null,
-  uiAPI: null
+  uiAPI: null,
+  rpcAPI: null,
+  downloadsWebAPI: null,
+  browserWebAPI: null
 }

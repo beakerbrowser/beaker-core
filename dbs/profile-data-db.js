@@ -48,7 +48,7 @@ exports.parallelize = function () {
 // =
 
 function setupDb (cb) {
-  db.exec(fs.readFileSync(path.join(__dirname, 'background-process', 'dbs', 'schemas', 'profile-data.sql'), 'utf8'), cb)
+  db.exec(require('./schemas/profile-data.sql'), cb)
 }
 migrations = [
   migration('profile-data.v1.sql'),
@@ -75,6 +75,6 @@ function migration (file, opts = {}) {
       var orgCb = cb
       cb = () => orgCb() // suppress the error
     }
-    db.exec(fs.readFileSync(path.join(__dirname, 'background-process', 'dbs', 'schemas', file), 'utf8'), cb)
+    db.exec(require('./schemas/' + file), cb)
   }
 }

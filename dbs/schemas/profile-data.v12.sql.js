@@ -1,3 +1,4 @@
+module.exports = `
 
 -- list of the active workspaces
 CREATE TABLE workspaces (
@@ -13,3 +14,4 @@ CREATE TABLE workspaces (
 );
 
 PRAGMA user_version = 12;
+`

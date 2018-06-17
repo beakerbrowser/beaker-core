@@ -1,4 +1,4 @@
-
+module.exports = `
 -- log of the user's app installations
 -- deprecated
 CREATE TABLE apps_log (
@@ -11,3 +11,4 @@ CREATE TABLE apps_log (
 );
 
 PRAGMA user_version = 11;
+`
