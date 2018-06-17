@@ -39,7 +39,7 @@ const REQUEST_TIMEOUT_MS = 30e3 // 30 seconds
 // exported api
 // =
 
-export async function electronHandler (request, respond) {
+exports.electronHandler = async function (request, respond) {
   respond = once(respond)
   var respondError = (code, status, errorPageInfo) => {
     if (errorPageInfo) {

@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3')
 const path = require('path')
 const {cbPromise} = require('../lib/functions')
 const {setupSqliteDB} = require('../lib/db')
-const {getEnvVar} = require('../../lib/env')
+const {getEnvVar} = require('../lib/env')
 
 // globals
 // =

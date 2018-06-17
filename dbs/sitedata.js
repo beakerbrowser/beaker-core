@@ -3,7 +3,7 @@ const path = require('path')
 const url = require('url')
 const { cbPromise } = require('../lib/functions')
 const { setupSqliteDB } = require('../lib/db')
-const datDns = require('../networks/dat/dns')
+const datDns = require('../dat/dns')
 
 // globals
 // =

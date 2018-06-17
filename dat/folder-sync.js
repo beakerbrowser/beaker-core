@@ -9,7 +9,7 @@ const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
 const settingsDb = require('../dbs/settings')
 const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
-const scopedFSes = require('../lib/bg/scoped-fses')
+const scopedFSes = require('../lib/scoped-fses')
 const {
   NotFoundError,
   NotAFolderError,

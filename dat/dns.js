@@ -6,7 +6,7 @@ const {DAT_HASH_REGEX} = require('../lib/const')
 const datDns = require('dat-dns')({
   persistentCache: {read, write}
 })
-export default datDns
+module.exports = datDns
 
 // wrap resolveName() with a better error
 const resolveName = datDns.resolveName

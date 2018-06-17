@@ -1,5 +1,5 @@
 module.exports = {
-  debugging: require('./debugging'),
+  debug: require('./debugging'),
   dns: require('./dns'),
   folderSync: require('./folder-sync'),
   garbageCollector: require('./garbage-collector'),

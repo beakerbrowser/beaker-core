@@ -14,11 +14,11 @@ var nextGCTimeout
 // exported API
 // =
 
-export function setup () {
+exports.setup = function () {
   schedule(DAT_GC_FIRST_COLLECT_WAIT)
 }
 
-export async function collect ({olderThan, isOwner} = {}) {
+exports.collect = async function ({olderThan, isOwner} = {}) {
   // clear any scheduled GC
   if (nextGCTimeout) {
     clearTimeout(nextGCTimeout)
