@@ -3,8 +3,8 @@
 const {EventTargetFromStream} = require('./event-target')
 const errors = require('beaker-error-constants')
 
-const experimentalLibraryManifest = require('../api-manifests/external/experimental/library')
-const experimentalGlobalFetchManifest = require('../api-manifests/external/experimental/global-fetch')
+const experimentalLibraryManifest = require('../manifests/external/experimental/library')
+const experimentalGlobalFetchManifest = require('../manifests/external/experimental/global-fetch')
 
 exports.setup = function (rpc) {
   const experimental = {}
