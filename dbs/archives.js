@@ -1,17 +1,16 @@
-import path from 'path'
-import url from 'url'
-import mkdirp from 'mkdirp'
-import Events from 'events'
-import datEncoding from 'dat-encoding'
-import jetpack from 'fs-jetpack'
-import {InvalidArchiveKeyError} from 'beaker-error-constants'
-import globals from '../globals'
-import * as db from './profile-data-db'
-import lock from '../lib/lock'
-import {
+const path = require('path')
+const url = require('url')
+const mkdirp = require('mkdirp')
+const Events = require('events')
+const datEncoding = require('dat-encoding')
+const jetpack = require('fs-jetpack')
+const {InvalidArchiveKeyError} = require('beaker-error-constants')
+const db = require('./profile-data-db')
+const lock = require('../lib/lock')
+const {
   DAT_HASH_REGEX,
   DAT_GC_EXPIRATION_AGE
-} from '../lib/const'
+} = require('../lib/const')
 
 // globals
 // =
@@ -22,20 +21,20 @@ var events = new Events()
 // exported methods
 // =
 
-export function setup () {
+exports.setup = function (opts) {
   // make sure the folders exist
-  datPath = path.join(globals.userDataPath, 'Dat')
+  datPath = path.join(opts.userDataPath, 'Dat')
   mkdirp.sync(path.join(datPath, 'Archives'))
 }
 
 // get the path to an archive's files
-export function getArchiveMetaPath (archiveOrKey) {
+const getArchiveMetaPath = exports.getArchiveMetaPath = function (archiveOrKey) {
   var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)
   return path.join(datPath, 'Archives', 'Meta', key.slice(0, 2), key.slice(2))
 }
 
 // delete all db entries and files for an archive
-export async function deleteArchive (key) {
+exports.deleteArchive = async function (key) {
   const path = getArchiveMetaPath(key)
   const info = await jetpack.inspectTreeAsync(path)
   await Promise.all([
@@ -47,9 +46,9 @@ export async function deleteArchive (key) {
   return info.size
 }
 
-export const on = events.on.bind(events)
-export const addListener = events.addListener.bind(events)
-export const removeListener = events.removeListener.bind(events)
+exports.on = events.on.bind(events)
+exports.addListener = events.addListener.bind(events)
+exports.removeListener = events.removeListener.bind(events)
 
 // exported methods: archive user settings
 // =
@@ -59,7 +58,7 @@ export const removeListener = events.removeListener.bind(events)
 //   - `isSaved`: bool
 //   - `isNetworked`: bool
 //   - `isOwner`: bool, does beaker have the secret key?
-export async function query (profileId, query) {
+exports.query = async function (profileId, query) {
   query = query || {}
 
   // fetch archive meta
@@ -136,7 +135,7 @@ export async function query (profileId, query) {
 }
 
 // get all archives that should be unsaved
-export async function listExpiredArchives () {
+exports.listExpiredArchives = async function () {
   return db.all(`
     SELECT archives.key
       FROM archives
@@ -149,7 +148,7 @@ export async function listExpiredArchives () {
 }
 
 // get all archives that are ready for garbage collection
-export async function listGarbageCollectableArchives ({olderThan, isOwner} = {}) {
+exports.listGarbageCollectableArchives = async function ({olderThan, isOwner} = {}) {
   olderThan = typeof olderThan === 'number' ? olderThan : DAT_GC_EXPIRATION_AGE
   isOwner = typeof isOwner === 'boolean' ? `AND archives_meta.isOwner = ${isOwner ? '1' : '0'}` : ''
   return db.all(`
@@ -164,7 +163,7 @@ export async function listGarbageCollectableArchives ({olderThan, isOwner} = {})
 }
 
 // upsert the last-access time
-export async function touch (key, timeVar = 'lastAccessTime', value = -1) {
+exports.touch = async function (key, timeVar = 'lastAccessTime', value = -1) {
   var release = await lock('archives-db:meta')
   try {
     if (timeVar !== 'lastAccessTime' && timeVar !== 'lastLibraryAccessTime') {
@@ -181,7 +180,7 @@ export async function touch (key, timeVar = 'lastAccessTime', value = -1) {
 
 // get a single archive's user settings
 // - supresses a not-found with an empty object
-export async function getUserSettings (profileId, key) {
+const getUserSettings = exports.getUserSettings = async function (profileId, key) {
   // massage inputs
   key = datEncoding.toStr(key)
 
@@ -206,7 +205,7 @@ export async function getUserSettings (profileId, key) {
 }
 
 // write an archive's user setting
-export async function setUserSettings (profileId, key, newValues = {}) {
+exports.setUserSettings = async function (profileId, key, newValues = {}) {
   // massage inputs
   key = datEncoding.toStr(key)
 
@@ -261,7 +260,7 @@ export async function setUserSettings (profileId, key, newValues = {}) {
 
 // get a single archive's metadata
 // - supresses a not-found with an empty object
-export async function getMeta (key) {
+const getMeta = exports.getMeta = async function (key) {
   // massage inputs
   key = datEncoding.toStr(key)
 
@@ -303,7 +302,7 @@ export async function getMeta (key) {
 }
 
 // write an archive's metadata
-export async function setMeta (key, value = {}) {
+exports.setMeta = async function (key, value = {}) {
   // massage inputs
   key = datEncoding.toStr(key)
 
@@ -362,7 +361,7 @@ function flag (b) {
   return b ? 1 : 0
 }
 
-export function extractOrigin (originURL) {
+exports.extractOrigin = function (originURL) {
   var urlp = url.parse(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return
   return (urlp.protocol + (urlp.slashes ? '//' : '') + urlp.host)

@@ -1,8 +1,8 @@
-import * as DatArchive from './bg/dat-archive'
-import * as beaker from './bg/beaker'
-import * as experimental from './bg/experimental'
+const DatArchive = require('./bg/dat-archive')
+const beaker = require('./bg/beaker')
+const experimental = require('./bg/experimental')
 
-export function setup ({rpcAPI}) {
+exports.setup = function ({rpcAPI}) {
   // setup APIs
   if (['beaker:', 'dat:', 'https:'].includes(window.location.protocol) ||
       (window.location.protocol === 'http:' && window.location.hostname === 'localhost')) {

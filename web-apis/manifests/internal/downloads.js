@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   getDownloads: 'promise',
   pause: 'promise',
   resume: 'promise',

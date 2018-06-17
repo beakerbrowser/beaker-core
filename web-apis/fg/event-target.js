@@ -5,7 +5,7 @@ const CREATE_STREAM = Symbol()
 const STREAM_EVENTS = Symbol()
 const STREAM = Symbol()
 
-export class EventTarget {
+class EventTarget {
   constructor () {
     this[LISTENERS] = {}
   }
@@ -38,7 +38,7 @@ export class EventTarget {
   }
 }
 
-export class EventTargetFromStream extends EventTarget {
+class EventTargetFromStream extends EventTarget {
   constructor (createStreamFn, events) {
     super()
     this[CREATE_STREAM] = createStreamFn
@@ -63,7 +63,7 @@ export class EventTargetFromStream extends EventTarget {
   }
 }
 
-export class Event {
+class Event {
   constructor (type, opts) {
     this.type = type
     for (var k in opts) {
@@ -88,7 +88,11 @@ export class Event {
   }
 }
 
-export function bindEventStream (stream, target) {
+exports.EventTarget = EventTarget
+exports.EventTargetFromStream = EventTargetFromStream
+exports.Event = Event
+
+exports.bindEventStream = function (stream, target) {
   stream.on('data', data => {
     var event = data[1] || {}
     event.type = data[0]
@@ -96,7 +100,7 @@ export function bindEventStream (stream, target) {
   })
 }
 
-export function fromEventStream (stream) {
+exports.fromEventStream = function (stream) {
   var target = new EventTarget()
   bindEventStream(stream, target)
   target.close = () => {
@@ -106,7 +110,7 @@ export function fromEventStream (stream) {
   return target
 }
 
-export function fromAsyncEventStream (asyncStream) {
+exports.fromAsyncEventStream = function (asyncStream) {
   var target = new EventTarget()
   asyncStream.then(
     stream => bindEventStream(stream, target),

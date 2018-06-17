@@ -1,8 +1,8 @@
-import globals from '../../../globals'
-import http from 'http'
-import https from 'https'
-import concat from 'concat-stream'
-import {URL} from 'url'
+const globals = require('../../../globals')
+const http = require('http')
+const https = require('https')
+const concat = require('concat-stream')
+const {URL} = require('url')
 const {checkLabsPerm} = globals.labAPI
 
 // constants
@@ -15,7 +15,7 @@ const LAB_API_ID = 'globalFetch'
 // exported api
 // =
 
-export default {
+module.exports = {
   async fetch (reqOptions, reqBody) {
     // parse url
     var urlp = new URL(reqOptions.url)

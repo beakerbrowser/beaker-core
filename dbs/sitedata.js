@@ -1,10 +1,9 @@
-import sqlite3 from 'sqlite3'
-import path from 'path'
-import url from 'url'
-import globals from '../globals'
-import { cbPromise } from '../lib/functions'
-import { setupSqliteDB } from '../lib/db'
-import datDns from '../networks/dat/dns'
+const sqlite3 = require('sqlite3')
+const path = require('path')
+const url = require('url')
+const { cbPromise } = require('../lib/functions')
+const { setupSqliteDB } = require('../lib/db')
+const datDns = require('../networks/dat/dns')
 
 // globals
 // =
@@ -15,26 +14,14 @@ var setupPromise
 // exported methods
 // =
 
-export function setup () {
+exports.setup = function (opts) {
   // open database
-  var dbPath = path.join(globals.userDataPath, 'SiteData')
+  var dbPath = path.join(opts.userDataPath, 'SiteData')
   db = new sqlite3.Database(dbPath)
   setupPromise = setupSqliteDB(db, {migrations}, '[SITEDATA]')
 }
 
-export const WEBAPI = {
-  get,
-  set,
-  getPermissions,
-  getPermission,
-  getAppPermissions,
-  setPermission,
-  setAppPermissions,
-  clearPermission,
-  clearPermissionAllOrigins
-}
-
-export async function set (url, key, value, opts) {
+const set = exports.set = async function (url, key, value, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
   if (!origin) return null
@@ -47,7 +34,7 @@ export async function set (url, key, value, opts) {
   })
 }
 
-export async function clear (url, key) {
+const clear = exports.clear = async function (url, key) {
   await setupPromise
   var origin = await extractOrigin(url)
   if (!origin) return null
@@ -58,7 +45,7 @@ export async function clear (url, key) {
   })
 }
 
-export async function get (url, key, opts) {
+const get = exports.get = async function (url, key, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
   if (!origin) return null
@@ -70,7 +57,7 @@ export async function get (url, key, opts) {
   })
 }
 
-export async function getPermissions (url) {
+const getPermissions = exports.getPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
   if (!origin) return null
@@ -87,7 +74,7 @@ export async function getPermissions (url) {
   })
 }
 
-export async function getNetworkPermissions (url) {
+exports.getNetworkPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
   if (!origin) return null
@@ -107,7 +94,7 @@ export async function getNetworkPermissions (url) {
   })
 }
 
-export async function getAppPermissions (url) {
+const getAppPermissions = exports.getAppPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
   if (!origin) return null
@@ -129,16 +116,16 @@ export async function getAppPermissions (url) {
   })
 }
 
-export function getPermission (url, key) {
+const getPermission = exports.getPermission = function (url, key) {
   return get(url, 'perm:' + key)
 }
 
-export function setPermission (url, key, value) {
+const setPermission = exports.setPermission = function (url, key, value) {
   value = value ? 1 : 0
   return set(url, 'perm:' + key, value)
 }
 
-export async function setAppPermissions (url, appPerms) {
+const setAppPermissions = exports.setAppPermissions = async function (url, appPerms) {
   await setupPromise
   var origin = await extractOrigin(url)
   if (!origin) return null
@@ -162,11 +149,11 @@ export async function setAppPermissions (url, appPerms) {
   }
 }
 
-export function clearPermission (url, key) {
+const clearPermission = exports.clearPermission = function (url, key) {
   return clear(url, 'perm:' + key)
 }
 
-export async function clearPermissionAllOrigins (key) {
+const clearPermissionAllOrigins = exports.clearPermissionAllOrigins = async function (key) {
   await setupPromise
   key = 'perm:' + key
   return cbPromise(cb => {
@@ -176,7 +163,7 @@ export async function clearPermissionAllOrigins (key) {
   })
 }
 
-export async function query (values) {
+exports.query = async function (values) {
   await setupPromise
 
   // massage query
@@ -194,6 +181,18 @@ export async function query (values) {
       cb(null, res && res.value)
     })
   })
+}
+
+exports.WEBAPI = {
+  get,
+  set,
+  getPermissions,
+  getPermission,
+  getAppPermissions,
+  setPermission,
+  setAppPermissions,
+  clearPermission,
+  clearPermissionAllOrigins
 }
 
 // internal methods

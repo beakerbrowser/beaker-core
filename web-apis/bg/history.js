@@ -1,9 +1,9 @@
-import * as historyDb from '../../dbs/history'
+const historyDb = require('../../dbs/history')
 
 // exported api
 // =
 
-export default {
+module.exports = {
   async addVisit (...args) {
     return historyDb.addVisit(0, ...args)
   },

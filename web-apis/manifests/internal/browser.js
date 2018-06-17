@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   createEventsStream: 'readable',
   getInfo: 'promise',
   checkForUpdates: 'promise',

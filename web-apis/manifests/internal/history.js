@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   addVisit: 'promise',
   getVisitHistory: 'promise',
   getMostVisited: 'promise',

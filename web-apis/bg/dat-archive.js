@@ -1,26 +1,26 @@
-import globals from '../../globals'
+const globals = require('../../globals')
 const {queryPermission, grantPermission, requestPermission} = globals.permsAPI
 const {showModal} = globals.uiAPI
-import path from 'path'
-import fs from 'fs'
-import parseDatURL from 'parse-dat-url'
-import pda from 'pauls-dat-api'
-import concat from 'concat-stream'
-import pick from 'lodash.pick'
-import datDns from '../../dat/dns'
-import * as datLibrary from '../../dat/library'
-import * as archivesDb from '../../dbs/archives'
-import {getPermissions} from '../../dbs/sitedata'
-import {timer} from '../../lib/time'
-import {
+const path = require('path')
+const fs = require('fs')
+const parseDatURL = require('parse-dat-url')
+const pda = require('pauls-dat-api')
+const concat = require('concat-stream')
+const pick = require('lodash.pick')
+const datDns = require('../../dat/dns')
+const * as datLibrary = require('../../dat/library')
+const * as archivesDb = require('../../dbs/archives')
+const {getPermissions} = require('../../dbs/sitedata')
+const {timer} = require('../../lib/time')
+const {
   DAT_MANIFEST_FILENAME,
   DAT_CONFIGURABLE_FIELDS,
   DAT_HASH_REGEX,
   DAT_QUOTA_DEFAULT_BYTES_ALLOWED,
   DAT_VALID_PATH_REGEX,
   DEFAULT_DAT_API_TIMEOUT
-} from '../../lib/const'
-import {
+} = require('../../lib/const')
+const {
   PermissionsError,
   UserDeniedError,
   QuotaExceededError,
@@ -28,7 +28,7 @@ import {
   InvalidURLError,
   ProtectedFileNotWritableError,
   InvalidPathError
-} from 'beaker-error-constants'
+} = require('beaker-error-constants')
 
 // exported api
 // =
@@ -38,7 +38,7 @@ const to = (opts) =>
     ? opts.timeout
     : DEFAULT_DAT_API_TIMEOUT
 
-export default {
+module.exports = {
   async createArchive ({title, description, type, networked, links, template, prompt} = {}) {
     var newArchiveUrl
 

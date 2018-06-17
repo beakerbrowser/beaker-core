@@ -1,42 +1,42 @@
-import globals from '../globals'
+const globals = require('../globals')
 const rpc = globals.rpcAPI
 
 const SECURE_ORIGIN_REGEX = /^(beaker:|dat:|https:|http:\/\/localhost(\/|:))/i
 
 // internal manifests
-import beakerBrowserManifest from './manifests/internal/browser'
-import bookmarksManifest from './manifests/internal/bookmarks'
-import downloadsManifest from './manifests/internal/downloads'
-import sitedataManifest from './manifests/internal/sitedata'
-import archivesManifest from './manifests/internal/archives'
-import historyManifest from './manifests/internal/history'
+const beakerBrowserManifest = require('./manifests/internal/browser')
+const bookmarksManifest = require('./manifests/internal/bookmarks')
+const downloadsManifest = require('./manifests/internal/downloads')
+const sitedataManifest = require('./manifests/internal/sitedata')
+const archivesManifest = require('./manifests/internal/archives')
+const historyManifest = require('./manifests/internal/history')
 
 // internal apis
-import archivesAPI from './bg/archives'
-import bookmarksAPI from './bg/bookmarks'
-import historyAPI from './bg/history'
-import {WEBAPI as sitedataAPI} from '../dbs/sitedata'
+const archivesAPI = require('./bg/archives')
+const bookmarksAPI = require('./bg/bookmarks')
+const historyAPI = require('./bg/history')
+const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const downloadsAPI = globals.downloadsWebAPI
 const beakerBrowserAPI = globals.browserWebAPI
 
 // external manifests
-import datArchiveManifest from './manifests/external/dat-archive'
+const datArchiveManifest = require('./manifests/external/dat-archive')
 
 // external apis
-import datArchiveAPI from './bg/dat-archive'
+const datArchiveAPI = require('./bg/dat-archive')
 
 // experimental manifests
-import experimentalLibraryManifest from './manifests/external/experimental/library'
-import experimentalGlobalFetchManifest from './manifests/external/experimental/global-fetch'
+const experimentalLibraryManifest = require('./manifests/external/experimental/library')
+const experimentalGlobalFetchManifest = require('./manifests/external/experimental/global-fetch')
 
 // experimental apis
-import experimentalLibraryAPI from './bg/experimental/library'
-import experimentalGlobalFetchAPI from './bg/experimental/global-fetch'
+const experimentalLibraryAPI = require('./bg/experimental/library')
+const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
 
 // exported api
 // =
 
-export function setup () {
+exports.setup = function () {
   // internal apis
   rpc.exportAPI('archives', archivesManifest, archivesAPI, internalOnly)
   rpc.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, internalOnly)
@@ -64,4 +64,3 @@ function secureOnly (event, methodName, args) {
   var url = event.sender.getURL()
   return SECURE_ORIGIN_REGEX.test(url)
 }
-

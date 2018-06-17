@@ -1,36 +1,36 @@
-import sqlite3 from 'sqlite3'
-import path from 'path'
-import globals from '../globals'
-import {cbPromise} from '../lib/functions'
-import {setupSqliteDB} from '../lib/db'
-import {getEnvVar} from '../../lib/env'
+const sqlite3 = require('sqlite3')
+const path = require('path')
+const {cbPromise} = require('../lib/functions')
+const {setupSqliteDB} = require('../lib/db')
+const {getEnvVar} = require('../../lib/env')
 
 // globals
 // =
 var db
 var migrations
 var setupPromise
-
-const DEFAULT_SETTINGS = {
-  auto_update_enabled: 1,
-  custom_start_page: 'blank',
-  start_page_background_image: '',
-  workspace_default_path: path.join(globals.homePath, 'Sites'),
-  default_dat_ignore: '.git\n.dat\nnode_modules\n*.log\n**/.DS_Store\nThumbs.db\n',
-  analytics_enabled: 0
-}
+var defaultSettings
 
 // exported methods
 // =
 
-export function setup () {
+exports.setup = function (opts) {
   // open database
-  var dbPath = path.join(globals.userDataPath, 'Settings')
+  var dbPath = path.join(opts.userDataPath, 'Settings')
   db = new sqlite3.Database(dbPath)
   setupPromise = setupSqliteDB(db, {migrations}, '[SETTINGS]')
+
+  defaultSettings = {
+    auto_update_enabled: 1,
+    custom_start_page: 'blank',
+    start_page_background_image: '',
+    workspace_default_path: path.join(opts.homePath, 'Sites'),
+    default_dat_ignore: '.git\n.dat\nnode_modules\n*.log\n**/.DS_Store\nThumbs.db\n',
+    analytics_enabled: 0
+  }
 }
 
-export function set (key, value) {
+exports.set = function (key, value) {
   return setupPromise.then(v => cbPromise(cb => {
     db.run(`
       INSERT OR REPLACE
@@ -40,7 +40,7 @@ export function set (key, value) {
   }))
 }
 
-export function get (key) {
+exports.get = function (key) {
   // env variables
   if (key === 'no_welcome_tab') {
     return (getEnvVar('BEAKER_NO_WELCOME_TAB') == 1)
@@ -49,20 +49,20 @@ export function get (key) {
   return setupPromise.then(v => cbPromise(cb => {
     db.get(`SELECT value FROM settings WHERE key = ?`, [key], (err, row) => {
       if (row) { row = row.value }
-      if (typeof row === 'undefined') { row = DEFAULT_SETTINGS[key] }
+      if (typeof row === 'undefined') { row = defaultSettings[key] }
       cb(err, row)
     })
   }))
 }
 
-export function getAll () {
+exports.getAll = function () {
   return setupPromise.then(v => cbPromise(cb => {
     db.all(`SELECT key, value FROM settings`, (err, rows) => {
       if (err) { return cb(err) }
 
       var obj = {}
       rows.forEach(row => { obj[row.key] = row.value })
-      obj = Object.assign({}, DEFAULT_SETTINGS, obj)
+      obj = Object.assign({}, defaultSettings, obj)
       obj.no_welcome_tab = (getEnvVar('BEAKER_NO_WELCOME_TAB') == 1)
       cb(null, obj)
     })

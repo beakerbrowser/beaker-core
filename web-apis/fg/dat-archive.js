@@ -1,14 +1,14 @@
-import errors from 'beaker-error-constants'
-import parseDatURL from 'parse-dat-url'
-import datArchiveManifest from '../manifests/external/dat-archive'
-import {EventTarget, Event, fromEventStream} from './event-target'
-import Stat from './stat'
+const errors = require('beaker-error-constants')
+const parseDatURL = require('parse-dat-url')
+const datArchiveManifest = require('../manifests/external/dat-archive')
+const {EventTarget, Event, fromEventStream} = require('./event-target')
+const Stat = require('./stat')
 
 const LOAD_PROMISE = Symbol('LOAD_PROMISE')
 const URL_PROMISE = Symbol('URL_PROMISE')
 const NETWORK_ACT_STREAM = Symbol()
 
-export function setup (rpc) {
+exports.setup = function (rpc) {
   // create the rpc apis
   const datRPC = rpc.importAPI('dat-archive', datArchiveManifest, { timeout: false, errors })
 

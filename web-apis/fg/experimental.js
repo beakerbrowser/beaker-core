@@ -1,10 +1,10 @@
-import {EventTargetFromStream} from './event-target'
-import errors from 'beaker-error-constants'
+const {EventTargetFromStream} = require('./event-target')
+const errors = require('beaker-error-constants')
 
-import experimentalLibraryManifest from '../api-manifests/external/experimental/library'
-import experimentalGlobalFetchManifest from '../api-manifests/external/experimental/global-fetch'
+const experimentalLibraryManifest = require('../api-manifests/external/experimental/library')
+const experimentalGlobalFetchManifest = require('../api-manifests/external/experimental/global-fetch')
 
-export function setup (rpc) {
+exports.setup = function (rpc) {
   const experimental = {}
   const opts = {timeout: false, errors}
 

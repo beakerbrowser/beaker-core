@@ -1,9 +1,8 @@
-import sqlite3 from 'sqlite3'
-import path from 'path'
-import fs from 'fs'
-import globals from '../globals'
-import {cbPromise} from '../lib/functions'
-import {setupSqliteDB} from '../lib/db'
+const sqlite3 = require('sqlite3')
+const path = require('path')
+const fs = require('fs')
+const {cbPromise} = require('../lib/functions')
+const {setupSqliteDB} = require('../lib/db')
 
 // globals
 // =
@@ -15,33 +14,33 @@ var setupPromise
 // exported methods
 // =
 
-export function setup () {
+exports.setup = function (opts) {
   // open database
-  var dbPath = path.join(globals.userDataPath, 'Profiles')
+  var dbPath = path.join(opts.userDataPath, 'Profiles')
   db = new sqlite3.Database(dbPath)
   setupPromise = setupSqliteDB(db, {setup: setupDb, migrations}, '[PROFILES]')
 }
 
-export async function get (...args) {
+exports.get = async function (...args) {
   await setupPromise
   return cbPromise(cb => db.get(...args, cb))
 }
 
-export async function all (...args) {
+exports.all = async function (...args) {
   await setupPromise
   return cbPromise(cb => db.all(...args, cb))
 }
 
-export async function run (...args) {
+exports.run = async function (...args) {
   await setupPromise
   return cbPromise(cb => db.run(...args, cb))
 }
 
-export function serialize () {
+exports.serialize = function () {
   return db.serialize()
 }
 
-export function parallelize () {
+exports.parallelize = function () {
   return db.parallelize()
 }
 

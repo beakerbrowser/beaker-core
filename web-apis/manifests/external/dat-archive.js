@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   loadArchive: 'promise',
   createArchive: 'promise',
   forkArchive: 'promise',

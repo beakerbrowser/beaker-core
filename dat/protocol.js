@@ -1,19 +1,19 @@
-import {join as joinPaths} from 'path'
-import parseDatUrl from 'parse-dat-url'
-import parseRange from 'range-parser'
-import once from 'once'
+const {join} = require('path')
+const parseDatUrl = require('parse-dat-url')
+const parseRange = require('range-parser')
+const once = require('once')
 const debug = require('debug')('dat-serve')
-import pda from 'pauls-dat-api'
-import intoStream from 'into-stream'
-import toZipStream from 'hyperdrive-to-zip-stream'
-import slugify from 'slugify'
+const pda = require('pauls-dat-api')
+const intoStream = require('into-stream')
+const toZipStream = require('hyperdrive-to-zip-stream')
+const slugify = require('slugify')
 
-import datDns from './dns'
-import * as datLibrary from './library'
+const datDns = require('./dns')
+const datLibrary = require('./library')
 
-import directoryListingPage from './directory-listing-page'
-import errorPage from '../lib/error-page'
-import * as mime from '../lib/mime'
+const directoryListingPage = require('./directory-listing-page')
+const errorPage = require('../lib/error-page')
+const mime = require('../lib/mime')
 
 // HACK detect whether the native builds of some key deps are working -prf
 // -prf
@@ -190,7 +190,7 @@ export async function electronHandler (request, respond) {
     // apply the web_root config
     if (manifest && manifest.web_root && !urlp.query.disable_web_root) {
       if (path) {
-        path = joinPaths(manifest.web_root, path)
+        path = join(manifest.web_root, path)
       } else {
         path = manifest.web_root
       }

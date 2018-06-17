@@ -1,5 +1,5 @@
-import * as webApis from './web-apis/fg'
+const webApis = require('./web-apis/fg')
 
-export function setup ({rpcAPI}) {
+exports.setup = function ({rpcAPI}) {
   webApis.setup({rpcAPI})
 }

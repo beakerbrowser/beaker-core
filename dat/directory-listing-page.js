@@ -1,6 +1,6 @@
-import {pluralize, makeSafe} from '../lib/strings'
-import {stat, readdir} from 'pauls-dat-api'
-import {join as joinPaths, relative} from 'path'
+const {pluralize, makeSafe} = require('../lib/strings')
+const {stat, readdir} = require('pauls-dat-api')
+const {join, relative} = require('path')
 
 const styles = `<style>
   .entry {
@@ -20,10 +20,10 @@ const styles = `<style>
   }
 </style>`
 
-export default async function renderDirectoryListingPage (archive, dirPath, webRoot) {
+module.exports = async function renderDirectoryListingPage (archive, dirPath, webRoot) {
   // handle the webroot
   webRoot = webRoot || '/'
-  const realPath = p => joinPaths(webRoot, p)
+  const realPath = p => join(webRoot, p)
   const webrootPath = p => relative(webRoot, p)
 
   // list files
@@ -33,7 +33,7 @@ export default async function renderDirectoryListingPage (archive, dirPath, webR
   // stat each file
   var entries = await Promise.all(names.map(async (name) => {
     var entry
-    var entryPath = joinPaths(dirPath, name)
+    var entryPath = join(dirPath, name)
     try { entry = await stat(archive, realPath(entryPath)) } catch (e) { return false }
     entry.path = webrootPath(entryPath)
     entry.name = name

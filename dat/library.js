@@ -1,45 +1,45 @@
-import crypto from 'crypto'
-import emitStream from 'emit-stream'
-import EventEmitter from 'events'
-import datEncoding from 'dat-encoding'
-import pify from 'pify'
-import pda from 'pauls-dat-api'
-import signatures from 'sodium-signatures'
-import parseDatURL from 'parse-dat-url'
-import through from 'through2'
-import split from 'split2'
-import concat from 'concat-stream'
-import CircularAppendFile from 'circular-append-file'
-var debug = require('debug')('dat')
-import throttle from 'lodash.throttle'
-import debounce from 'lodash.debounce'
-import * as siteData from '../dbs/sitedata'
-import * as settingsDb from '../dbs/settings'
+const crypto = require('crypto')
+const emitStream = require('emit-stream')
+const EventEmitter = require('events')
+const datEncoding = require('dat-encoding')
+const pify = require('pify')
+const pda = require('pauls-dat-api')
+const signatures = require('sodium-signatures')
+const parseDatURL = require('parse-dat-url')
+const through = require('through2')
+const split = require('split2')
+const concat = require('concat-stream')
+const CircularAppendFile = require('circular-append-file')
+const debug = require('debug')('dat')
+const throttle = require('lodash.throttle')
+const debounce = require('lodash.debounce')
+const siteData = require('../dbs/sitedata')
+const settingsDb = require('../dbs/settings')
 
 // dat modules
-import * as archivesDb from '../dbs/archives'
-import * as datGC from './garbage-collector'
-import * as folderSync from './folder-sync'
-import {addArchiveSwarmLogging} from './logging-utils'
-import hypercoreProtocol from 'hypercore-protocol'
-import hyperdrive from 'hyperdrive'
+const archivesDb = require('../dbs/archives')
+const datGC = require('./garbage-collector')
+const folderSync = require('./folder-sync')
+const {addArchiveSwarmLogging} = require('./logging-utils')
+const hypercoreProtocol = require('hypercore-protocol')
+const hyperdrive = require('hyperdrive')
 
 // network modules
-import swarmDefaults from 'datland-swarm-defaults'
-import discoverySwarm from 'discovery-swarm'
+const swarmDefaults = require('datland-swarm-defaults')
+const discoverySwarm = require('discovery-swarm')
 
 // file modules
-import mkdirp from 'mkdirp'
+const mkdirp = require('mkdirp')
 
 // constants
 // =
 
-import {
+const {
   DAT_HASH_REGEX,
   DAT_SWARM_PORT,
   DAT_PRESERVED_FIELDS_ON_FORK
-} from '../lib/const'
-import {InvalidURLError} from 'beaker-error-constants'
+} = require('../lib/const')
+const {InvalidURLError} = require('beaker-error-constants')
 
 // globals
 // =
@@ -190,7 +190,7 @@ export async function pullLatestArchiveMeta (archive, {updateMTime} = {}) {
 export async function createNewArchive (manifest = {}, settings = false) {
   var userSettings = {
     isSaved: true,
-    networked: settings && settings.networked === false ? false : true
+    networked: !(settings && settings.networked === false)
   }
 
   // create the archive
@@ -676,7 +676,6 @@ function createReplicationStream (info) {
   function add (dkey) {
     // lookup the archive
     var dkeyStr = datEncoding.toStr(dkey)
-    var chan = dkeyStr.slice(0, 6) + '..' + dkeyStr.slice(-2)
     var archive = archivesByDKey[dkeyStr]
     if (!archive || !archive.isSwarming) {
       return
@@ -762,4 +761,3 @@ function log (key, data) {
     debugLogFile.append(keys[0] + JSON.stringify(data) + '\n')
   }
 }
-

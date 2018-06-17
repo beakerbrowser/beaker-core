@@ -1,7 +1,7 @@
 // http://man7.org/linux/man-pages/man2/stat.2.html
 // mirrored from hyperdrive/lib/stat.js
 
-export default function Stat (data) {
+module.exports = function Stat (data) {
   if (!(this instanceof Stat)) return new Stat(data)
 
   /*

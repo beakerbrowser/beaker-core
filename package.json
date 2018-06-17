@@ -4,6 +4,7 @@
   "description": "Beaker browser's core software",
   "main": "index.js",
   "scripts": {
+    "lint": "eslint **/*.js --fix",
     "test": "ava ./*-test.js -s -T15000"
   },
   "repository": {
@@ -21,7 +22,8 @@
   },
   "homepage": "https://github.com/beakerbrowser/beaker-core#readme",
   "devDependencies": {
-    "ava": "^0.25.0"
+    "ava": "^0.25.0",
+    "eslint": "^4.19.1"
   },
   "dependencies": {
     "anymatch": "^2.0.0",

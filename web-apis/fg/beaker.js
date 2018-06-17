@@ -1,16 +1,16 @@
 /* globals DatArchive */
 
-import {EventTarget, bindEventStream, fromEventStream} from './event-target'
-import errors from 'beaker-error-constants'
+const {EventTarget, bindEventStream, fromEventStream} = require('./event-target'
+const errors = require('beaker-error-constants'
 
-import archivesManifest from '../manifests/internal/archives'
-import bookmarksManifest from '../manifests/internal/bookmarks'
-import historyManifest from '../manifests/internal/history'
-import downloadsManifest from '../manifests/internal/downloads'
-import sitedataManifest from '../manifests/internal/sitedata'
-import beakerBrowserManifest from '../manifests/internal/browser'
+const archivesManifest = require('../manifests/internal/archives'
+const bookmarksManifest = require('../manifests/internal/bookmarks'
+const historyManifest = require('../manifests/internal/history'
+const downloadsManifest = require('../manifests/internal/downloads'
+const sitedataManifest = require('../manifests/internal/sitedata'
+const beakerBrowserManifest = require('../manifests/internal/browser'
 
-export function setup (rpc) {
+exports.setup = function (rpc) {
   const beaker = {}
   const opts = {timeout: false, errors}
 

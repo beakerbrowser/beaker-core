@@ -1,15 +1,28 @@
-import globals from './globals'
-import {getEnvVar} from './lib/env'
-import dat from './dat'
-import dbs from './dbs'
+const {join as joinPaths} = require('path')
+const globals = require('./globals')
+const {getEnvVar} = require('./lib/env')
+const dat = require('./dat')
+const dbs = require('./dbs')
 
-export {getEnvVar, globals, dat, dbs}
+module.exports = {
+  getEnvVar,
+  globals,
+  dat,
+  dbs,
 
-export function setup (opts) {
-  for (var k in opts) {
-    globals[k] = opts
+  setup (opts) {
+    for (var k in opts) {
+      globals[k] = opts
+    }
+
+    // setup databases
+    for (var k in dbs) {
+      if (dbs[k].setup) {
+        dbs[k].setup(opts)
+      }
+    }
+
+    // setup dat
+    dat.library.setup({logfilePath: joinPaths(globals.userDataPath, 'dat.log')})
   }
-
-  // setup dat
-  dat.library.setup({logfilePath: joinPaths(globals.userDataPath, 'dat.log')})
 }

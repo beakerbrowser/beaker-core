@@ -1,34 +1,30 @@
-import globals from '../globals'
-import util from 'util'
-import bytes from 'bytes'
-const exec = util.promisify(require('child_process').exec)
-import * as dft from 'diff-file-tree'
-import * as diff from 'diff'
-import anymatch from 'anymatch'
-import fs from 'fs'
-import path from 'path'
-import EventEmitter from 'events'
-import _get from 'lodash.get'
-import pda from 'pauls-dat-api'
-import * as settingsDb from '../dbs/settings'
-import {isFileNameBinary, isFileContentBinary} from '../lib/mime'
-import * as scopedFSes from '../lib/bg/scoped-fses'
-import {
+const globals = require('../globals')
+const bytes = require('bytes')
+const dft = require('diff-file-tree')
+const diff = require('diff')
+const anymatch = require('anymatch')
+const fs = require('fs')
+const path = require('path')
+const EventEmitter = require('events')
+const pda = require('pauls-dat-api')
+const settingsDb = require('../dbs/settings')
+const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
+const scopedFSes = require('../lib/bg/scoped-fses')
+const {
   NotFoundError,
   NotAFolderError,
   ProtectedFileNotWritableError,
   ArchiveNotWritableError,
   InvalidEncodingError,
   SourceTooLargeError
-} from 'beaker-error-constants'
+} = require('beaker-error-constants')
 
-const WATCH_BUILD_LOG_PATH = 'watch-build.log'
 const MAX_DIFF_SIZE = bytes('1mb')
 
 // exported api
 // =
 
-export var events = new EventEmitter()
+const events = exports.events = new EventEmitter()
 
 // sync dat to the folder
 // - opts
@@ -37,7 +33,7 @@ export var events = new EventEmitter()
 //   - paths: Array<string>, a whitelist of files to compare
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
-export function syncArchiveToFolder (archive, opts = {}) {
+exports.syncArchiveToFolder = function (archive, opts = {}) {
   // dont run if a folder->archive sync is happening due to a detected change
   if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
 
@@ -51,13 +47,13 @@ export function syncArchiveToFolder (archive, opts = {}) {
 //   - paths: Array<string>, a whitelist of files to compare
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
-export function syncFolderToArchive (archive, opts = {}) {
+const syncFolderToArchive = exports.syncFolderToArchive = function (archive, opts = {}) {
   if (!archive.writable) throw new ArchiveNotWritableError()
   return sync(archive, true, opts)
 }
 
 // attach/detach a watcher on the local folder and sync it to the dat
-export async function configureFolderToArchiveWatcher (archive) {
+exports.configureFolderToArchiveWatcher = async function (archive) {
   console.log('configureFolderToArchiveWatcher()', archive.localSyncPath, !!archive.stopWatchingLocalFolder)
   var wasWatching = !!archive.stopWatchingLocalFolder
 
@@ -136,7 +132,7 @@ export async function configureFolderToArchiveWatcher (archive) {
 //   - compareContent: bool, compare the actual content (default true)
 //   - paths: Array<string>, a whitelist of files to compare
 //   - localSyncPath: string, override the archive localSyncPath
-export async function diffListing (archive, opts = {}) {
+exports.diffListing = async function (archive, opts = {}) {
   var localSyncPath = opts.localSyncPath || archive.localSyncPath
   if (!localSyncPath) return // sanity check
   var scopedFS = scopedFSes.get(localSyncPath)
@@ -156,7 +152,7 @@ export async function diffListing (archive, opts = {}) {
 
 // diff an individual file
 // - filepath: string, the path of the file in the archive/folder
-export async function diffFile (archive, filepath) {
+exports.diffFile = async function (archive, filepath) {
   if (!archive.localSyncPath) return // sanity check
   var scopedFS = scopedFSes.get(archive.localSyncPath)
   filepath = path.normalize(filepath)
@@ -192,7 +188,7 @@ export async function diffFile (archive, filepath) {
 }
 
 // validate a path to be used for sync
-export async function assertSafePath (p) {
+exports.assertSafePath = async function (p) {
   // check whether this is an OS path
   for (let disallowedSavePath of globals.disallowedSavePaths) {
     if (path.normalize(p) === path.normalize(disallowedSavePath)) {
@@ -202,7 +198,7 @@ export async function assertSafePath (p) {
 
   // stat the folder
   const stat = await new Promise(resolve => {
-    fs.stat(p, (err, st) => resolve(st))
+    fs.stat(p, (_, st) => resolve(st))
   })
 
   if (!stat) {
@@ -215,7 +211,7 @@ export async function assertSafePath (p) {
 }
 
 // read a datignore from a fs space and turn it into anymatch rules
-export async function readDatIgnore (fs) {
+const readDatIgnore = exports.readDatIgnore = async function (fs) {
   var rulesRaw = await readFile(fs, '.datignore')
   if (!rulesRaw) {
     // TODO remove this? we're supposed to only use .datignore but many archives wont have one at first -prf
@@ -234,7 +230,7 @@ export async function readDatIgnore (fs) {
 }
 
 // merge the dat.json in the folder and then merge files, with preference to folder files
-export async function mergeArchiveAndFolder (archive, localSyncPath) {
+const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (archive, localSyncPath) {
   console.log('merging archive with', localSyncPath)
   const readManifest = async (fs) => {
     try { return await pda.readManifest(fs) } catch (e) { return {} }
@@ -291,29 +287,29 @@ async function sync (archive, toArchive, opts = {}) {
 }
 
 // run the build-step, if npm and the package.json are setup
-async function runBuild (archive) {
-  var localSyncPath = archive.localSyncPath
-  if (!localSyncPath) return // sanity check
-  var scopedFS = scopedFSes.get(localSyncPath)
+// async function runBuild (archive) {
+//   var localSyncPath = archive.localSyncPath
+//   if (!localSyncPath) return // sanity check
+//   var scopedFS = scopedFSes.get(localSyncPath)
 
-  // read the package.json
-  var packageJson
-  try { packageJson = JSON.parse(await readFile(scopedFS, '/package.json')) } catch (e) { return /* abort */ }
+//   // read the package.json
+//   var packageJson
+//   try { packageJson = JSON.parse(await readFile(scopedFS, '/package.json')) } catch (e) { return /* abort */ }
 
-  // make sure there's a watch-build script
-  var watchBuildScript = _get(packageJson, 'scripts.watch-build')
-  if (typeof watchBuildScript !== 'string') return
+//   // make sure there's a watch-build script
+//   var watchBuildScript = _get(packageJson, 'scripts.watch-build')
+//   if (typeof watchBuildScript !== 'string') return
 
-  // run the build script
-  var res
-  try {
-    console.log('running watch-build')
-    res = await exec('npm run watch-build', {cwd: localSyncPath})
-  } catch (e) {
-    res = e
-  }
-  await new Promise(r => scopedFS.writeFile(WATCH_BUILD_LOG_PATH, res, () => r()))
-}
+//   // run the build script
+//   var res
+//   try {
+//     console.log('running watch-build')
+//     res = await exec('npm run watch-build', {cwd: localSyncPath})
+//   } catch (e) {
+//     res = e
+//   }
+//   await new Promise(r => scopedFS.writeFile(WATCH_BUILD_LOG_PATH, res, () => r()))
+// }
 
 function makeDiffFilterByPaths (targetPaths) {
   targetPaths = targetPaths.map(path.normalize)
@@ -349,7 +345,7 @@ function massageDiffOpts (opts) {
 // helper to read a file via promise and return a null on fail
 async function stat (fs, filepath) {
   return new Promise(resolve => {
-    fs.stat(filepath, (err, data) => {
+    fs.stat(filepath, (_, data) => {
       resolve(data || null)
     })
   })
@@ -358,7 +354,7 @@ async function stat (fs, filepath) {
 // helper to read a file via promise and return an empty string on fail
 async function readFile (fs, filepath) {
   return new Promise(resolve => {
-    fs.readFile(filepath, {encoding: 'utf8'}, (err, data) => {
+    fs.readFile(filepath, {encoding: 'utf8'}, (_, data) => {
       resolve(data || '')
     })
   })

@@ -1,9 +1,9 @@
-import {getAppPermissions} from '../../dbs/sitedata'
+const {getAppPermissions} = require('../../dbs/sitedata')
 
 // exported api
 // =
 
-export default {
+module.exports = {
   // fetch the sender's session data
   async fetch () {
     return {

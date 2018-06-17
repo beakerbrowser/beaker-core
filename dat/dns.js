@@ -1,6 +1,6 @@
-import {InvalidDomainName} from 'beaker-error-constants'
-import * as sitedataDb from '../dbs/sitedata'
-import {DAT_HASH_REGEX} from '../lib/const'
+const {InvalidDomainName} = require('beaker-error-constants')
+const sitedataDb = require('../dbs/sitedata')
+const {DAT_HASH_REGEX} = require('../lib/const')
 
 // instantate a dns cache and export it
 const datDns = require('dat-dns')({

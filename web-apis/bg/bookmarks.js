@@ -1,8 +1,8 @@
-import globals from '../../globals'
-import assert from 'assert'
-import normalizeUrl from 'normalize-url'
-import {PermissionsError} from 'beaker-error-constants'
-import * as bookmarksDb from '../dbs/bookmarks'
+const globals from '../../globals'
+const assert from 'assert'
+const normalizeUrl from 'normalize-url'
+const {PermissionsError} from 'beaker-error-constants'
+const bookmarksDb from '../dbs/bookmarks'
 const {queryPermission} = globals.permsAPI
 
 const NORMALIZE_OPTS = {
@@ -14,7 +14,7 @@ const NORMALIZE_OPTS = {
 // exported api
 // =
 
-export default {
+module.exports = {
 
   // current user
   // =

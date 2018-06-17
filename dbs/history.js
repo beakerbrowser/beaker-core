@@ -1,5 +1,5 @@
-import lock from '../lib/lock'
-import * as db from './profile-data-db'
+const lock = require('../lib/lock')
+const db = require('./profile-data-db')
 
 class BadParamError extends Error {
   constructor (msg) {
@@ -12,7 +12,7 @@ class BadParamError extends Error {
 // exported methods
 // =
 
-export async function addVisit (profileId, {url, title}) {
+exports.addVisit = async function (profileId, {url, title}) {
   // validate parameters
   if (!url || typeof url !== 'string') {
     throw new BadParamError('url must be a string')
@@ -54,7 +54,7 @@ export async function addVisit (profileId, {url, title}) {
   }
 }
 
-export async function getVisitHistory (profileId, {search, offset, limit, before, after}) {
+exports.getVisitHistory = async function (profileId, {search, offset, limit, before, after}) {
   var release = await lock('history-db')
   try {
     const params = [
@@ -102,7 +102,7 @@ export async function getVisitHistory (profileId, {search, offset, limit, before
   }
 }
 
-export async function getMostVisited (profileId, { offset, limit }) {
+exports.getMostVisited = async function (profileId, { offset, limit }) {
   var release = await lock('history-db')
   try {
     offset = offset || 0
@@ -121,7 +121,7 @@ export async function getMostVisited (profileId, { offset, limit }) {
   }
 }
 
-export async function search (q) {
+exports.search = async function (q) {
   if (!q || typeof q !== 'string') {
     throw new BadParamError('q must be a string')
   }
@@ -148,7 +148,7 @@ export async function search (q) {
   }
 }
 
-export async function removeVisit (url) {
+exports.removeVisit = async function (url) {
   // validate parameters
   if (!url || typeof url !== 'string') {
     throw new BadParamError('url must be a string')
@@ -168,7 +168,7 @@ export async function removeVisit (url) {
   }
 }
 
-export async function removeVisitsAfter (timestamp) {
+exports.removeVisitsAfter = async function (timestamp) {
   var release = await lock('history-db')
   try {
     db.serialize()
@@ -182,7 +182,7 @@ export async function removeVisitsAfter (timestamp) {
   }
 }
 
-export async function removeAllVisits () {
+exports.removeAllVisits = async function () {
   var release = await lock('history-db')
   db.run('DELETE FROM visits;')
   db.run('DELETE FROM visit_stats;')

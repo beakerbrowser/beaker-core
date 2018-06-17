@@ -1,13 +1,13 @@
-import {getActiveArchives} from './library'
-import datDns from './dns'
+const {getActiveArchives} = require('./library')
+const datDns = require('./dns')
 
-export function archivesDebugPage () {
+exports.archivesDebugPage = function () {
   var archives = getActiveArchives()
   return `<html>
     <body>
       ${Object.keys(archives).map(key => {
-        var a = archives[key]
-        return `<div style="font-family: monospace">
+    var a = archives[key]
+    return `<div style="font-family: monospace">
           <h3>${a.key.toString('hex')}</h3>
           <table>
             <tr><td>Meta DKey</td><td>${a.discoveryKey.toString('hex')}</td></tr>
@@ -19,12 +19,12 @@ export function archivesDebugPage () {
             `).join('')}
           </table>
         </div>`
-      }).join('')}
+  }).join('')}
     </body>
   </html>`
 }
 
-export function datDnsCachePage () {
+exports.datDnsCachePage = function () {
   var cache = datDns.listCache()
   return `<html>
     <body>
@@ -32,16 +32,16 @@ export function datDnsCachePage () {
       <p><button>Clear cache</button></p>
       <table style="font-family: monospace">
         ${Object.keys(cache).map(name => {
-          var key = cache[name]
-          return `<tr><td><strong>${name}</strong></td><td>${key}</td></tr>`
-        }).join('')}
+    var key = cache[name]
+    return `<tr><td><strong>${name}</strong></td><td>${key}</td></tr>`
+  }).join('')}
       </table>
       <script src="beaker://dat-dns-cache/main.js"></script>
     </body>
   </html>`
 }
 
-export function datDnsCacheJS () {
+exports.datDnsCacheJS = function () {
   return `
     document.querySelector('button').addEventListener('click', clear)
     async function clear () {

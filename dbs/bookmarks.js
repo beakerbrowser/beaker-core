@@ -1,6 +1,6 @@
-import * as db from './profile-data-db'
-import normalizeUrl from 'normalize-url'
-import lock from '../lib/lock'
+const db = require('./profile-data-db')
+const normalizeUrl = require('normalize-url')
+const lock = require('../lib/lock')
 
 const NORMALIZE_OPTS = {
   stripFragment: false,
@@ -11,7 +11,7 @@ const NORMALIZE_OPTS = {
 // exported methods
 // =
 
-export async function bookmark (profileId, url, {title, tags, notes}) {
+exports.bookmark = async function (profileId, url, {title, tags, notes}) {
   tags = tagsToString(tags)
   var release = await lock(`bookmark:${url}`)
   try {
@@ -34,26 +34,26 @@ export async function bookmark (profileId, url, {title, tags, notes}) {
   }
 }
 
-export function unbookmark (profileId, url) {
+exports.unbookmark = function (profileId, url) {
   return db.run(`DELETE FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
 }
 
-export function setBookmarkPinned (profileId, url, pinned) {
+exports.setBookmarkPinned = function (profileId, url, pinned) {
   return db.run(`UPDATE bookmarks SET pinned = ? WHERE profileId = ? AND url = ?`, [pinned ? 1 : 0, profileId, url])
 }
 
-export async function setBookmarkPinOrder (profileId, urls) {
+exports.setBookmarkPinOrder = async function (profileId, urls) {
   var len = urls.length
   await Promise.all(urls.map((url, i) => (
     db.run(`UPDATE bookmarks SET pinOrder = ? WHERE profileId = ? AND url = ?`, [len - i, profileId, url])
   )))
 }
 
-export async function getBookmark (profileId, url) {
+exports.getBookmark = async function (profileId, url) {
   return toNewFormat(await db.get(`SELECT url, title, tags, notes, pinned, createdAt FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url]))
 }
 
-export async function listBookmarks (profileId, {tag} = {}) {
+exports.listBookmarks = async function (profileId, {tag} = {}) {
   var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, createdAt FROM bookmarks WHERE profileId = ? ORDER BY createdAt DESC`, [profileId])
   bookmarks = bookmarks.map(toNewFormat)
 
@@ -71,12 +71,12 @@ export async function listBookmarks (profileId, {tag} = {}) {
   return bookmarks
 }
 
-export async function listPinnedBookmarks (profileId) {
+exports.listPinnedBookmarks = async function (profileId) {
   var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, createdAt FROM bookmarks WHERE profileId = ? AND pinned = 1 ORDER BY pinOrder DESC`, [profileId])
   return bookmarks.map(toNewFormat)
 }
 
-export async function listBookmarkTags (profileId) {
+exports.listBookmarkTags = async function (profileId) {
   var tagSet = new Set()
   var bookmarks = await db.all(`SELECT tags FROM bookmarks WHERE profileId = ?`, [profileId])
   bookmarks.forEach(b => {
@@ -91,7 +91,7 @@ export async function listBookmarkTags (profileId) {
 // apply normalization to old bookmarks
 // (can probably remove this in 2018 or so)
 // -prf
-export async function fixOldBookmarks () {
+exports.fixOldBookmarks = async function () {
   var bookmarks = await db.all(`SELECT url FROM bookmarks`)
   bookmarks.forEach(b => {
     let newUrl = normalizeUrl(b.url, NORMALIZE_OPTS)

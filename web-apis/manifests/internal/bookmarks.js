@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   // current user
   getBookmark: 'promise',
   isBookmarked: 'promise',

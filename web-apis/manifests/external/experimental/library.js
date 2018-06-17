@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   add: 'promise',
   remove: 'promise',
   get: 'promise',

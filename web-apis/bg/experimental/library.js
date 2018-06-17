@@ -1,9 +1,9 @@
-import globals from '../../../globals'
-import _pick from 'lodash.pick'
-import through2 from 'through2'
-import * as datLibrary from '../../../dat/library'
-import * as archivesDb from '../../../dbs/archives'
-import {PermissionsError} from 'beaker-error-constants'
+const globals = require('../../../globals')
+const _pick = require('lodash.pick')
+const through2 = require('through2')
+const datLibrary = require('../../../dat/library')
+const archivesDb = require('../../../dbs/archives')
+const {PermissionsError} = require('beaker-error-constants')
 const {checkLabsPerm} = globals.labAPI
 
 // constants
@@ -68,7 +68,7 @@ function remove (isRequest) {
   }
 }
 
-export default {
+module.exports = {
 
   add: add(false),
   requestAdd: add(true),

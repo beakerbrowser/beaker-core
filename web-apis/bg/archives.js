@@ -1,17 +1,17 @@
-import path from 'path'
-import mkdirp from 'mkdirp'
-import datDns from '../../dat/dns'
-import * as folderSync from '../../dat/folder-sync'
-import * as datLibrary from '../../dat/library'
-import * as datGC from '../../dat/garbage-collector'
-import * as archivesDb from '../../dbs/archives'
-import {cbPromise} from '../../lib/functions'
-import {timer} from '../../lib/time'
+const path = require('path')
+const mkdirp = require('mkdirp')
+const datDns = require('../../dat/dns')
+const folderSync = require('../../dat/folder-sync')
+const datLibrary = require('../../dat/library')
+const datGC = require('../../dat/garbage-collector')
+const archivesDb = require('../../dbs/archives')
+const {cbPromise} = require('../../lib/functions')
+const {timer} = require('../../lib/time')
 
 // exported api
 // =
 
-export default {
+module.exports = {
 
   // system state
   // =

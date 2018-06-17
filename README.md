@@ -8,7 +8,7 @@ Here's how we use it in electron (the browser):
 
 ```js
 import {app, protocol} from 'electron'
-import * as beakerCore from '@beaker/core'
+import beakerCore from '@beaker/core'
 
 const DISALLOWED_SAVE_PATH_NAMES = [
   'home',
@@ -53,7 +53,7 @@ protocol.registerStreamProtocol('dat', beakerCore.dat.protocol.electronHandler, 
 In the webview preload:
 
 ```js
-import * as beakerCoreWebview from '@beaker/core/webview'
+import beakerCoreWebview from '@beaker/core/webview'
 
 beakerCoreWebview.setup({
   // APIs
@@ -61,7 +61,6 @@ beakerCoreWebview.setup({
     importAPI(apiName, apiManifest, opts)
   }
 })
-setup()
 ```
 
 ## API (@beaker/core)

@@ -1,4 +1,4 @@
-import datEncoding from 'dat-encoding'
+const datEncoding = require('dat-encoding')
 
 export function findFullDiscoveryKey (archivesByDKey, key) {
   key = Buffer.isBuffer(key) ? key.toString('hex') : key
