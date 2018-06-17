@@ -56,7 +56,7 @@ var archiveSwarm
 // exported API
 // =
 
-export function setup ({logfilePath}) {
+exports.setup = function setup ({logfilePath}) {
   debugLogFile = CircularAppendFile(logfilePath, {maxSize: 1024 /* 1kb */ * 1024 /* 1mb */ * 10 /* 10mb */ })
 
   // wire up event handlers
@@ -126,11 +126,11 @@ export function setup ({logfilePath}) {
   )
 }
 
-export function createEventStream () {
+exports.createEventStream = function createEventStream () {
   return emitStream(archivesEvents)
 }
 
-export function getDebugLog (key) {
+exports.getDebugLog = function getDebugLog (key) {
   return new Promise((resolve, reject) => {
     let rs = debugLogFile.createReadStream()
     rs
@@ -146,12 +146,12 @@ export function getDebugLog (key) {
   })
 }
 
-export function createDebugStream () {
+exports.createDebugStream = function createDebugStream () {
   return emitStream(debugEvents)
 }
 
 // read metadata for the archive, and store it in the meta db
-export async function pullLatestArchiveMeta (archive, {updateMTime} = {}) {
+const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pullLatestArchiveMeta (archive, {updateMTime} = {}) {
   try {
     var key = archive.key.toString('hex')
 
@@ -187,7 +187,7 @@ export async function pullLatestArchiveMeta (archive, {updateMTime} = {}) {
 // archive creation
 // =
 
-export async function createNewArchive (manifest = {}, settings = false) {
+const createNewArchive = exports.createNewArchive = async function createNewArchive (manifest = {}, settings = false) {
   var userSettings = {
     isSaved: true,
     networked: !(settings && settings.networked === false)
@@ -212,7 +212,7 @@ export async function createNewArchive (manifest = {}, settings = false) {
   return `dat://${key}/`
 }
 
-export async function forkArchive (srcArchiveUrl, manifest = {}, settings = false) {
+exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, settings = false) {
   srcArchiveUrl = fromKeyToURL(srcArchiveUrl)
 
   // get the old archive
@@ -264,7 +264,7 @@ export async function forkArchive (srcArchiveUrl, manifest = {}, settings = fals
 // archive management
 // =
 
-export async function loadArchive (key, userSettings = null) {
+const loadArchive = exports.loadArchive = async function loadArchive (key, userSettings = null) {
   // validate key
   var secretKey
   if (key) {
@@ -397,16 +397,16 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   return archive
 }
 
-export function getArchive (key) {
+const getArchive = exports.getArchive = function getArchive (key) {
   key = fromURLToKey(key)
   return archives[key]
 }
 
-export function getActiveArchives () {
+exports.getActiveArchives = function getActiveArchives () {
   return archives
 }
 
-export async function getOrLoadArchive (key, opts) {
+const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArchive (key, opts) {
   var archive = getArchive(key)
   if (archive) {
     return archive
@@ -414,7 +414,7 @@ export async function getOrLoadArchive (key, opts) {
   return loadArchive(key, opts)
 }
 
-export async function unloadArchive (key) {
+exports.unloadArchive = async function unloadArchive (key) {
   key = fromURLToKey(key)
   const archive = archives[key]
   if (!archive) {
@@ -438,12 +438,12 @@ export async function unloadArchive (key) {
   delete archives[key]
 }
 
-export function isArchiveLoaded (key) {
+const isArchiveLoaded = exports.isArchiveLoaded = function isArchiveLoaded (key) {
   key = fromURLToKey(key)
   return key in archives
 }
 
-export async function updateSizeTracking (archive) {
+const updateSizeTracking = exports.updateSizeTracking = async function updateSizeTracking (archive) {
   // fetch size
   archive.size = await pda.readSize(archive, '/')
 }
@@ -451,7 +451,7 @@ export async function updateSizeTracking (archive) {
 // archive fetch/query
 // =
 
-export async function queryArchives (query) {
+exports.queryArchives = async function queryArchives (query) {
   // run the query
   var archiveInfos = await archivesDb.query(0, query)
 
@@ -475,7 +475,7 @@ export async function queryArchives (query) {
   return archiveInfos
 }
 
-export async function getArchiveInfo (key) {
+exports.getArchiveInfo = async function getArchiveInfo (key) {
   // get the archive
   key = fromURLToKey(key)
   var archive = await getOrLoadArchive(key)
@@ -506,7 +506,7 @@ export async function getArchiveInfo (key) {
   return meta
 }
 
-export async function clearFileCache (key) {
+exports.clearFileCache = async function clearFileCache (key) {
   var archive = await getOrLoadArchive(key)
   if (archive.writable) {
     return // abort, only clear the content cache of downloaded archives
@@ -539,7 +539,7 @@ function configureNetwork (archive, settings) {
 }
 
 // put the archive into the network, for upload and download
-export function joinSwarm (key, opts) {
+const joinSwarm = exports.joinSwarm = function joinSwarm (key, opts) {
   var archive = (typeof key === 'object' && key.key) ? key : getArchive(key)
   if (!archive || archive.isSwarming) return
   archiveSwarm.join(archive.discoveryKey)
@@ -552,7 +552,7 @@ export function joinSwarm (key, opts) {
 }
 
 // take the archive out of the network
-export function leaveSwarm (key) {
+const leaveSwarm = exports.leaveSwarm = function leaveSwarm (key) {
   var archive = (typeof key === 'object' && key.discoveryKey) ? key : getArchive(key)
   if (!archive || !archive.isSwarming) return
 
@@ -571,7 +571,7 @@ export function leaveSwarm (key) {
 // helpers
 // =
 
-export function fromURLToKey (url) {
+const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
   if (Buffer.isBuffer(url)) {
     return url
   }
@@ -594,7 +594,7 @@ export function fromURLToKey (url) {
   return urlp.host
 }
 
-export function fromKeyToURL (key) {
+const fromKeyToURL = exports.fromKeyToURL = function fromKeyToURL (key) {
   if (typeof key !== 'string') {
     key = datEncoding.toStr(key)
   }
