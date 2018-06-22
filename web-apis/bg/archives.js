@@ -151,7 +151,7 @@ module.exports = {
   },
 
   async removeTemplate (url) {
-    return templatesDb.remove(url)
+    return templatesDb.remove(0, url)
   },
 
   // internal management
