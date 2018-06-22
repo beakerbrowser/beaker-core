@@ -1,5 +1,6 @@
 const path = require('path')
 const mkdirp = require('mkdirp')
+const templatesDb = require('../../dbs/templates')
 const datDns = require('../../dat/dns')
 const folderSync = require('../../dat/folder-sync')
 const datLibrary = require('../../dat/library')
@@ -132,6 +133,25 @@ module.exports = {
 
     // update the record
     await archivesDb.setUserSettings(0, key, {localSyncPath})
+  },
+
+  // templates
+  // =
+
+  async getTemplate (url) {
+    return templatesDb.get(0, url)
+  },
+
+  async listTemplates () {
+    return templatesDb.list(0)
+  },
+
+  async putTemplate (url, {title, screenshot}) {
+    return templatesDb.put(0, url, {title, screenshot})
+  },
+
+  async removeTemplate (url) {
+    return templatesDb.remove(url)
   },
 
   // internal management

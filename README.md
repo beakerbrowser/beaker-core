@@ -83,6 +83,8 @@ beakerCoreWebview.setup({
 
 ### `dbs.sitedata`
 
+### `dbs.templates`
+
 ### `dat`
 
 ### `dat.library`

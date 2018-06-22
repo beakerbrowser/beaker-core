@@ -1,6 +1,7 @@
 module.exports = `
 
 -- list of the active workspaces
+-- deprecated
 CREATE TABLE workspaces (
   profileId INTEGER NOT NULL,
   name TEXT NOT NULL,

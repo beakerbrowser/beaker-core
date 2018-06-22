@@ -52,6 +52,17 @@ CREATE TABLE bookmarks (
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
+CREATE TABLE templates (
+  profileId INTEGER,
+  url TEXT NOT NULL,
+  title TEXT,
+  screenshot,
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
 CREATE TABLE visits (
   profileId INTEGER,
   url TEXT NOT NULL,
@@ -95,6 +106,7 @@ CREATE TABLE apps_log (
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
+-- deprecated
 CREATE TABLE workspaces (
   profileId INTEGER NOT NULL,
   name TEXT NOT NULL,

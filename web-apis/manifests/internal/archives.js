@@ -13,12 +13,11 @@ module.exports = {
   validateLocalSyncPath: 'promise',
   setLocalSyncPath: 'promise',
 
-  // publishing
-  publish: 'promise',
-  unpublish: 'promise',
-  listPublished: 'promise',
-  countPublished: 'promise',
-  getPublishRecord: 'promise',
+  // templates
+  getTemplate: 'promise',
+  listTemplates: 'promise',
+  putTemplate: 'promise',
+  removeTemplate: 'promise',
 
   // internal management
   touch: 'promise',
