@@ -2,6 +2,7 @@ module.exports = {
   // config
   userDataPath: null,
   homePath: null,
+  templatesPath: null,
   disallowedSavePaths: [],
 
   // dependencies

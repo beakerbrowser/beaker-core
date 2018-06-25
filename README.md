@@ -25,6 +25,7 @@ await beakerCore.setup({
   // config
   userDataPath: app.getPath('userData'),
   homePath: app.getPath('home'),
+  templatesPath: path.join(__dirname, 'assets', 'templates'),
   disallowedSavePaths: DISALLOWED_SAVE_PATH_NAMES.map(path => app.getPath(path)),
 
   // APIs

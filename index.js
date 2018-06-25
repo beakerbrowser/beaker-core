@@ -15,6 +15,7 @@ module.exports = {
   setup (opts) {
     assert(typeof opts.userDataPath === 'string', 'userDataPath must be a string')
     assert(typeof opts.homePath === 'string', 'homePath must be a string')
+    assert(typeof opts.templatesPath === 'string', 'templatesPath must be a string')
     assert(!!opts.permsAPI, 'must provide permsAPI')
     assert(!!opts.uiAPI, 'must provide uiAPI')
     assert(!!opts.rpcAPI, 'must provide rpcAPI')

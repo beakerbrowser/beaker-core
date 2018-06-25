@@ -70,7 +70,7 @@ module.exports = {
     if (template) {
       try {
         let archive = datLibrary.getArchive(newArchiveKey)
-        let templatePath = path.join(__dirname, 'assets', 'templates', template)
+        let templatePath = path.join(globals.templatesPath, template)
         await pda.exportFilesystemToArchive({
           srcPath: templatePath,
           dstArchive: archive,
