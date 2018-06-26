@@ -109,6 +109,7 @@ module.exports = {
     localSyncPath = localSyncPath ? path.normalize(localSyncPath) : null
 
     // use the key of the active draft
+    key = await archiveDraftsDb.getMaster(0, key)
     key = await archiveDraftsDb.getActiveDraft(0, key)
 
     // disable path

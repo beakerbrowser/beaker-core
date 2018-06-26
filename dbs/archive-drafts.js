@@ -37,3 +37,9 @@ exports.setActiveDraft = async function (profileId, masterKey, draftKey) {
   await db.run(`UPDATE archive_drafts SET isActive = 0 WHERE profileId = ? AND masterKey = ?`, [profileId, masterKey])
   await db.run(`UPDATE archive_drafts SET isActive = 1 WHERE profileId = ? AND masterKey = ? AND draftKey = ?`, [profileId, masterKey, draftKey])
 }
+
+exports.getMaster = async function (profileId, draftKey) {
+  var record = await db.get(`SELECT masterKey as key FROM archive_drafts WHERE profileId = ? AND draftKey = ?`, [profileId, draftKey])
+  if (record) return record.key
+  return draftKey
+}
