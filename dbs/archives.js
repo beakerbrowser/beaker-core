@@ -398,6 +398,18 @@ exports.setMeta = async function (key, value = {}) {
   events.emit('update:archive-meta', key, value)
 }
 
+// find the archive currently using a given localSyncPath
+exports.getByLocalSyncPath = async function (profileId, localSyncPath) {
+  try {
+    return await db.get(`
+      SELECT key FROM archives WHERE profileId = ? AND localSyncPath = ?
+    `, [profileId, localSyncPath])
+    return settings
+  } catch (e) {
+    return null
+  }
+}
+
 // internal methods
 // =
 

@@ -8,8 +8,9 @@ CREATE TABLE archive_drafts (
   profileId INTEGER,
   masterKey TEXT, -- key of the master dat
   draftKey TEXT, -- key of the draft dat
-  isActive INTEGER, -- is this the active draft?
   createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+  
+  isActive INTEGER, -- is this the active draft? (deprecated)
 
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );

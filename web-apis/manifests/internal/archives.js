@@ -17,7 +17,6 @@ module.exports = {
   // drafts
   getDraftInfo: 'promise',
   listDrafts: 'promise',
-  setActiveDraft: 'promise',
   addDraft: 'promise',
   removeDraft: 'promise',
 
