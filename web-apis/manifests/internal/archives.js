@@ -12,6 +12,7 @@ module.exports = {
   // folder sync
   validateLocalSyncPath: 'promise',
   setLocalSyncPath: 'promise',
+  ensureLocalSyncFinished: 'promise',
 
   // drafts
   listDrafts: 'promise',

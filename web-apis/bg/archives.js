@@ -139,6 +139,20 @@ module.exports = {
     await archivesDb.setUserSettings(0, key, {localSyncPath})
   },
 
+  async ensureLocalSyncFinished (key) {
+    key = datLibrary.fromURLToKey(key)
+
+    // load the archive
+    var archive
+    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
+      checkin('searching for dat')
+      archive = await datLibrary.getOrLoadArchive(key)
+    })
+
+    // ensure sync
+    await folderSync.ensureSyncFinished(archive)
+  },
+
   // drafts
   // =
 

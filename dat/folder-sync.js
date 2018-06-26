@@ -57,11 +57,11 @@ exports.syncArchiveToFolderDebounced = function (archive, opts = {}) {
   archive.syncArchiveToFolderTimeout = setTimeout(async () => {
     // dont run if a folder->archive sync is happening due to a detected change
     if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
-    archive.syncArchiveToFolderTimeout = null
 
     // run sync
     opts.localSyncPath = opts.localSyncPath || localSyncPath
-    sync(archive, false, opts)
+    await sync(archive, false, opts)
+    archive.syncArchiveToFolderTimeout = null
   }, 1e3)
 }
 
@@ -78,13 +78,18 @@ const syncFolderToArchive = exports.syncFolderToArchive = function (archive, opt
 }
 
 // helper to wait for sync on an archive to be finished
-exports.ensureSyncFinished = async function (archive) {
+const ensureSyncFinished = exports.ensureSyncFinished = async function (archive) {
   if (archive.syncFolderToArchiveTimeout || archive.syncArchiveToFolderTimeout) {
     console.log('ensureSyncFinished() waiting to finish sync', !!archive.syncFolderToArchiveTimeout, !!archive.syncArchiveToFolderTimeout)
-    return new Promise((resolve) => {
+    await new Promise((resolve) => {
       // wait for 'sync' to be emitted for this key
-      events.once('sync:' + archive.key.toString('hex'), resolve)
+      events.once('sync:' + archive.key.toString('hex'), () => {
+        // wait for next tick to allow some internal management updates
+        // (not great code - we basically need the timeout to be cleared, and that happens after the event is emitted)
+        process.nextTick(resolve)
+      })
     })
+    return ensureSyncFinished(archive) // check again
   }
 }
 
