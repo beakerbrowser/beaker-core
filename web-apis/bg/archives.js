@@ -157,6 +157,19 @@ module.exports = {
   // drafts
   // =
 
+  async getDraftInfo (url) {
+    var key = datLibrary.fromURLToKey(url)
+    var masterKey = await archiveDraftsDb.getMaster(0, key)
+    var activeDraftKey = await archiveDraftsDb.getActiveDraft(0, masterKey)
+    var master = await archivesDb.query(0, {key: masterKey})
+    var drafts = await archiveDraftsDb.list(0, masterKey)
+    return {
+      activeDraftUrl: `dat://${activeDraftKey}`,
+      master,
+      drafts
+    }
+  },
+
   async listDrafts (masterUrl) {
     var masterKey = datLibrary.fromURLToKey(masterUrl)
     return archiveDraftsDb.list(0, masterKey)

@@ -15,6 +15,7 @@ module.exports = {
   ensureLocalSyncFinished: 'promise',
 
   // drafts
+  getDraftInfo: 'promise',
   listDrafts: 'promise',
   setActiveDraft: 'promise',
   addDraft: 'promise',

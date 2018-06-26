@@ -47,6 +47,7 @@ exports.setup = function (rpc) {
     beaker.archives.validateLocalSyncPath = archivesRPC.validateLocalSyncPath
     beaker.archives.setLocalSyncPath = archivesRPC.setLocalSyncPath
     beaker.archives.ensureLocalSyncFinished = archivesRPC.ensureLocalSyncFinished
+    beaker.archives.getDraftInfo = archivesRPC.getDraftInfo
     beaker.archives.listDrafts = archivesRPC.listDrafts
     beaker.archives.setActiveDraft = archivesRPC.setActiveDraft
     beaker.archives.addDraft = archivesRPC.addDraft
