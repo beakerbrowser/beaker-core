@@ -132,6 +132,13 @@ module.exports = {
       }
     }
 
+    // check whether it's already in use
+    var archiveRecord = await archivesDb.getByLocalSyncPath(0, localSyncPath)
+    if (archiveRecord && archiveRecord.key === key) return // noop, already set
+    if (archiveRecord) {
+      await archivesDb.setUserSettings(0, archiveRecord.key, {localSyncPath: ''})
+    }
+
     // update the record
     await archivesDb.setUserSettings(0, key, {localSyncPath})
   },
