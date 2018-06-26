@@ -39,9 +39,9 @@ module.exports = {
   async createArchive ({title, description, type, hidden, networked, links, template, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow type, networked, hidden, and template to be set by beaker, for now
+    // only allow networked, hidden, and template to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      type = hidden = networked = template = undefined
+      hidden = networked = template = undefined
     }
 
     if (prompt !== false) {
@@ -90,9 +90,9 @@ module.exports = {
   async forkArchive (url, {title, description, type, networked, hidden, links, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow type, networked, and hidden to be set by beaker, for now
+    // only allow networked, hidden to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      type = networked = hidden = undefined
+      networked = hidden = undefined
     }
 
     if (prompt !== false) {
@@ -177,7 +177,7 @@ module.exports = {
         // manifest
         title: info.title,
         description: info.description,
-        // type: info.type
+        type: info.type,
         links: info.links
       }
     })
