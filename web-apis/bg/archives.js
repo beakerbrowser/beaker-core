@@ -201,12 +201,19 @@ module.exports = {
   async addDraft (masterUrl, draftUrl) {
     var masterKey = datLibrary.fromURLToKey(masterUrl)
     var draftKey = datLibrary.fromURLToKey(draftUrl)
+
+    // make sure we're modifying the master
+    masterKey = await archiveDraftsDb.getMaster(0, masterKey)
+
     return archiveDraftsDb.add(0, masterKey, draftKey)
   },
 
   async removeDraft (masterUrl, draftUrl) {
     var masterKey = datLibrary.fromURLToKey(masterUrl)
     var draftKey = datLibrary.fromURLToKey(draftUrl)
+
+    // make sure we're modifying the master
+    masterKey = await archiveDraftsDb.getMaster(0, masterKey)
 
     // abort if this draft is active
     var activeDraftKey = await archiveDraftsDb.getActiveDraft(0, masterKey)
