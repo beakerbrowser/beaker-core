@@ -13,6 +13,12 @@ module.exports = {
   validateLocalSyncPath: 'promise',
   setLocalSyncPath: 'promise',
 
+  // drafts
+  listDrafts: 'promise',
+  setActiveDraft: 'promise',
+  addDraft: 'promise',
+  removeDraft: 'promise',
+
   // templates
   getTemplate: 'promise',
   listTemplates: 'promise',

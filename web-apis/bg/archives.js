@@ -6,6 +6,7 @@ const folderSync = require('../../dat/folder-sync')
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
 const archivesDb = require('../../dbs/archives')
+const archiveDraftsDb = require('../../dbs/archive-drafts')
 const {cbPromise} = require('../../lib/functions')
 const {timer} = require('../../lib/time')
 
@@ -107,6 +108,9 @@ module.exports = {
     key = datLibrary.fromURLToKey(key)
     localSyncPath = localSyncPath ? path.normalize(localSyncPath) : null
 
+    // use the key of the active draft
+    key = await archiveDraftsDb.getActiveDraft(0, key)
+
     // disable path
     if (!localSyncPath) {
       await archivesDb.setUserSettings(0, key, {localSyncPath: ''})
@@ -133,6 +137,69 @@ module.exports = {
 
     // update the record
     await archivesDb.setUserSettings(0, key, {localSyncPath})
+  },
+
+  // drafts
+  // =
+
+  async listDrafts (masterUrl) {
+    var masterKey = datLibrary.fromURLToKey(masterUrl)
+    return archiveDraftsDb.list(0, masterKey)
+  },
+
+  async setActiveDraft (masterUrl, draftUrl) {
+    // NOTE: to set master to the active draft, pass draftUrl == masterUrl
+
+    var masterKey = datLibrary.fromURLToKey(masterUrl)
+    var draftKey = datLibrary.fromURLToKey(draftUrl)
+    var draftArchive = datLibrary.getArchive(draftKey)
+    if (!draftArchive) {
+      throw new Error('Target draft is not an active archive')
+    }
+
+    // get the currently active draft
+    var oldActiveDraftKey = await archiveDraftsDb.getActiveDraft(0, masterKey)
+    var oldActiveDraftArchive = datLibrary.getArchive(oldActiveDraftKey)
+    var oldActiveDraftUserSettings = await archivesDb.getUserSettings(0, oldActiveDraftKey)
+    var localSyncPath = oldActiveDraftUserSettings.localSyncPath
+
+    if (localSyncPath) {
+      // stop syncing the currently active draft
+      await archivesDb.setUserSettings(0, oldActiveDraftKey, {localSyncPath: ''})
+
+      // wait for sync to finish
+      await folderSync.ensureSyncFinished(oldActiveDraftArchive)
+    }
+
+    // update active draft
+    await archiveDraftsDb.setActiveDraft(0, masterKey, draftKey)
+
+    if (localSyncPath) {
+      // 'checkout' the new draft to the local folder
+      await folderSync.syncArchiveToFolder(draftArchive, {localSyncPath})
+
+      // start syncing the new active draft
+      await archivesDb.setUserSettings(0, draftKey, {localSyncPath})
+    }
+  },
+
+  async addDraft (masterUrl, draftUrl) {
+    var masterKey = datLibrary.fromURLToKey(masterUrl)
+    var draftKey = datLibrary.fromURLToKey(draftUrl)
+    return archiveDraftsDb.add(0, masterKey, draftKey)
+  },
+
+  async removeDraft (masterUrl, draftUrl) {
+    var masterKey = datLibrary.fromURLToKey(masterUrl)
+    var draftKey = datLibrary.fromURLToKey(draftUrl)
+
+    // abort if this draft is active
+    var activeDraftKey = await archiveDraftsDb.getActiveDraft(0, masterKey)
+    if (activeDraftKey === draftKey) {
+      throw new Error('Cannot remove active draft')
+    }
+
+    return archiveDraftsDb.remove(0, masterKey, draftKey)
   },
 
   // templates
