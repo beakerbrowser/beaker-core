@@ -58,6 +58,9 @@ exports.removeListener = events.removeListener.bind(events)
 //   - `isSaved`: bool
 //   - `isNetworked`: bool
 //   - `isOwner`: bool, does beaker have the secret key?
+//   - `type`: string, a type filter
+//   - `showHidden`: bool, show hidden dats
+//   - `key`: string, the key of the archive you want (return single result)
 exports.query = async function (profileId, query) {
   query = query || {}
 
@@ -81,6 +84,11 @@ exports.query = async function (profileId, query) {
     WHERE.push('archives_meta_type.type = ?')
     values.push(query.type)
   }
+  if ('key' in query) {
+    WHERE.push('archives_meta.key = ?')
+    values.push(query.key)
+  }
+  if (!query.showHidden) WHERE.push('archives.hidden = 0')
   if (WHERE.length) WHERE = `WHERE ${WHERE.join(' AND ')}`
   else WHERE = ''
 
@@ -89,6 +97,7 @@ exports.query = async function (profileId, query) {
         archives_meta.*,
         GROUP_CONCAT(archives_meta_type.type) AS type,
         archives.isSaved,
+        archives.hidden,
         archives.networked,
         archives.autoDownload,
         archives.autoUpload,
@@ -108,6 +117,7 @@ exports.query = async function (profileId, query) {
     archive.type = archive.type ? archive.type.split(',') : []
     archive.userSettings = {
       isSaved: archive.isSaved != 0,
+      hidden: archive.hidden != 0,
       networked: archive.networked != 0,
       autoDownload: archive.autoDownload != 0,
       autoUpload: archive.autoUpload != 0,
@@ -117,13 +127,14 @@ exports.query = async function (profileId, query) {
 
     // user settings
     delete archive.isSaved
+    delete archive.hidden
     delete archive.networked
     delete archive.autoDownload
     delete archive.autoUpload
     delete archive.expiresAt
     delete archive.localSyncPath
 
-    // old attrs
+    // deprecated attrs
     delete archive.createdByTitle
     delete archive.createdByUrl
     delete archive.forkOf
@@ -131,7 +142,7 @@ exports.query = async function (profileId, query) {
     delete archive.stagingSize
     delete archive.stagingSizeLessIgnored
   })
-  return archives
+  return ('key' in query) ? archives[0] : archives
 }
 
 // get all archives that should be unsaved
@@ -195,6 +206,7 @@ const getUserSettings = exports.getUserSettings = async function (profileId, key
       SELECT * FROM archives WHERE profileId = ? AND key = ?
     `, [profileId, key])
     settings.isSaved = !!settings.isSaved
+    settings.hidden = !!settings.hidden
     settings.networked = !!settings.networked
     settings.autoDownload = !!settings.autoDownload
     settings.autoUpload = !!settings.autoUpload
@@ -225,27 +237,73 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         profileId,
         key,
         isSaved: newValues.isSaved,
+        hidden: newValues.hidden,
         networked: ('networked' in newValues) ? newValues.networked : true,
         autoDownload: ('autoDownload' in newValues) ? newValues.autoDownload : newValues.isSaved,
         autoUpload: ('autoUpload' in newValues) ? newValues.autoUpload : newValues.isSaved,
         expiresAt: newValues.expiresAt,
         localSyncPath: ('localSyncPath' in newValues) ? newValues.localSyncPath : ''
       }
+      let valueArray = [
+        profileId,
+        key,
+        flag(value.isSaved),
+        flag(value.hidden),
+        flag(value.networked),
+        flag(value.autoDownload),
+        flag(value.autoUpload),
+        value.expiresAt,
+        value.localSyncPath
+      ]
       await db.run(`
-        INSERT INTO archives (profileId, key, isSaved, networked, autoDownload, autoUpload, expiresAt, localSyncPath) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [profileId, key, flag(value.isSaved), flag(value.networked), flag(value.autoDownload), flag(value.autoUpload), value.expiresAt, value.localSyncPath])
+        INSERT INTO archives
+          (
+            profileId,
+            key,
+            isSaved,
+            hidden,
+            networked,
+            autoDownload,
+            autoUpload,
+            expiresAt,
+            localSyncPath
+          )
+          VALUES (${valueArray.map(_ => '?').join(', ')})
+      `, valueArray)
     } else {
       // update
-      var { isSaved, networked, autoDownload, autoUpload, expiresAt, localSyncPath } = newValues
+      let { isSaved, hidden, networked, autoDownload, autoUpload, expiresAt, localSyncPath } = newValues
       if (typeof isSaved === 'boolean') value.isSaved = isSaved
+      if (typeof hidden === 'boolean') value.hidden = hidden
       if (typeof networked === 'boolean') value.networked = networked
       if (typeof autoDownload === 'boolean') value.autoDownload = autoDownload
       if (typeof autoUpload === 'boolean') value.autoUpload = autoUpload
       if (typeof expiresAt === 'number') value.expiresAt = expiresAt
       if (typeof localSyncPath === 'string') value.localSyncPath = localSyncPath
+      let valueArray = [
+        flag(value.isSaved),
+        flag(value.hidden),
+        flag(value.networked),
+        flag(value.autoDownload),
+        flag(value.autoUpload),
+        value.expiresAt,
+        value.localSyncPath,
+        profileId,
+        key
+      ]
       await db.run(`
-        UPDATE archives SET isSaved = ?, networked = ?, autoDownload = ?, autoUpload = ?, expiresAt = ?, localSyncPath = ? WHERE profileId = ? AND key = ?
-      `, [flag(value.isSaved), flag(value.networked), flag(value.autoDownload), flag(value.autoUpload), value.expiresAt, value.localSyncPath, profileId, key])
+        UPDATE archives
+          SET
+            isSaved = ?,
+            hidden = ?,
+            networked = ?,
+            autoDownload = ?,
+            autoUpload = ?,
+            expiresAt = ?,
+            localSyncPath = ?
+          WHERE
+            profileId = ? AND key = ?
+      `, valueArray)
     }
 
     events.emit('update:archive-user-settings', key, value, newValues)
@@ -290,7 +348,7 @@ const getMeta = exports.getMeta = async function (key) {
   meta.type = meta.type ? meta.type.split(',') : []
   meta.installedNames = meta.installedNames ? meta.installedNames.split(',') : []
 
-  // removeold attrs
+  // remove old attrs
   delete meta.createdByTitle
   delete meta.createdByUrl
   delete meta.forkOf

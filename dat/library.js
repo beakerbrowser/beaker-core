@@ -65,6 +65,7 @@ exports.setup = function setup ({logfilePath}) {
     var details = {
       url: 'dat://' + key,
       isSaved: userSettings.isSaved,
+      hidden: userSettings.hidden,
       networked: userSettings.networked,
       autoDownload: userSettings.autoDownload,
       autoUpload: userSettings.autoUpload,
@@ -190,7 +191,8 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 const createNewArchive = exports.createNewArchive = async function createNewArchive (manifest = {}, settings = false) {
   var userSettings = {
     isSaved: true,
-    networked: !(settings && settings.networked === false)
+    networked: !(settings && settings.networked === false),
+    hidden: settings && settings.hidden
   }
 
   // create the archive
@@ -377,12 +379,13 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
 
   // wire up events
   archive.pullLatestArchiveMeta = debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
-  archive.syncArchiveToFolder = debounce((opts) => folderSync.syncArchiveToFolder(archive, opts), 1e3)
   archive.fileActStream = pda.watch(archive)
   archive.fileActStream.on('data', ([event, data]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
-      archive.syncArchiveToFolder({shallow: false})
+      if (archive.localSyncPath) {
+        folderSync.syncArchiveToFolderDebounced(archive, {shallow: false})
+      }
     }
   })
   archive.on('error', error => {
@@ -493,6 +496,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   meta.size = archive.size
   meta.userSettings = {
     isSaved: userSettings.isSaved,
+    hidden: userSettings.hidden,
     networked: userSettings.networked,
     autoDownload: userSettings.autoDownload,
     autoUpload: userSettings.autoUpload,

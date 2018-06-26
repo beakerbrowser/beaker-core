@@ -36,12 +36,12 @@ const to = (opts) =>
     : DEFAULT_DAT_API_TIMEOUT
 
 module.exports = {
-  async createArchive ({title, description, type, networked, links, template, prompt} = {}) {
+  async createArchive ({title, description, type, hidden, networked, links, template, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow type, networked, and template to be set by beaker, for now
+    // only allow type, networked, hidden, and template to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      type = networked = template = undefined
+      type = hidden = networked = template = undefined
     }
 
     if (prompt !== false) {
@@ -62,7 +62,7 @@ module.exports = {
 
       // create
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.createNewArchive({title, description, type, author, links}, {networked})
+      newArchiveUrl = await datLibrary.createNewArchive({title, description, type, author, links}, {networked, hidden})
     }
     let newArchiveKey = await lookupUrlDatKey(newArchiveUrl)
 
@@ -87,12 +87,12 @@ module.exports = {
     return newArchiveUrl
   },
 
-  async forkArchive (url, {title, description, type, networked, links, prompt} = {}) {
+  async forkArchive (url, {title, description, type, networked, hidden, links, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow type and networked to be set by beaker, for now
+    // only allow type, networked, and hidden to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      type = networked = undefined
+      type = networked = hidden = undefined
     }
 
     if (prompt !== false) {
@@ -116,7 +116,7 @@ module.exports = {
 
       // create
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.forkArchive(url, {title, description, type, author, links}, {networked})
+      newArchiveUrl = await datLibrary.forkArchive(url, {title, description, type, author, links}, {networked, hidden})
     }
 
     // grant write permissions to the creating app

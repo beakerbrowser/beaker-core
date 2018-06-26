@@ -7,35 +7,49 @@ CREATE TABLE profiles (
 
 CREATE TABLE archives (
   profileId INTEGER NOT NULL,
-  key TEXT NOT NULL,
-  localPath TEXT, -- deprecated
-  localSyncPath TEXT,
-  isSaved INTEGER,
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-  autoDownload INTEGER DEFAULT 1,
+  key TEXT NOT NULL, -- dat key
+  localSyncPath TEXT, -- local FS file that the data is bidirectionally synced to
+  isSaved INTEGER, -- is this archive saved to our library?
+  hidden INTEGER DEFAULT 0, -- should this archive be hidden in the library or select-archive modals? (this is useful for internal dats, such as drafts)
+  autoDownload INTEGER DEFAULT 1, -- optimistically download all available data (1) or sparsely download on demand (0)
   autoUpload INTEGER DEFAULT 1,
-  networked INTEGER DEFAULT 1,
-  expiresAt INTEGER
+  networked INTEGER DEFAULT 1, -- get on the swarm (1) or do not replicate (0)
+  expiresAt INTEGER, -- remove from library at this time (used for temporary seeding)
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  localPath TEXT -- deprecated
 );
 
 CREATE TABLE archives_meta (
   key TEXT PRIMARY KEY,
   title TEXT,
   description TEXT,
+  mtime INTEGER,
+  isOwner INTEGER,
+  lastAccessTime INTEGER DEFAULT 0,
+  lastLibraryAccessTime INTEGER DEFAULT 0,
+
   forkOf TEXT, -- deprecated
   createdByUrl TEXT, -- deprecated
   createdByTitle TEXT, -- deprecated
-  mtime INTEGER,
   metaSize INTEGER, -- deprecated
-  stagingSize INTEGER, -- deprecated
-  isOwner INTEGER,
-  lastAccessTime INTEGER DEFAULT 0,
-  lastLibraryAccessTime INTEGER DEFAULT 0
+  stagingSize INTEGER -- deprecated
 );
 
 CREATE TABLE archives_meta_type (
   key TEXT,
   type TEXT
+);
+
+-- a list of the draft-dats for a master-dat
+CREATE TABLE archive_drafts (
+  profileId INTEGER,
+  masterKey TEXT, -- key of the master dat
+  draftKey TEXT, -- key of the draft dat
+  isActive INTEGER, -- is this the active draft?
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
 CREATE TABLE bookmarks (

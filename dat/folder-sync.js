@@ -37,7 +37,32 @@ exports.syncArchiveToFolder = function (archive, opts = {}) {
   // dont run if a folder->archive sync is happening due to a detected change
   if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
 
-  return sync(archive, false, opts)
+  // run sync
+  sync(archive, false, opts)
+}
+
+// sync dat to the folder with a debounce of 1s
+// - opts
+//   - shallow: bool, dont descend into changed folders (default true)
+//   - compareContent: bool, compare the actual content (default true)
+//   - paths: Array<string>, a whitelist of files to compare
+//   - localSyncPath: string, override the archive localSyncPath
+//   - addOnly: bool, dont modify or remove any files (default false)
+exports.syncArchiveToFolderDebounced = function (archive, opts = {}) {
+  // debounce the handler
+  if (archive.syncArchiveToFolderTimeout) {
+    clearTimeout(archive.syncArchiveToFolderTimeout)
+  }
+  var localSyncPath = archive.localSyncPath // capture this variable in case it changes on us
+  archive.syncArchiveToFolderTimeout = setTimeout(async () => {
+    // dont run if a folder->archive sync is happening due to a detected change
+    if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
+    archive.syncArchiveToFolderTimeout = null
+
+    // run sync
+    opts.localSyncPath = opts.localSyncPath || localSyncPath
+    sync(archive, false, opts)
+  }, 1e3)
 }
 
 // sync folder to the dat
@@ -50,6 +75,17 @@ exports.syncArchiveToFolder = function (archive, opts = {}) {
 const syncFolderToArchive = exports.syncFolderToArchive = function (archive, opts = {}) {
   if (!archive.writable) throw new ArchiveNotWritableError()
   return sync(archive, true, opts)
+}
+
+// helper to wait for sync on an archive to be finished
+exports.ensureSyncFinished = async function (archive) {
+  if (archive.syncFolderToArchiveTimeout || archive.syncArchiveToFolderTimeout) {
+    console.log('ensureSyncFinished() waiting to finish sync', !!archive.syncFolderToArchiveTimeout, !!archive.syncArchiveToFolderTimeout)
+    return new Promise((resolve) => {
+      // wait for 'sync' to be emitted for this key
+      events.once('sync:' + archive.key.toString('hex'), resolve)
+    })
+  }
 }
 
 // attach/detach a watcher on the local folder and sync it to the dat
@@ -81,7 +117,8 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
 
     // start watching
     var isSyncing = false
-    var scopedFS = scopedFSes.get(archive.localSyncPath)
+    var localSyncPath = archive.localSyncPath // capture this variable in case it changes on us
+    var scopedFS = scopedFSes.get(localSyncPath)
     archive.stopWatchingLocalFolder = scopedFS.watch('/', path => {
       // TODO
       // it would be possible to make this more efficient by ignoring changes that match .datignore
@@ -103,17 +140,17 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
         isSyncing = true
         try {
           // await runBuild(archive)
-          let st = await stat(fs, archive.localSyncPath)
+          let st = await stat(fs, localSyncPath)
           if (!st) {
             // folder has been removed
             archive.stopWatchingLocalFolder()
             archive.stopWatchingLocalFolder = null
-            console.error('Local sync folder not found, aborting watch', archive.localSyncPath)
+            console.error('Local sync folder not found, aborting watch', localSyncPath)
             return
           }
-          await syncFolderToArchive(archive, {shallow: false})
+          await syncFolderToArchive(archive, {localSyncPath, shallow: false})
         } catch (e) {
-          console.error('Error syncing folder', archive.localSyncPath, e)
+          console.error('Error syncing folder', localSyncPath, e)
           if (e.name === 'CycleError') {
             events.emit('error', archive.key, e)
           }
@@ -258,7 +295,7 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
 //   - addOnly: bool, dont modify or remove any files (default false)
 async function sync (archive, toArchive, opts = {}) {
   var localSyncPath = opts.localSyncPath || archive.localSyncPath
-  if (!localSyncPath) return // sanity check
+  if (!localSyncPath) return console.log(new Error('sync() aborting, no localSyncPath')) // sanity check
   var scopedFS = scopedFSes.get(localSyncPath)
   opts = massageDiffOpts(opts)
 
@@ -284,6 +321,7 @@ async function sync (archive, toArchive, opts = {}) {
   // sync data
   await dft.applyRight(left, right, diff)
   events.emit('sync', archive.key, toArchive ? 'archive' : 'folder')
+  events.emit('sync:' + archive.key.toString('hex'), archive.key, toArchive ? 'archive' : 'folder')
 }
 
 // run the build-step, if npm and the package.json are setup
