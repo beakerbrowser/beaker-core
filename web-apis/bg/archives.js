@@ -1,5 +1,6 @@
 const path = require('path')
 const mkdirp = require('mkdirp')
+const jetpack = require('fs-jetpack')
 const templatesDb = require('../../dbs/templates')
 const datDns = require('../../dat/dns')
 const folderSync = require('../../dat/folder-sync')
@@ -110,7 +111,15 @@ module.exports = {
 
     // disable path
     if (!localSyncPath) {
+      let oldSettings = await archivesDb.getUserSettings(0, key)
       await archivesDb.setUserSettings(0, key, {localSyncPath: ''})
+
+      if (opts.deleteSyncPath && oldSettings.localSyncPath) {
+        try {
+          await folderSync.assertSafePath(oldSettings.localSyncPath)
+          await jetpack.removeAsync(oldSettings.localSyncPath)
+        } catch (_) {}
+      }
       return
     }
 
