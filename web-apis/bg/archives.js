@@ -67,9 +67,14 @@ module.exports = {
 
   async delete (url) {
     const key = datLibrary.fromURLToKey(url)
-    await archivesDb.setUserSettings(0, key, {isSaved: false})
-    await datLibrary.unloadArchive(key)
-    const bytes = await archivesDb.deleteArchive(key)
+    const drafts = await archiveDraftsDb.list(0, key)
+    const toDelete = [{key}].concat(drafts)
+    var bytes = 0
+    for (let archive of toDelete) {
+      await archivesDb.setUserSettings(0, archive.key, {isSaved: false})
+      await datLibrary.unloadArchive(archive.key)
+      bytes += await archivesDb.deleteArchive(archive.key)
+    }
     return {bytes}
   },
 

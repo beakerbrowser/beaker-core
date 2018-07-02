@@ -162,7 +162,9 @@ exports.listExpiredArchives = async function () {
 exports.listGarbageCollectableArchives = async function ({olderThan, isOwner} = {}) {
   olderThan = typeof olderThan === 'number' ? olderThan : DAT_GC_EXPIRATION_AGE
   isOwner = typeof isOwner === 'boolean' ? `AND archives_meta.isOwner = ${isOwner ? '1' : '0'}` : ''
-  return db.all(`
+
+  // fetch archives
+  var records = await db.all(`
     SELECT archives_meta.key
       FROM archives_meta
       LEFT JOIN archives ON archives_meta.key = archives.key
@@ -171,6 +173,15 @@ exports.listGarbageCollectableArchives = async function ({olderThan, isOwner} = 
         AND archives_meta.lastAccessTime < ?
         ${isOwner}
   `, [Date.now() - olderThan])
+  var records2 = records.slice()
+
+  // fetch any related drafts
+  for (let record of records2) {
+    let drafts = await db.all(`SELECT draftKey as key FROM archive_drafts WHERE masterKey = ? ORDER BY createdAt`, [record.key])
+    records = records.concat(drafts)
+  }
+
+  return records
 }
 
 // upsert the last-access time

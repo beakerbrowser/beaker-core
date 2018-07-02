@@ -42,6 +42,7 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
   // now GC old archives
   var unusedArchives = await archivesDb.listGarbageCollectableArchives({olderThan, isOwner})
   debug('GC cleaning out %d unused archives', unusedArchives.length)
+  debug(unusedArchives)
   for (let i = 0; i < unusedArchives.length; i++) {
     await datLibrary.unloadArchive(unusedArchives[i].key)
     totalBytes += await archivesDb.deleteArchive(unusedArchives[i].key)
