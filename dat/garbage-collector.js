@@ -1,5 +1,5 @@
 const archivesDb = require('../dbs/archives')
-const {unloadArchive} = require('./library')
+const datLibrary = require('./library')
 const {
   DAT_GC_FIRST_COLLECT_WAIT,
   DAT_GC_REGULAR_COLLECT_WAIT
@@ -43,7 +43,7 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
   var unusedArchives = await archivesDb.listGarbageCollectableArchives({olderThan, isOwner})
   debug('GC cleaning out %d unused archives', unusedArchives.length)
   for (let i = 0; i < unusedArchives.length; i++) {
-    await unloadArchive(unusedArchives[i].key)
+    await datLibrary.unloadArchive(unusedArchives[i].key)
     totalBytes += await archivesDb.deleteArchive(unusedArchives[i].key)
   }
 
