@@ -70,6 +70,20 @@ beakerCoreWebview.setup({
 
 ### `getEnvVar()`
 
+### `debugLogger(name)`
+
+```js
+import {debugLogger} from '@beaker/core'
+const debug = debugLogger('dat')
+
+// write to the debug log under 'dat'
+debug('dat-related stuff')
+```
+
+### `getLogFilePath()`
+
+### `getLogFileContent(start, end)`
+
 ### `globals`
 
 ### `dbs`

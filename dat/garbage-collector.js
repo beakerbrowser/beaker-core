@@ -4,7 +4,7 @@ const {
   DAT_GC_FIRST_COLLECT_WAIT,
   DAT_GC_REGULAR_COLLECT_WAIT
 } = require('../lib/const')
-const debug = require('debug')('datgc')
+const debug = require('../lib/debug-logger').debugLogger('datgc')
 
 // globals
 // =

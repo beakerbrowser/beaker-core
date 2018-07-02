@@ -1,5 +1,6 @@
 const assert = require('assert')
 const {join} = require('path')
+const debugLogger = require('./lib/debug-logger')
 const globals = require('./globals')
 const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
@@ -11,6 +12,10 @@ module.exports = {
   globals,
   dat,
   dbs,
+
+  debugLogger: debugLogger.debugLogger,
+  getLogFilePath: debugLogger.getLogFilePath,
+  getLogFileContent: debugLogger.getLogFileContent,
 
   setup (opts) {
     assert(typeof opts.userDataPath === 'string', 'userDataPath must be a string')
@@ -25,6 +30,9 @@ module.exports = {
     for (let k in opts) {
       globals[k] = opts[k]
     }
+
+    // initiate log
+    debugLogger.setup(join(opts.userDataPath, 'debug.log'))
 
     // setup databases
     for (let k in dbs) {
