@@ -21,7 +21,6 @@ const EVENT_FIELDS = {
   added: ['url', 'isSaved'],
   removed: ['url', 'isSaved'],
   updated: ['url', 'title', 'description', 'size', 'mtime', 'isOwner'],
-  'folder-synced': ['url', 'direction'],
   'network-changed': ['url', 'peerCount']
 }
 
