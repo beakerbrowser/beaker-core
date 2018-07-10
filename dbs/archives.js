@@ -80,10 +80,6 @@ exports.query = async function (profileId, query) {
       WHERE.push('(archives.isSaved = 0 OR archives.isSaved IS NULL)')
     }
   }
-  if ('type' in query) {
-    WHERE.push('archives_meta_type.type = ?')
-    values.push(query.type)
-  }
   if ('key' in query) {
     WHERE.push('archives_meta.key = ?')
     values.push(query.key)
@@ -142,6 +138,20 @@ exports.query = async function (profileId, query) {
     delete archive.stagingSize
     delete archive.stagingSizeLessIgnored
   })
+
+  // apply manual filters
+  if ('type' in query) {
+    let types = Array.isArray(query.type) ? query.type : [query.type]
+    archives = archives.filter(a => {
+      for (let type of types) {
+        if (a.type.indexOf(type) === -1) {
+          return false
+        }
+      }
+      return true
+    })
+  }
+
   return ('key' in query) ? archives[0] : archives
 }
 
