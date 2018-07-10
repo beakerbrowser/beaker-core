@@ -5,6 +5,7 @@ const errors = require('beaker-error-constants')
 
 const experimentalLibraryManifest = require('../manifests/external/experimental/library')
 const experimentalGlobalFetchManifest = require('../manifests/external/experimental/global-fetch')
+const experimentalCapturePageManifest = require('../manifests/external/experimental/capture-page')
 const experimentalDatPeersManifest = require('../manifests/external/experimental/dat-peers')
 
 exports.setup = function (rpc) {
@@ -15,6 +16,7 @@ exports.setup = function (rpc) {
   if (window.location.protocol === 'beaker:' || window.location.protocol === 'dat:') {
     const libraryRPC = rpc.importAPI('experimental-library', experimentalLibraryManifest, opts)
     const globalFetchRPC = rpc.importAPI('experimental-global-fetch', experimentalGlobalFetchManifest, opts)
+    const capturePageRPC = rpc.importAPI('experimental-capture-page', experimentalCapturePageManifest, opts)
     const datPeersRPC = rpc.importAPI('experimental-dat-peers', experimentalDatPeersManifest, opts)
 
     // experimental.library
@@ -40,6 +42,9 @@ exports.setup = function (rpc) {
       })
       return new Response(responseData.body, responseData)
     }
+
+    // experimental.capturePage
+    experimental.capturePage = capturePageRPC.capturePage
 
     // experimental.datPeers
     class DatPeer {

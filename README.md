@@ -36,7 +36,8 @@ await beakerCore.setup({
     async grantPermission(perm, senderURL) {/*...*/}
   },
   uiAPI: {
-    async showModal(sender, modalName, opts) {/*...*/}
+    async showModal(sender, modalName, opts) {/*...*/},
+    async capturePage(url, opts) {/*...*/}
   },
   rpcAPI: {
     exportAPI(apiName, apiManifest, apiImpl, [guardFn])
