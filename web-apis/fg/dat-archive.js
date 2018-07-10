@@ -260,10 +260,14 @@ exports.setup = function (rpc) {
       return this.watch(pathSpec)
     }
 
-    watch (pathSpec = null) {
+    watch (pathSpec = null, onInvalidated = null) {
       var errStack = (new Error()).stack
       try {
-        return fromEventStream(datRPC.watch(this.url, pathSpec))
+        var evts = fromEventStream(datRPC.watch(this.url, pathSpec))
+        if (onInvalidated) {
+          evts.addEventListener('invalidated', onInvalidated)
+        }
+        return evts
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
