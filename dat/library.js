@@ -744,7 +744,7 @@ function onNetworkChanged (archive) {
     details: {
       url: `dat://${datEncoding.toStr(archive.key)}`,
       peers: getArchivePeerInfos(archive),
-      peerCount: archive.metadata.peers.length,
+      connections: archive.metadata.peers.length,
       totalPeerCount
     }
   })

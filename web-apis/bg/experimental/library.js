@@ -21,7 +21,7 @@ const EVENT_FIELDS = {
   added: ['url', 'isSaved'],
   removed: ['url', 'isSaved'],
   updated: ['url', 'title', 'description', 'size', 'mtime', 'isOwner'],
-  'network-changed': ['url', 'peerCount']
+  'network-changed': ['url', 'connections']
 }
 
 // exported api
