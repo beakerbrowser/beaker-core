@@ -5,6 +5,7 @@ const errors = require('beaker-error-constants')
 
 const experimentalLibraryManifest = require('../manifests/external/experimental/library')
 const experimentalGlobalFetchManifest = require('../manifests/external/experimental/global-fetch')
+const experimentalDatPeersManifest = require('../manifests/external/experimental/dat-peers')
 
 exports.setup = function (rpc) {
   const experimental = {}
@@ -14,6 +15,7 @@ exports.setup = function (rpc) {
   if (window.location.protocol === 'beaker:' || window.location.protocol === 'dat:') {
     const libraryRPC = rpc.importAPI('experimental-library', experimentalLibraryManifest, opts)
     const globalFetchRPC = rpc.importAPI('experimental-global-fetch', experimentalGlobalFetchManifest, opts)
+    const datPeersRPC = rpc.importAPI('experimental-dat-peers', experimentalDatPeersManifest, opts)
 
     // experimental.library
     let libraryEvents = ['added', 'removed', 'updated', 'folder-synced', 'network-changed']
@@ -38,6 +40,37 @@ exports.setup = function (rpc) {
       })
       return new Response(responseData.body, responseData)
     }
+
+    // experimental.datPeers
+    class DatPeer {
+      constructor (id, sessionData) {
+        this.id = id
+        this.sessionData = sessionData
+      }
+      send (data) {
+        datPeersRPC.send(this.id, data)
+      }
+    }
+    function prepDatPeersEvents (event, details) {
+      var peer = new DatPeer(details.peerId, details.sessionData)
+      delete details.peerId
+      delete details.sessionData
+      details.peer = peer
+      return details
+    }
+    const datPeersEvents = ['connect', 'message', 'session-data', 'disconnect']
+    experimental.datPeers = new EventTargetFromStream(datPeersRPC.createEventStream.bind(datPeersRPC), datPeersEvents, prepDatPeersEvents)
+    experimental.datPeers.list = async () => {
+      var peers = await datPeersRPC.list()
+      return peers.map(p => new DatPeer(p.id, p.sessionData))
+    }
+    experimental.datPeers.get = async (peerId) => {
+      var {sessionData} = await datPeersRPC.get(peerId)
+      return new DatPeer(peerId, sessionData)
+    }
+    experimental.datPeers.broadcast = datPeersRPC.broadcast
+    experimental.datPeers.getSessionData = datPeersRPC.getSessionData
+    experimental.datPeers.setSessionData = datPeersRPC.setSessionData
   }
 
   return experimental

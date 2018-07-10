@@ -4,6 +4,7 @@ const LISTENERS = Symbol() // eslint-disable-line
 const CREATE_STREAM = Symbol() // eslint-disable-line
 const STREAM_EVENTS = Symbol() // eslint-disable-line
 const STREAM = Symbol() // eslint-disable-line
+const PREP_EVENT = Symbol() // eslint-disable-line
 
 class EventTarget {
   constructor () {
@@ -39,10 +40,11 @@ class EventTarget {
 }
 
 class EventTargetFromStream extends EventTarget {
-  constructor (createStreamFn, events) {
+  constructor (createStreamFn, events, eventPrepFn) {
     super()
     this[CREATE_STREAM] = createStreamFn
     this[STREAM_EVENTS] = events
+    this[PREP_EVENT] = eventPrepFn
     this[STREAM] = null
   }
 
@@ -54,6 +56,9 @@ class EventTargetFromStream extends EventTarget {
       this[STREAM_EVENTS].forEach(event => {
         s.addEventListener(event, details => {
           details = details || {}
+          if (this[PREP_EVENT]) {
+            details = this[PREP_EVENT](event, details)
+          }
           details.target = this
           this.dispatchEvent(new Event(event, details))
         })

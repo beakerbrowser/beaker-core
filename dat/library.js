@@ -21,6 +21,7 @@ const archivesDb = require('../dbs/archives')
 const datGC = require('./garbage-collector')
 const folderSync = require('./folder-sync')
 const {addArchiveSwarmLogging} = require('./logging-utils')
+const datExtensions = require('./extensions')
 const hypercoreProtocol = require('hypercore-protocol')
 const hyperdrive = require('hyperdrive')
 
@@ -105,6 +106,9 @@ exports.setup = function setup ({logfilePath}) {
       }
     })
   })
+
+  // setup extension messages
+  datExtensions.setup()
 
   // setup the archive swarm
   datGC.setup()
@@ -350,6 +354,9 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   await updateSizeTracking(archive)
   archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
 
+  // attach extensions
+  datExtensions.attach(archive)
+
   // store in the discovery listing, so the swarmer can find it
   // but not yet in the regular archives listing, because it's not fully loaded
   archivesByDKey[datEncoding.toStr(archive.discoveryKey)] = archive
@@ -431,6 +438,7 @@ exports.unloadArchive = async function unloadArchive (key) {
     archive.fileActStream.end()
     archive.fileActStream = null
   }
+  datExtensions.detach(archive)
   await new Promise((resolve, reject) => {
     archive.close(err => {
       if (err) reject(err)
@@ -665,7 +673,8 @@ function createReplicationStream (info) {
   var stream = hypercoreProtocol({
     id: networkId,
     live: true,
-    encrypt: true
+    encrypt: true,
+    extensions: ['ephemeral', 'session-data']
   })
   stream.peerInfo = info
 

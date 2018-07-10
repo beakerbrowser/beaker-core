@@ -25,10 +25,12 @@ const datArchiveAPI = require('./bg/dat-archive')
 // experimental manifests
 const experimentalLibraryManifest = require('./manifests/external/experimental/library')
 const experimentalGlobalFetchManifest = require('./manifests/external/experimental/global-fetch')
+const experimentalDatPeersManifest = require('./manifests/external/experimental/dat-peers')
 
 // experimental apis
 const experimentalLibraryAPI = require('./bg/experimental/library')
 const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
+const experimentalDatPeersAPI = require('./bg/experimental/dat-peers')
 
 // exported api
 // =
@@ -48,6 +50,7 @@ exports.setup = function () {
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
+  globals.rpcAPI.exportAPI('experimental-dat-peers', experimentalDatPeersManifest, experimentalDatPeersAPI, secureOnly)
 }
 
 function internalOnly (event, methodName, args) {
