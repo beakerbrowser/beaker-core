@@ -263,6 +263,12 @@ exports.setup = function (rpc) {
     watch (pathSpec = null, onInvalidated = null) {
       var errStack = (new Error()).stack
       try {
+        // usage: (onInvalidated)
+        if (typeof pathSpec === 'function') {
+          onInvalidated = pathSpec
+          pathSpec = null
+        }
+
         var evts = fromEventStream(datRPC.watch(this.url, pathSpec))
         if (onInvalidated) {
           evts.addEventListener('invalidated', onInvalidated)
