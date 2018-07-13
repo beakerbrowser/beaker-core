@@ -1,6 +1,6 @@
 {
   "name": "@beaker/core",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Beaker browser's core software",
   "main": "index.js",
   "scripts": {
