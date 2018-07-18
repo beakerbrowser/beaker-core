@@ -8,7 +8,7 @@ const {PermissionsError} = require('beaker-error-constants')
 // constants
 // =
 
-const API_DOCS_URL = 'https://TODO' // TODO
+const API_DOCS_URL = 'https://beakerbrowser.com/docs/apis/experimental-library.html'
 const API_PERM_ID = 'experimentalLibrary'
 const REQUEST_ADD_PERM_ID = 'experimentalLibraryRequestAdd'
 const REQUEST_REMOVE_PERM_ID = 'experimentalLibraryRequestRemove'

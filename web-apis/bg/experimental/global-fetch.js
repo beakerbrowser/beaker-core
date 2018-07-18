@@ -7,7 +7,7 @@ const {URL} = require('url')
 // constants
 // =
 
-const API_DOCS_URL = 'https://TODO' // TODO
+const API_DOCS_URL = 'https://beakerbrowser.com/docs/apis/experimental-globalfetch.html'
 const API_PERM_ID = 'experimentalGlobalFetch'
 const LAB_API_ID = 'globalFetch'
 

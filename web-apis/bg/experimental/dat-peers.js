@@ -9,7 +9,7 @@ const {DAT_HASH_REGEX} = require('../../../lib/const')
 // constants
 // =
 
-const API_DOCS_URL = 'https://TODO' // TODO
+const API_DOCS_URL = 'https://beakerbrowser.com/docs/apis/experimental-datpeers.html'
 const API_PERM_ID = 'experimentalDatPeers'
 const LAB_API_ID = 'datPeers'
 const LAB_PERMS_OBJ = {perm: API_PERM_ID, labApi: LAB_API_ID, apiDocsUrl: API_DOCS_URL}
