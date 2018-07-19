@@ -13,6 +13,7 @@ const CircularAppendFile = require('circular-append-file')
 const debug = require('../lib/debug-logger').debugLogger('dat')
 const throttle = require('lodash.throttle')
 const debounce = require('lodash.debounce')
+const pump = require('pump')
 const siteData = require('../dbs/sitedata')
 const settingsDb = require('../dbs/settings')
 
@@ -28,6 +29,7 @@ const hyperdrive = require('hyperdrive')
 // network modules
 const swarmDefaults = require('datland-swarm-defaults')
 const discoverySwarm = require('discovery-swarm')
+const {ThrottleGroup} = require('stream-throttle')
 
 // file modules
 const mkdirp = require('mkdirp')
@@ -53,6 +55,9 @@ var archivesEvents = new EventEmitter()
 var debugEvents = new EventEmitter()
 var debugLogFile
 var archiveSwarm
+
+var upThrottleGroup
+var downThrottleGroup
 
 // exported API
 // =
@@ -107,6 +112,16 @@ exports.setup = function setup ({logfilePath}) {
     })
   })
 
+  // configure the bandwidth throttle
+  settingsDb.getAll().then(({dat_bandwidth_limit_up, dat_bandwidth_limit_down}) => {
+    setBandwidthThrottle({
+      up: dat_bandwidth_limit_up,
+      down: dat_bandwidth_limit_down
+    })
+  })
+  settingsDb.on('set:dat_bandwidth_limit_up', up => setBandwidthThrottle({up}))
+  settingsDb.on('set:dat_bandwidth_limit_down', down => setBandwidthThrottle({down}))
+
   // setup extension messages
   datExtensions.setup()
 
@@ -118,6 +133,7 @@ exports.setup = function setup ({logfilePath}) {
     utp: true,
     tcp: true,
     dht: false,
+    connect: connectReplicationStream,
     stream: createReplicationStream
   }))
   addArchiveSwarmLogging({archivesByDKey, log, archiveSwarm})
@@ -129,6 +145,18 @@ exports.setup = function setup ({logfilePath}) {
     archives => archives.forEach(a => loadArchive(a.key, a.userSettings)),
     err => console.error('Failed to load networked archives', err)
   )
+}
+
+// up/down are in MB/s
+const setBandwidthThrottle = exports.setBandwidthThrottle = function ({up, down}) {
+  if (typeof up !== 'undefined') {
+    debug(`Throttling upload to ${up} MB/s`)
+    upThrottleGroup = up ? new ThrottleGroup({rate: up * 1e6}) : null
+  }
+  if (typeof down !== 'undefined') {
+    debug(`Throttling download to ${down} MB/s`)
+    downThrottleGroup = down ? new ThrottleGroup({rate: down * 1e6}) : null
+  }
 }
 
 exports.createEventStream = function createEventStream () {
@@ -667,6 +695,13 @@ function stopAutodownload (archive) {
   }
 }
 
+function connectReplicationStream (local, remote) {
+  var streams = [local, remote, local]
+  if (upThrottleGroup) streams.splice(1, 0, upThrottleGroup.throttle())
+  if (downThrottleGroup) streams.splice(-1, 0, downThrottleGroup.throttle())
+  pump(streams)
+}
+
 function createReplicationStream (info) {
   // create the protocol stream
   var streamKeys = [] // list of keys replicated over the streamd
@@ -722,6 +757,7 @@ function createReplicationStream (info) {
       message: err.toString()
     })
   })
+
   return stream
 }
 
