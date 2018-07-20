@@ -5,30 +5,32 @@ const lock = require('../lib/lock')
 const NORMALIZE_OPTS = {
   stripFragment: false,
   stripWWW: false,
-  removeQueryParameters: false
+  removeQueryParameters: false,
+  removeTrailingSlash: false
 }
 
 // exported methods
 // =
 
-exports.bookmark = async function (profileId, url, {title, tags, notes}) {
+exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder}) {
   tags = tagsToString(tags)
   var release = await lock(`bookmark:${url}`)
   try {
     // read old bookmark and fallback to old values as needed
-    var oldBookmark = await db.get(`SELECT url, title, pinned FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
+    var oldBookmark = await db.get(`SELECT url, title, pinned, pinOrder FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
     oldBookmark = oldBookmark || {}
     const pinned = oldBookmark.pinned ? 1 : 0
     title = typeof title === 'undefined' ? oldBookmark.title : title
     tags = typeof tags === 'undefined' ? oldBookmark.tags : tags
     notes = typeof notes === 'undefined' ? oldBookmark.notes : notes
+    pinOrder = typeof pinOrder === 'undefined' ? oldBookmark.pinOrder : pinOrder
 
     // update record
     return db.run(`
       INSERT OR REPLACE
-        INTO bookmarks (profileId, url, title, tags, notes, pinned)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, [profileId, url, title, tags, notes, pinned])
+        INTO bookmarks (profileId, url, title, tags, notes, pinned, pinOrder)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [profileId, url, title, tags, notes, pinned, pinOrder])
   } finally {
     release()
   }
@@ -50,11 +52,11 @@ exports.setBookmarkPinOrder = async function (profileId, urls) {
 }
 
 exports.getBookmark = async function (profileId, url) {
-  return toNewFormat(await db.get(`SELECT url, title, tags, notes, pinned, createdAt FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url]))
+  return toNewFormat(await db.get(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url]))
 }
 
 exports.listBookmarks = async function (profileId, {tag} = {}) {
-  var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, createdAt FROM bookmarks WHERE profileId = ? ORDER BY createdAt DESC`, [profileId])
+  var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? ORDER BY createdAt DESC`, [profileId])
   bookmarks = bookmarks.map(toNewFormat)
 
   // apply tag filter
@@ -72,7 +74,7 @@ exports.listBookmarks = async function (profileId, {tag} = {}) {
 }
 
 exports.listPinnedBookmarks = async function (profileId) {
-  var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, createdAt FROM bookmarks WHERE profileId = ? AND pinned = 1 ORDER BY pinOrder DESC`, [profileId])
+  var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND pinned = 1 ORDER BY pinOrder DESC`, [profileId])
   return bookmarks.map(toNewFormat)
 }
 
@@ -117,6 +119,7 @@ function toNewFormat (b) {
     title: b.title,
     tags: b.tags ? b.tags.split(' ').filter(Boolean) : [],
     notes: b.notes,
-    pinned: !!b.pinned
+    pinned: !!b.pinned,
+    pinOrder: b.pinOrder
   }
 }

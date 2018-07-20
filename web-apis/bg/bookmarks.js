@@ -7,7 +7,8 @@ const bookmarksDb = require('../../dbs/bookmarks')
 const NORMALIZE_OPTS = {
   stripFragment: false,
   stripWWW: false,
-  removeQueryParameters: false
+  removeQueryParameters: false,
+  removeTrailingSlash: false
 }
 
 // exported api
