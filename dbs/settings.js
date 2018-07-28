@@ -28,7 +28,7 @@ exports.setup = function (opts) {
     start_page_background_image: '',
     workspace_default_path: path.join(opts.homePath, 'Sites'),
     default_dat_ignore: '.git\n.dat\nnode_modules\n*.log\n**/.DS_Store\nThumbs.db\n',
-    analytics_enabled: 0,
+    analytics_enabled: 1,
     dat_bandwidth_limit_up: 0,
     dat_bandwidth_limit_down: 0
   }
