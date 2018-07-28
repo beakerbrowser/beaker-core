@@ -38,7 +38,7 @@ exports.syncArchiveToFolder = function (archive, opts = {}) {
   if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
 
   // run sync
-  sync(archive, false, opts)
+  return sync(archive, false, opts)
 }
 
 // sync dat to the folder with a debounce of 1s
