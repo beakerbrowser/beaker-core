@@ -148,13 +148,16 @@ module.exports = {
 
     // check whether it's already in use
     var archiveRecord = await archivesDb.getByLocalSyncPath(0, localSyncPath)
-    if (archiveRecord && archiveRecord.key === key) return // noop, already set
-    if (archiveRecord) {
+    if (archiveRecord && archiveRecord.key !== key) {
       await archivesDb.setUserSettings(0, archiveRecord.key, {localSyncPath: ''})
     }
 
     // update the record
-    await archivesDb.setUserSettings(0, key, {localSyncPath})
+    var newValues = {localSyncPath}
+    if ('autoPublishLocal' in opts) {
+      newValues.autoPublishLocal = opts.autoPublishLocal
+    }
+    await archivesDb.setUserSettings(0, key, newValues)
   },
 
   async ensureLocalSyncFinished (key) {
@@ -169,6 +172,60 @@ module.exports = {
 
     // ensure sync
     await folderSync.ensureSyncFinished(archive)
+  },
+
+  async diffLocalSyncPathListing (key, opts) {
+    key = datLibrary.fromURLToKey(key)
+
+    // load the archive
+    var archive
+    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
+      checkin('searching for dat')
+      archive = await datLibrary.getOrLoadArchive(key)
+    })
+
+    return folderSync.diffListing(archive, opts)
+  },
+
+  async diffLocalSyncPathFile (key, filepath) {
+    key = datLibrary.fromURLToKey(key)
+
+    // load the archive
+    var archive
+    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
+      checkin('searching for dat')
+      archive = await datLibrary.getOrLoadArchive(key)
+    })
+
+    return folderSync.diffFile(archive, filepath)
+  },
+
+  async publishLocalSyncPathListing (key, opts = {}) {
+    key = datLibrary.fromURLToKey(key)
+
+    // load the archive
+    var archive
+    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
+      checkin('searching for dat')
+      archive = await datLibrary.getOrLoadArchive(key)
+    })
+
+    opts.shallow = false
+    return folderSync.syncFolderToArchive(archive, opts)
+  },
+
+  async revertLocalSyncPathListing (key, opts = {}) {
+    key = datLibrary.fromURLToKey(key)
+
+    // load the archive
+    var archive
+    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
+      checkin('searching for dat')
+      archive = await datLibrary.getOrLoadArchive(key)
+    })
+
+    opts.shallow = false
+    return folderSync.syncArchiveToFolder(archive, opts)
   },
 
   // drafts

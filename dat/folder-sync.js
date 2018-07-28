@@ -102,69 +102,78 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
     // stop watching
     archive.stopWatchingLocalFolder()
     archive.stopWatchingLocalFolder = null
+    if (archive.syncFolderToArchiveTimeout) {
+      clearTimeout(archive.syncFolderToArchiveTimeout)
+      archive.syncFolderToArchiveTimeout = null
+    }
   }
 
   if (archive.localSyncPath) {
-    // make sure the folder exists
-    let st = await stat(fs, archive.localSyncPath)
-    if (!st) {
-      console.error('Local sync folder not found, aborting watch', archive.localSyncPath)
-    }
-
-    // sync up if just starting
-    if (!wasWatching) {
-      try {
-        await mergeArchiveAndFolder(archive, archive.localSyncPath)
-      } catch (e) {
-        console.error('Failed to merge local sync folder', e)
+    if (!archive.autoPublishLocal) {
+      // do an add-only sync from archive->folder
+      await sync(archive, false, {shallow: false, addOnly: true})
+    } else {
+      // make sure the folder exists
+      let st = await stat(fs, archive.localSyncPath)
+      if (!st) {
+        console.error('Local sync folder not found, aborting watch', archive.localSyncPath)
       }
-    }
 
-    // start watching
-    var isSyncing = false
-    var localSyncPath = archive.localSyncPath // capture this variable in case it changes on us
-    var scopedFS = scopedFSes.get(localSyncPath)
-    archive.stopWatchingLocalFolder = scopedFS.watch('/', path => {
-      // TODO
-      // it would be possible to make this more efficient by ignoring changes that match .datignore
-      // but you need to make sure you have the latest .datignore and reading that on every change-event isnt efficient
-      // so you either need to:
-      //  A. queue up all the changed paths, then read the datignore inside the timeout and filter, if filteredList.length === 0 then abort
-      //  B. maintain an in-memory copy of the datignore and keep it up-to-date, and then check at time of the event
-      // -prf
-
-      console.log('changed detected', path)
-      // ignore if currently syncing
-      if (isSyncing) return console.log('already syncing, ignored')
-      // debounce the handler
-      if (archive.syncFolderToArchiveTimeout) {
-        clearTimeout(archive.syncFolderToArchiveTimeout)
-      }
-      archive.syncFolderToArchiveTimeout = setTimeout(async () => {
-        console.log('ok timed out')
-        isSyncing = true
+      // sync up if just starting
+      if (!wasWatching) {
         try {
-          // await runBuild(archive)
-          let st = await stat(fs, localSyncPath)
-          if (!st) {
-            // folder has been removed
-            archive.stopWatchingLocalFolder()
-            archive.stopWatchingLocalFolder = null
-            console.error('Local sync folder not found, aborting watch', localSyncPath)
-            return
-          }
-          await syncFolderToArchive(archive, {localSyncPath, shallow: false})
+          await mergeArchiveAndFolder(archive, archive.localSyncPath)
         } catch (e) {
-          console.error('Error syncing folder', localSyncPath, e)
-          if (e.name === 'CycleError') {
-            events.emit('error', archive.key, e)
-          }
-        } finally {
-          isSyncing = false
-          archive.syncFolderToArchiveTimeout = null
+          console.error('Failed to merge local sync folder', e)
         }
-      }, 500)
-    })
+      }
+
+      // start watching
+      var isSyncing = false
+      var localSyncPath = archive.localSyncPath // capture this variable in case it changes on us
+      var scopedFS = scopedFSes.get(localSyncPath)
+      archive.stopWatchingLocalFolder = scopedFS.watch('/', path => {
+        // TODO
+        // it would be possible to make this more efficient by ignoring changes that match .datignore
+        // but you need to make sure you have the latest .datignore and reading that on every change-event isnt efficient
+        // so you either need to:
+        //  A. queue up all the changed paths, then read the datignore inside the timeout and filter, if filteredList.length === 0 then abort
+        //  B. maintain an in-memory copy of the datignore and keep it up-to-date, and then check at time of the event
+        // -prf
+
+        console.log('changed detected', path)
+        // ignore if currently syncing
+        if (isSyncing) return console.log('already syncing, ignored')
+        // debounce the handler
+        if (archive.syncFolderToArchiveTimeout) {
+          clearTimeout(archive.syncFolderToArchiveTimeout)
+        }
+        archive.syncFolderToArchiveTimeout = setTimeout(async () => {
+          console.log('ok timed out')
+          isSyncing = true
+          try {
+            // await runBuild(archive)
+            let st = await stat(fs, localSyncPath)
+            if (!st) {
+              // folder has been removed
+              archive.stopWatchingLocalFolder()
+              archive.stopWatchingLocalFolder = null
+              console.error('Local sync folder not found, aborting watch', localSyncPath)
+              return
+            }
+            await syncFolderToArchive(archive, {localSyncPath, shallow: false})
+          } catch (e) {
+            console.error('Error syncing folder', localSyncPath, e)
+            if (e.name === 'CycleError') {
+              events.emit('error', archive.key, e)
+            }
+          } finally {
+            isSyncing = false
+            archive.syncFolderToArchiveTimeout = null
+          }
+        }, 500)
+      })
+    }
   }
 }
 
@@ -176,7 +185,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
 //   - localSyncPath: string, override the archive localSyncPath
 exports.diffListing = async function (archive, opts = {}) {
   var localSyncPath = opts.localSyncPath || archive.localSyncPath
-  if (!localSyncPath) return // sanity check
+  if (!localSyncPath) return console.log(new Error('diffListing() aborting, no localSyncPath')) // sanity check
   var scopedFS = scopedFSes.get(localSyncPath)
   opts = massageDiffOpts(opts)
 
@@ -195,7 +204,7 @@ exports.diffListing = async function (archive, opts = {}) {
 // diff an individual file
 // - filepath: string, the path of the file in the archive/folder
 exports.diffFile = async function (archive, filepath) {
-  if (!archive.localSyncPath) return // sanity check
+  if (!archive.localSyncPath) return console.log(new Error('diffFile() aborting, no localSyncPath')) // sanity check
   var scopedFS = scopedFSes.get(archive.localSyncPath)
   filepath = path.normalize(filepath)
 
@@ -301,32 +310,40 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
 async function sync (archive, toArchive, opts = {}) {
   var localSyncPath = opts.localSyncPath || archive.localSyncPath
   if (!localSyncPath) return console.log(new Error('sync() aborting, no localSyncPath')) // sanity check
-  var scopedFS = scopedFSes.get(localSyncPath)
-  opts = massageDiffOpts(opts)
 
-  // build ignore rules
-  if (opts.paths) {
-    opts.filter = makeDiffFilterByPaths(opts.paths)
-  } else {
-    let ignoreRules = await readDatIgnore(scopedFS)
-    opts.filter = (filepath) => anymatch(ignoreRules, filepath)
+  try {
+    var scopedFS = scopedFSes.get(localSyncPath)
+    opts = massageDiffOpts(opts)
+
+    // build ignore rules
+    if (opts.paths) {
+      opts.filter = makeDiffFilterByPaths(opts.paths)
+    } else {
+      let ignoreRules = await readDatIgnore(scopedFS)
+      opts.filter = (filepath) => anymatch(ignoreRules, filepath)
+    }
+
+    // choose direction
+    var left = toArchive ? {fs: scopedFS} : {fs: archive}
+    var right = toArchive ? {fs: archive} : {fs: scopedFS}
+
+    // run diff
+    var diff = await dft.diff(left, right, opts)
+    if (opts.addOnly) {
+      diff = diff.filter(d => d.change === 'add')
+    }
+    console.log('syncing to', toArchive ? 'archive' : 'folder', diff) // DEBUG
+
+    // sync data
+    await dft.applyRight(left, right, diff)
+    events.emit('sync', archive.key, toArchive ? 'archive' : 'folder')
+    events.emit('sync:' + archive.key.toString('hex'), archive.key, toArchive ? 'archive' : 'folder')
+  } catch (err) {
+    console.error('Failed to sync archive to local path')
+    console.error('- Archive:', archive.key.toString('hex'))
+    console.error('- Path:', localSyncPath)
+    console.error('- Error:', err)
   }
-
-  // choose direction
-  var left = toArchive ? {fs: scopedFS} : {fs: archive}
-  var right = toArchive ? {fs: archive} : {fs: scopedFS}
-
-  // run diff
-  var diff = await dft.diff(left, right, opts)
-  if (opts.addOnly) {
-    diff = diff.filter(d => d.change === 'add')
-  }
-  console.log('syncing to', toArchive ? 'archive' : 'folder', diff) // DEBUG
-
-  // sync data
-  await dft.applyRight(left, right, diff)
-  events.emit('sync', archive.key, toArchive ? 'archive' : 'folder')
-  events.emit('sync:' + archive.key.toString('hex'), archive.key, toArchive ? 'archive' : 'folder')
 }
 
 // run the build-step, if npm and the package.json are setup

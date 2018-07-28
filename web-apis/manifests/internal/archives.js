@@ -13,6 +13,10 @@ module.exports = {
   validateLocalSyncPath: 'promise',
   setLocalSyncPath: 'promise',
   ensureLocalSyncFinished: 'promise',
+  diffLocalSyncPathListing: 'promise',
+  diffLocalSyncPathFile: 'promise',
+  publishLocalSyncPathListing: 'promise',
+  revertLocalSyncPathListing: 'promise',
 
   // drafts
   getDraftInfo: 'promise',

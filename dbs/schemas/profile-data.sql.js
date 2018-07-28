@@ -9,6 +9,7 @@ CREATE TABLE archives (
   profileId INTEGER NOT NULL,
   key TEXT NOT NULL, -- dat key
   localSyncPath TEXT, -- local FS file that the data is bidirectionally synced to
+  autoPublishLocal INTEGER DEFAULT 0, -- watch localSyncPath and automatically publish changes (1) or not (0)
   isSaved INTEGER, -- is this archive saved to our library?
   hidden INTEGER DEFAULT 0, -- should this archive be hidden in the library or select-archive modals? (this is useful for internal dats, such as drafts)
   autoDownload INTEGER DEFAULT 1, -- optimistically download all available data (1) or sparsely download on demand (0)
@@ -147,5 +148,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issu
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Explore the p2p Web', 'dat://taravancil.com/explore-the-p2p-web.md', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
 
-PRAGMA user_version = 19;
+PRAGMA user_version = 20;
 `

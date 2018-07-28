@@ -98,7 +98,8 @@ exports.query = async function (profileId, query) {
         archives.autoDownload,
         archives.autoUpload,
         archives.expiresAt,
-        archives.localSyncPath
+        archives.localSyncPath,
+        archives.autoPublishLocal
       FROM archives_meta
       LEFT JOIN archives ON archives.key = archives_meta.key
       LEFT JOIN archives_meta_type ON archives_meta_type.key = archives_meta.key
@@ -118,7 +119,8 @@ exports.query = async function (profileId, query) {
       autoDownload: archive.autoDownload != 0,
       autoUpload: archive.autoUpload != 0,
       expiresAt: archive.expiresAt,
-      localSyncPath: archive.localSyncPath
+      localSyncPath: archive.localSyncPath,
+      autoPublishLocal: archive.autoPublishLocal != 0
     }
 
     // user settings
@@ -129,6 +131,7 @@ exports.query = async function (profileId, query) {
     delete archive.autoUpload
     delete archive.expiresAt
     delete archive.localSyncPath
+    delete archive.autoPublishLocal
 
     // deprecated attrs
     delete archive.createdByTitle
@@ -231,6 +234,7 @@ const getUserSettings = exports.getUserSettings = async function (profileId, key
     settings.networked = !!settings.networked
     settings.autoDownload = !!settings.autoDownload
     settings.autoUpload = !!settings.autoUpload
+    settings.autoPublishLocal = !!settings.autoPublishLocal
     return settings
   } catch (e) {
     return {}
@@ -263,7 +267,8 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         autoDownload: ('autoDownload' in newValues) ? newValues.autoDownload : newValues.isSaved,
         autoUpload: ('autoUpload' in newValues) ? newValues.autoUpload : newValues.isSaved,
         expiresAt: newValues.expiresAt,
-        localSyncPath: ('localSyncPath' in newValues) ? newValues.localSyncPath : ''
+        localSyncPath: ('localSyncPath' in newValues) ? newValues.localSyncPath : '',
+        autoPublishLocal: ('autoPublishLocal' in newValues) ? newValues.autoPublishLocal : ''
       }
       let valueArray = [
         profileId,
@@ -274,7 +279,8 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         flag(value.autoDownload),
         flag(value.autoUpload),
         value.expiresAt,
-        value.localSyncPath
+        value.localSyncPath,
+        flag(value.autoPublishLocal)
       ]
       await db.run(`
         INSERT INTO archives
@@ -287,13 +293,14 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
             autoDownload,
             autoUpload,
             expiresAt,
-            localSyncPath
+            localSyncPath,
+            autoPublishLocal
           )
           VALUES (${valueArray.map(_ => '?').join(', ')})
       `, valueArray)
     } else {
       // update
-      let { isSaved, hidden, networked, autoDownload, autoUpload, expiresAt, localSyncPath } = newValues
+      let { isSaved, hidden, networked, autoDownload, autoUpload, expiresAt, localSyncPath, autoPublishLocal } = newValues
       if (typeof isSaved === 'boolean') value.isSaved = isSaved
       if (typeof hidden === 'boolean') value.hidden = hidden
       if (typeof networked === 'boolean') value.networked = networked
@@ -301,6 +308,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
       if (typeof autoUpload === 'boolean') value.autoUpload = autoUpload
       if (typeof expiresAt === 'number') value.expiresAt = expiresAt
       if (typeof localSyncPath === 'string') value.localSyncPath = localSyncPath
+      if (typeof autoPublishLocal === 'boolean') value.autoPublishLocal = autoPublishLocal
       let valueArray = [
         flag(value.isSaved),
         flag(value.hidden),
@@ -309,6 +317,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         flag(value.autoUpload),
         value.expiresAt,
         value.localSyncPath,
+        flag(value.autoPublishLocal),
         profileId,
         key
       ]
@@ -321,7 +330,8 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
             autoDownload = ?,
             autoUpload = ?,
             expiresAt = ?,
-            localSyncPath = ?
+            localSyncPath = ?,
+            autoPublishLocal = ?
           WHERE
             profileId = ? AND key = ?
       `, valueArray)

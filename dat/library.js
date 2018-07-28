@@ -75,7 +75,8 @@ exports.setup = function setup ({logfilePath}) {
       networked: userSettings.networked,
       autoDownload: userSettings.autoDownload,
       autoUpload: userSettings.autoUpload,
-      localSyncPath: userSettings.localSyncPath
+      localSyncPath: userSettings.localSyncPath,
+      autoPublishLocal: userSettings.autoPublishLocal
     }
     if ('isSaved' in newUserSettings) {
       archivesEvents.emit(newUserSettings.isSaved ? 'added' : 'removed', {details})
@@ -415,11 +416,11 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   // wire up events
   archive.pullLatestArchiveMeta = debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
   archive.fileActStream = pda.watch(archive)
-  archive.fileActStream.on('data', ([event, data]) => {
+  archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
       if (archive.localSyncPath) {
-        folderSync.syncArchiveToFolderDebounced(archive, {shallow: false})
+        folderSync.syncArchiveToFolder(archive, {paths: [path]})
       }
     }
   })
@@ -537,7 +538,8 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     autoDownload: userSettings.autoDownload,
     autoUpload: userSettings.autoUpload,
     expiresAt: userSettings.expiresAt,
-    localSyncPath: userSettings.localSyncPath
+    localSyncPath: userSettings.localSyncPath,
+    autoPublishLocal: userSettings.autoPublishLocal
   }
   meta.peers = archive.metadata.peers.length
   meta.peerInfo = getArchivePeerInfos(archive)
@@ -678,10 +680,12 @@ function configureAutoDownload (archive, userSettings) {
 }
 
 function configureLocalSync (archive, userSettings) {
-  let old = archive.localSyncPath
+  let oldLocalSyncPath = archive.localSyncPath
+  let oldAutoPublishLocal = archive.autoPublishLocal
   archive.localSyncPath = userSettings.isSaved ? userSettings.localSyncPath : false
+  archive.autoPublishLocal = userSettings.isSaved ? userSettings.autoPublishLocal : false
 
-  if (archive.localSyncPath !== old) {
+  if (archive.localSyncPath !== oldLocalSyncPath || archive.autoPublishLocal !== oldAutoPublishLocal) {
     // configure the local folder watcher if a change occurred
     folderSync.configureFolderToArchiveWatcher(archive)
   }
