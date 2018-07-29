@@ -90,6 +90,11 @@ module.exports = {
     return bookmarksDb.listBookmarks(0, opts)
   },
 
+  // TODO removeme -prf
+  async listPublicBookmarks () {
+    return []
+  }
+
   // tags
   // =
 
