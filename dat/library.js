@@ -76,7 +76,7 @@ exports.setup = function setup ({logfilePath}) {
       autoDownload: userSettings.autoDownload,
       autoUpload: userSettings.autoUpload,
       localSyncPath: userSettings.localSyncPath,
-      autoPublishLocal: userSettings.autoPublishLocal
+      autoPublishLocal: true // TEMP: AUTOPUBLISH ONLY (prf) userSettings.autoPublishLocal
     }
     if ('isSaved' in newUserSettings) {
       archivesEvents.emit(newUserSettings.isSaved ? 'added' : 'removed', {details})
@@ -543,7 +543,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     autoUpload: userSettings.autoUpload,
     expiresAt: userSettings.expiresAt,
     localSyncPath: userSettings.localSyncPath,
-    autoPublishLocal: userSettings.autoPublishLocal
+    autoPublishLocal: true // TEMP: AUTOPUBLISH ONLY (prf) userSettings.autoPublishLocal
   }
   meta.peers = archive.metadata.peers.length
   meta.peerInfo = getArchivePeerInfos(archive)
