@@ -244,7 +244,7 @@ module.exports = {
     try {
       // lookup
       if (archive.tmpPreviewArchive) {
-        return 'dat://' + archive.tmpPreviewArchive.key.toString('hex')
+        return 'dat://' + archive.tmpPreviewArchive.key.toString('hex') + '/'
       }
 
       // sanity check
