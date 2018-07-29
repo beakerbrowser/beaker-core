@@ -530,6 +530,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   ])
   meta.key = key
   meta.url = `dat://${key}`
+  meta.isTemporary = !!archive.isTemporary
   meta.links = archive.manifest.links || {}
   meta.manifest = archive.manifest
   meta.version = archive.version
