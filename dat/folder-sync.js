@@ -288,6 +288,7 @@ const readDatIgnore = exports.readDatIgnore = async function (fs) {
       if (!rule.startsWith('/')) {
         rule = '**/' + rule
       }
+      rule = rule.replace(/\r/g, '') // strip windows \r newlines
       return rule
     })
     .concat(['/.git', '/.dat'])
