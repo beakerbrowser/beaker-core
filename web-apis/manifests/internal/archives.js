@@ -13,10 +13,15 @@ module.exports = {
   validateLocalSyncPath: 'promise',
   setLocalSyncPath: 'promise',
   ensureLocalSyncFinished: 'promise',
+
+  // diff & publish
   diffLocalSyncPathListing: 'promise',
   diffLocalSyncPathFile: 'promise',
   publishLocalSyncPathListing: 'promise',
   revertLocalSyncPathListing: 'promise',
+
+  // preview dats
+  getPreviewDat: 'promise',
 
   // drafts
   getDraftInfo: 'promise',

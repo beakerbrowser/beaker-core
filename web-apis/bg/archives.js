@@ -10,6 +10,7 @@ const archivesDb = require('../../dbs/archives')
 const archiveDraftsDb = require('../../dbs/archive-drafts')
 const {cbPromise} = require('../../lib/functions')
 const {timer} = require('../../lib/time')
+const lock = require('../../lib/lock')
 
 // exported api
 // =
@@ -168,6 +169,9 @@ module.exports = {
     await folderSync.ensureSyncFinished(archive)
   },
 
+  // diff & publish
+  // =
+
   async diffLocalSyncPathListing (key, opts) {
     key = datLibrary.fromURLToKey(key)
 
@@ -220,6 +224,49 @@ module.exports = {
 
     opts.shallow = false
     return folderSync.syncArchiveToFolder(archive, opts)
+  },
+
+  // preview dat
+  // =
+
+  async getPreviewDat (url) {
+    var key = datLibrary.fromURLToKey(url)
+
+    // load the archive
+    var archive
+    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
+      checkin('searching for dat')
+      archive = await datLibrary.getOrLoadArchive(key)
+    })
+
+    // enter lock region: we're going to lookup and create-on-not-found
+    var release = await lock(`tmpdat-lookup:${key}`)
+    try {
+      // lookup
+      if (archive.tmpPreviewArchive) {
+        return 'dat://' + archive.tmpPreviewArchive.key.toString('hex')
+      }
+
+      // sanity check
+      if (typeof archive.localSyncPath !== 'string' || !archive.localSyncPath) {
+        throw new Error('This dat archive does not have a local sync path')
+      }
+      
+      // not found, create
+      let tmpPreviewArchiveUrl = await datLibrary.forkArchive(key, {}, {
+        isTemporary: true,
+        isSaved: false,
+        autoPublishLocal: true, // autopublish...
+        localSyncPath: archive.localSyncPath // ...from the same directory
+      })
+      let tmp = archive.tmpPreviewArchive = datLibrary.getArchive(tmpPreviewArchiveUrl)
+      await new Promise(resolve => {
+        folderSync.events.once('merge:' + tmp.key.toString('hex'), resolve)
+      })
+      return tmpPreviewArchiveUrl
+    } finally {
+      release()
+    }
   },
 
   // drafts

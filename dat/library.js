@@ -223,14 +223,17 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 
 const createNewArchive = exports.createNewArchive = async function createNewArchive (manifest = {}, settings = false) {
   var userSettings = {
-    isSaved: true,
+    isSaved: !(settings && settings.isSaved === false),
     networked: !(settings && settings.networked === false),
-    hidden: settings && settings.hidden
+    hidden: settings && settings.hidden === true,
+    autoPublishLocal: settings && settings.autoPublishLocal === true,
+    localSyncPath: settings && settings.localSyncPath
   }
 
   // create the archive
   var archive = await loadArchive(null, userSettings)
   var key = datEncoding.toStr(archive.key)
+  archive.isTemporary = settings && settings.isTemporary
 
   // write the manifest and default datignore
   await Promise.all([
@@ -682,8 +685,8 @@ function configureAutoDownload (archive, userSettings) {
 function configureLocalSync (archive, userSettings) {
   let oldLocalSyncPath = archive.localSyncPath
   let oldAutoPublishLocal = archive.autoPublishLocal
-  archive.localSyncPath = userSettings.isSaved ? userSettings.localSyncPath : false
-  archive.autoPublishLocal = userSettings.isSaved ? userSettings.autoPublishLocal : false
+  archive.localSyncPath = (userSettings.isSaved || archive.isTemporary) ? userSettings.localSyncPath : false
+  archive.autoPublishLocal = (userSettings.isSaved || archive.isTemporary) ? userSettings.autoPublishLocal : false
 
   if (archive.localSyncPath !== oldLocalSyncPath || archive.autoPublishLocal !== oldAutoPublishLocal) {
     // configure the local folder watcher if a change occurred

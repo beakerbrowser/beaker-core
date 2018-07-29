@@ -7,6 +7,7 @@ const fs = require('fs')
 const path = require('path')
 const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
+const archivesDb = require('../dbs/archives')
 const settingsDb = require('../dbs/settings')
 const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
 const scopedFSes = require('../lib/scoped-fses')
@@ -98,6 +99,9 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
   console.log('configureFolderToArchiveWatcher()', archive.localSyncPath, !!archive.stopWatchingLocalFolder)
   var wasWatching = !!archive.stopWatchingLocalFolder
 
+  // teardown the existing watch (his watch has ended)
+  // =
+
   if (archive.stopWatchingLocalFolder) {
     // stop watching
     archive.stopWatchingLocalFolder()
@@ -107,6 +111,16 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
       archive.syncFolderToArchiveTimeout = null
     }
   }
+
+  if (archive.tmpPreviewArchive) {
+    // stop the temporary archive
+    let tmp = archive.tmpPreviewArchive
+    archive.tmpPreviewArchive = null // remove as tmp dat
+    await archivesDb.setUserSettings(0, tmp.key, {localSyncPath: '', autoPublishLocal: false}) // stop sync
+  }
+
+  // start a new watch
+  // =
 
   if (archive.localSyncPath) {
     if (!archive.autoPublishLocal) {
@@ -293,6 +307,7 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
   await pda.writeManifest(localFS, mergedManifest)
   await sync(archive, false, {localSyncPath, shallow: false, addOnly: true}) // archive -> folder (add-only)
   await sync(archive, true, {localSyncPath, shallow: false}) // folder -> archive
+  events.emit('merge:' + archive.key.toString('hex'), archive.key)
   console.log('done merging archive with', localSyncPath)
 }
 

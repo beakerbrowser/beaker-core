@@ -51,6 +51,7 @@ exports.setup = function (rpc) {
     beaker.archives.diffLocalSyncPathFile = archivesRPC.diffLocalSyncPathFile
     beaker.archives.publishLocalSyncPathListing = archivesRPC.publishLocalSyncPathListing
     beaker.archives.revertLocalSyncPathListing = archivesRPC.revertLocalSyncPathListing
+    beaker.archives.getPreviewDat = archivesRPC.getPreviewDat
     beaker.archives.getDraftInfo = archivesRPC.getDraftInfo
     beaker.archives.listDrafts = archivesRPC.listDrafts
     beaker.archives.addDraft = archivesRPC.addDraft
