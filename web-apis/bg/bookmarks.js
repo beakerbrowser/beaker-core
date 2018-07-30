@@ -93,7 +93,7 @@ module.exports = {
   // TODO removeme -prf
   async listPublicBookmarks () {
     return []
-  }
+  },
 
   // tags
   // =
