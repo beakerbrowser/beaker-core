@@ -33,6 +33,7 @@ const {ThrottleGroup} = require('stream-throttle')
 
 // file modules
 const mkdirp = require('mkdirp')
+const scopedFSes = require('../lib/scoped-fses')
 
 // constants
 // =
@@ -76,7 +77,7 @@ exports.setup = function setup ({logfilePath}) {
       autoDownload: userSettings.autoDownload,
       autoUpload: userSettings.autoUpload,
       localSyncPath: userSettings.localSyncPath,
-      autoPublishLocal: true // TEMP: AUTOPUBLISH ONLY (prf) userSettings.autoPublishLocal
+      autoPublishLocal: userSettings.autoPublishLocal
     }
     if ('isSaved' in newUserSettings) {
       archivesEvents.emit(newUserSettings.isSaved ? 'added' : 'removed', {details})
@@ -444,6 +445,35 @@ const getArchive = exports.getArchive = function getArchive (key) {
   return archives[key]
 }
 
+const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
+  var isHistoric = false
+  var isPreview = false
+  var checkoutFS = archive
+  if (version) {
+    let seq = parseInt(version)
+    if (Number.isNaN(seq)) {
+      if (version === 'preview') {
+        if (archive.localSyncPath) {
+          // checkout local sync path
+          checkoutFS = scopedFSes.get(archive.localSyncPath)
+          isPreview = true
+        } else {
+          if (archive.writable) throw new Error('Can\'t preview: No local folder has been set for this site')
+          else throw new Error('Can\'t preview: Can only preview sites you own')
+        }
+      } else {
+        throw new Error('Invalid version identifier:' + version)
+      }
+    } else {
+      if (seq <= 0) throw new Error('Version too low')
+      if (seq > archive.version) throw new Error('Version too high')
+      checkoutFS = archive.checkout(seq, {metadataStorageCacheSize: 0, contentStorageCacheSize: 0, treeCacheSize: 0})
+      isHistoric = true
+    }
+  }
+  return {isHistoric, isPreview, checkoutFS}
+}
+
 exports.getActiveArchives = function getActiveArchives () {
   return archives
 }
@@ -543,7 +573,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     autoUpload: userSettings.autoUpload,
     expiresAt: userSettings.expiresAt,
     localSyncPath: userSettings.localSyncPath,
-    autoPublishLocal: true // TEMP: AUTOPUBLISH ONLY (prf) userSettings.autoPublishLocal
+    autoPublishLocal: userSettings.autoPublishLocal
   }
   meta.peers = archive.metadata.peers.length
   meta.peerInfo = getArchivePeerInfos(archive)

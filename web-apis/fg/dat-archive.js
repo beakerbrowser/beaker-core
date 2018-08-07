@@ -119,7 +119,7 @@ exports.setup = function (rpc) {
 
     checkout (version) {
       const urlParsed = parseDatURL(this.url)
-      version = typeof version === 'number' ? `+${version}` : ''
+      version = version ? `+${version}` : ''
       return new DatArchive(`dat://${urlParsed.hostname}${version}`)
     }
 

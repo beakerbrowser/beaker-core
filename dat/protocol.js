@@ -121,21 +121,11 @@ exports.electronHandler = async function (request, respond) {
   var isFolder = filepath.endsWith('/')
 
   // checkout version if needed
-  var archiveFS = archive
-  if (urlp.version) {
-    let seq = +urlp.version
-    if (seq <= 0) {
-      return respondError(404, 'Version too low')
-    }
-    if (seq > archive.version) {
-      return respondError(404, 'Version too high')
-    }
-    archiveFS = archive.checkout(seq)
-  }
+  var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
 
   // read the manifest (it's needed in a couple places)
   var manifest
-  try { manifest = await pda.readManifest(archiveFS) } catch (e) { manifest = null }
+  try { manifest = await pda.readManifest(checkoutFS) } catch (e) { manifest = null }
 
   // read manifest CSP
   if (manifest && manifest.content_security_policy && typeof manifest.content_security_policy === 'string') {
@@ -197,7 +187,7 @@ exports.electronHandler = async function (request, respond) {
     }
     // attempt lookup
     try {
-      entry = await pda.stat(archiveFS, path)
+      entry = await pda.stat(checkoutFS, path)
       entry.path = path
     } catch (e) {}
   }
@@ -240,7 +230,7 @@ exports.electronHandler = async function (request, respond) {
       return respond({
         statusCode: 200,
         headers,
-        data: intoStream(await directoryListingPage(archiveFS, filepath, manifest && manifest.web_root))
+        data: intoStream(await directoryListingPage(checkoutFS, filepath, manifest && manifest.web_root))
       })
     }
   }
@@ -302,7 +292,7 @@ exports.electronHandler = async function (request, respond) {
 
   // fetch the entry and stream the response
   debug('Entry found:', entry.path)
-  fileReadStream = archiveFS.createReadStream(entry.path, range)
+  fileReadStream = checkoutFS.createReadStream(entry.path, range)
   var dataStream = fileReadStream
     .pipe(mime.identifyStream(entry.path, mimeType => {
       // cleanup the timeout now, as bytes have begun to stream

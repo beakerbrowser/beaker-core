@@ -120,7 +120,7 @@ exports.query = async function (profileId, query) {
       autoUpload: archive.autoUpload != 0,
       expiresAt: archive.expiresAt,
       localSyncPath: archive.localSyncPath,
-      autoPublishLocal: true // TEMP: AUTOPUBLISH ONLY (prf) archive.autoPublishLocal != 0
+      autoPublishLocal: archive.autoPublishLocal != 0
     }
 
     // user settings
@@ -234,7 +234,7 @@ const getUserSettings = exports.getUserSettings = async function (profileId, key
     settings.networked = !!settings.networked
     settings.autoDownload = !!settings.autoDownload
     settings.autoUpload = !!settings.autoUpload
-    settings.autoPublishLocal = true // TEMP: AUTOPUBLISH ONLY (prf) !!settings.autoPublishLocal
+    settings.autoPublishLocal = !!settings.autoPublishLocal
     return settings
   } catch (e) {
     return {}

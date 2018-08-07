@@ -9,6 +9,7 @@ const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
+const scopedFSes = require('../../lib/scoped-fses')
 const {
   DAT_MANIFEST_FILENAME,
   DAT_CONFIGURABLE_FIELDS,
@@ -126,7 +127,7 @@ module.exports = {
   },
 
   async unlinkArchive (url) {
-    var {archive} = await lookupArchive(url)
+    var {archive} = await lookupArchive(this.sender, url)
     await assertDeleteArchivePermission(archive, this.sender)
     await assertArchiveDeletable(archive)
     await archivesDb.setUserSettings(0, archive.key, {isSaved: false})
@@ -187,8 +188,8 @@ module.exports = {
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('looking up archive')
 
-      var {archive, version} = await lookupArchive(url, opts)
-      if (version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+      var {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url, opts)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
       if (!settings || typeof settings !== 'object') throw new Error('Invalid argument')
 
       // handle 'networked' specially
@@ -214,7 +215,7 @@ module.exports = {
       resume()
 
       checkin('updating archive')
-      await pda.updateManifest(archive, manifestUpdates)
+      await pda.updateManifest(checkoutFS, manifestUpdates)
       await datLibrary.pullLatestArchiveMeta(archive)
     })
   },
@@ -225,7 +226,12 @@ module.exports = {
 
       var reverse = opts.reverse === true
       var {start, end} = opts
-      var {archive, checkoutFS} = await lookupArchive(url, opts)
+      var {archive, checkoutFS, isPreview} = await lookupArchive(this.sender, url, opts)
+
+      if (isPreview) {
+        // dont use the checkout FS in previews, it has no history() api
+        checkoutFS = archive
+      }
 
       checkin('reading history')
 
@@ -258,7 +264,7 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('looking up archive')
-      const {checkoutFS} = await lookupArchive(url, opts)
+      const {checkoutFS} = await lookupArchive(this.sender, url, opts)
       checkin('stating file')
       return pda.stat(checkoutFS, filepath)
     })
@@ -268,7 +274,7 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('looking up archive')
-      const {checkoutFS} = await lookupArchive(url, opts)
+      const {checkoutFS} = await lookupArchive(this.sender, url, opts)
       checkin('reading file')
       return pda.readFile(checkoutFS, filepath, opts)
     })
@@ -278,8 +284,8 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('looking up archive')
-      const {archive, version} = await lookupArchive(url, opts)
-      if (version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url, opts)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
 
       pause() // dont count against timeout, there may be user prompts
       const senderOrigin = archivesDb.extractOrigin(this.sender.getURL())
@@ -291,7 +297,7 @@ module.exports = {
       resume()
 
       checkin('writing file')
-      return pda.writeFile(archive, filepath, data, opts)
+      return pda.writeFile(checkoutFS, filepath, data, opts)
     })
   },
 
@@ -299,8 +305,8 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('looking up archive')
-      const {archive, version} = await lookupArchive(url)
-      if (version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
 
       pause() // dont count against timeout, there may be user prompts
       await assertWritePermission(archive, this.sender)
@@ -308,7 +314,7 @@ module.exports = {
       resume()
 
       checkin('deleting file')
-      return pda.unlink(archive, filepath)
+      return pda.unlink(checkoutFS, filepath)
     })
   },
 
@@ -316,7 +322,7 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('searching for archive')
-      const {archive} = await lookupArchive(url)
+      const {archive, checkoutFS} = await lookupArchive(this.sender, url)
 
       pause() // dont count against timeout, there may be user prompts
       const senderOrigin = archivesDb.extractOrigin(this.sender.getURL())
@@ -327,7 +333,7 @@ module.exports = {
       resume()
 
       checkin('copying file')
-      return pda.copy(archive, filepath, dstpath)
+      return pda.copy(checkoutFS, filepath, dstpath)
     })
   },
 
@@ -335,7 +341,7 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('searching for archive')
-      const {archive} = await lookupArchive(url)
+      const {archive, checkoutFS} = await lookupArchive(this.sender, url)
 
       pause() // dont count against timeout, there may be user prompts
       await assertWritePermission(archive, this.sender)
@@ -345,7 +351,7 @@ module.exports = {
       resume()
 
       checkin('renaming file')
-      return pda.rename(archive, filepath, dstpath)
+      return pda.rename(checkoutFS, filepath, dstpath)
     })
   },
 
@@ -353,7 +359,7 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('searching for archive')
-      const {archive, version} = await lookupArchive(url)
+      const {archive, version} = await lookupArchive(this.sender, url)
       if (version) throw new Error('Not yet supported: can\'t download() old versions yet. Sorry!') // TODO
       if (archive.writable) {
         return // no need to download
@@ -368,7 +374,7 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('searching for archive')
-      const {checkoutFS} = await lookupArchive(url, opts)
+      const {checkoutFS} = await lookupArchive(this.sender, url, opts)
 
       checkin('reading directory')
       var names = await pda.readdir(checkoutFS, filepath, opts)
@@ -388,8 +394,8 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('searching for archive')
-      const {archive, version} = await lookupArchive(url)
-      if (version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
 
       pause() // dont count against timeout, there may be user prompts
       await assertWritePermission(archive, this.sender)
@@ -398,7 +404,7 @@ module.exports = {
       resume()
 
       checkin('making directory')
-      return pda.mkdir(archive, filepath)
+      return pda.mkdir(checkoutFS, filepath)
     })
   },
 
@@ -406,8 +412,8 @@ module.exports = {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {
       checkin('searching for archive')
-      const {archive, version} = await lookupArchive(url, opts)
-      if (version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url, opts)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
 
       pause() // dont count against timeout, there may be user prompts
       await assertWritePermission(archive, this.sender)
@@ -415,17 +421,21 @@ module.exports = {
       resume()
 
       checkin('removing directory')
-      return pda.rmdir(archive, filepath, opts)
+      return pda.rmdir(checkoutFS, filepath, opts)
     })
   },
 
   async watch (url, pathPattern) {
-    var {archive} = await lookupArchive(url)
+    var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
+    if (version === 'preview') {
+      // staging area
+      return pda.watch(checkoutFS, pathPattern)
+    }
     return pda.watch(archive, pathPattern)
   },
 
   async createNetworkActivityStream (url) {
-    var {archive} = await lookupArchive(url)
+    var {archive} = await lookupArchive(this.sender, url)
     return pda.createNetworkActivityStream(archive)
   },
 
@@ -456,8 +466,8 @@ module.exports = {
     if (!dstUrl || typeof dstUrl !== 'string') {
       throw new InvalidURLError('The second parameter of diff() must be a dat URL')
     }
-    var [src, dst] = await Promise.all([lookupArchive(srcUrl), lookupArchive(dstUrl)])
-    return pda.diff(src.archive, src.filepath, dst.archive, dst.filepath, opts)
+    var [src, dst] = await Promise.all([lookupArchive(this.sender, srcUrl), lookupArchive(this.sender, dstUrl)])
+    return pda.diff(src.checkoutFS, src.filepath, dst.checkoutFS, dst.filepath, opts)
   },
 
   async merge (srcUrl, dstUrl, opts) {
@@ -468,19 +478,19 @@ module.exports = {
     if (!dstUrl || typeof dstUrl !== 'string') {
       throw new InvalidURLError('The second parameter of merge() must be a dat URL')
     }
-    var [src, dst] = await Promise.all([lookupArchive(srcUrl), lookupArchive(dstUrl)])
+    var [src, dst] = await Promise.all([lookupArchive(this.sender, srcUrl), lookupArchive(this.sender, dstUrl)])
     if (!dst.archive.writable) throw new ArchiveNotWritableError('The destination archive is not writable')
-    if (dst.version) throw new ArchiveNotWritableError('Cannot modify a historic version')
-    return pda.merge(src.archive, src.filepath, dst.archive, dst.filepath, opts)
+    if (dst.isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
+    return pda.merge(src.checkoutFS, src.filepath, dst.checkoutFS, dst.filepath, opts)
   },
 
   async importFromFilesystem (opts) {
     assertTmpBeakerOnly(this.sender)
-    var {archive, filepath, version} = await lookupArchive(opts.dst, opts)
-    if (version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+    var {checkoutFS, filepath, isHistoric} = await lookupArchive(this.sender, opts.dst, opts)
+    if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
     return pda.exportFilesystemToArchive({
       srcPath: opts.src,
-      dstArchive: archive,
+      dstArchive: checkoutFS,
       dstPath: filepath,
       ignore: opts.ignore,
       inplaceImport: opts.inplaceImport !== false
@@ -495,7 +505,7 @@ module.exports = {
     // return
     // }
 
-    var {checkoutFS, filepath} = await lookupArchive(opts.src, opts)
+    var {checkoutFS, filepath} = await lookupArchive(this.sender, opts.src, opts)
     return pda.exportArchiveToFilesystem({
       srcArchive: checkoutFS,
       srcPath: filepath,
@@ -508,13 +518,13 @@ module.exports = {
 
   async exportToArchive (opts) {
     assertTmpBeakerOnly(this.sender)
-    var src = await lookupArchive(opts.src, opts)
-    var dst = await lookupArchive(opts.dst, opts)
-    if (dst.version) throw new ArchiveNotWritableError('Cannot modify a historic version')
+    var src = await lookupArchive(this.sender, opts.src, opts)
+    var dst = await lookupArchive(this.sender, opts.dst, opts)
+    if (dst.isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
     return pda.exportArchiveToArchive({
       srcArchive: src.checkoutFS,
       srcPath: src.filepath,
-      dstArchive: dst.archive,
+      dstArchive: dst.checkoutFS,
       dstPath: dst.filepath,
       ignore: opts.ignore,
       skipUndownloadedFiles: opts.skipUndownloadedFiles !== false
@@ -711,20 +721,18 @@ function normalizeFilepath (str) {
 // helper to handle the URL argument that's given to most args
 // - can get a dat hash, or dat url
 // - returns {archive, filepath, version}
-// - sets archive.checkoutFS to what's requested by version
+// - sets checkoutFS to what's requested by version
 // - throws if the filepath is invalid
-async function lookupArchive (url, opts = {}) {
+async function lookupArchive (sender, url, opts = {}) {
   // lookup the archive
   var {archiveKey, filepath, version} = await parseUrlParts(url)
   var archive = datLibrary.getArchive(archiveKey)
   if (!archive) archive = await datLibrary.loadArchive(archiveKey)
 
-  // set checkoutFS according to the version requested
-  var checkoutFS = (version)
-    ? archive.checkout(+version, {metadataStorageCacheSize: 0, contentStorageCacheSize: 0, treeCacheSize: 0})
-    : archive
+  // get specific checkout
+  var {checkoutFS, isHistoric, isPreview} = datLibrary.getArchiveCheckout(archive, version)
 
-  return {archive, filepath, version, checkoutFS}
+  return {archive, filepath, version, isHistoric, isPreview, checkoutFS}
 }
 
 async function lookupUrlDatKey (url) {
