@@ -20,9 +20,6 @@ module.exports = {
   publishLocalSyncPathListing: 'promise',
   revertLocalSyncPathListing: 'promise',
 
-  // preview dats
-  getPreviewDat: 'promise',
-
   // drafts
   getDraftInfo: 'promise',
   listDrafts: 'promise',

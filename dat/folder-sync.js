@@ -112,13 +112,6 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
     }
   }
 
-  if (archive.tmpPreviewArchive) {
-    // stop the temporary archive
-    let tmp = archive.tmpPreviewArchive
-    archive.tmpPreviewArchive = null // remove as tmp dat
-    await archivesDb.setUserSettings(0, tmp.key, {localSyncPath: '', autoPublishLocal: false}) // stop sync
-  }
-
   // start a new watch
   // =
 

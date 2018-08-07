@@ -576,7 +576,7 @@ async function assertWritePermission (archive, sender) {
   }
 
   // ensure we havent deleted the archive
-  if (!archive.isTemporary && !details.userSettings.isSaved) {
+  if (!details.userSettings.isSaved) {
     throw new ArchiveNotWritableError('This archive has been deleted. Restore it to continue making changes.')
   }
 
