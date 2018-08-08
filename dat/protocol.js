@@ -118,7 +118,7 @@ exports.electronHandler = async function (request, respond) {
   var filepath = decodeURIComponent(urlp.path)
   if (!filepath) filepath = '/'
   if (filepath.indexOf('?') !== -1) filepath = filepath.slice(0, filepath.indexOf('?')) // strip off any query params
-  var isFolder = filepath.endsWith('/')
+  var hasTrailingSlash = filepath.endsWith('/')
 
   // checkout version if needed
   var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
@@ -191,34 +191,42 @@ exports.electronHandler = async function (request, respond) {
       entry.path = path
     } catch (e) {}
   }
-  // detect if this is a folder without a trailing slash
-  if (!isFolder) {
-    await tryStat(filepath)
-    if (entry && entry.isDirectory()) {
-      cleanup()
-      return respond({
-        statusCode: 303,
-        headers: {
-          Location: `dat://${urlp.host}${urlp.pathname || ''}/${urlp.search || ''}`
-        },
-        data: intoStream('')
-      })
-    }
-  }
-  entry = false
-  // do actual lookup
-  if (isFolder) {
+
+  // do lookup
+  if (hasTrailingSlash) {
     await tryStat(filepath + 'index.html')
     await tryStat(filepath + 'index.md')
     await tryStat(filepath)
   } else {
     await tryStat(filepath)
     await tryStat(filepath + '.html') // fallback to .html
+    if (entry && entry.isDirectory()) {
+      // unexpected directory, give the .html fallback a chance
+      let dirEntry = entry
+      entry = null
+      await tryStat(filepath + '.html') // fallback to .html
+      if (dirEntry && !entry) {
+        // no .html fallback found, stick with directory that we found
+        entry = dirEntry
+      }
+    }
   }
 
   // handle folder
   if (entry && entry.isDirectory()) {
     cleanup()
+
+    // make sure there's a trailing slash
+    if (!hasTrailingSlash) {
+      return respond({
+        statusCode: 303,
+        headers: {
+          Location: `dat://${urlp.host}${urlp.version ? ('+' + urlp.version) : ''}${urlp.pathname || ''}/${urlp.search || ''}`
+        },
+        data: intoStream('')
+      })
+    }
+
     let headers = {
       'Content-Type': 'text/html',
       'Content-Security-Policy': cspHeader,
