@@ -781,6 +781,7 @@ function createReplicationStream (info) {
     }
     stream.once('error', onend)
     stream.once('end', onend)
+    stream.once('finish', onend)
     stream.once('close', onend)
   }
 
