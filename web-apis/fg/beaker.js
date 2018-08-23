@@ -40,6 +40,7 @@ exports.setup = function (rpc) {
     beaker.archives = new EventTarget()
     beaker.archives.status = archivesRPC.status
     beaker.archives.add = archivesRPC.add
+    beaker.archives.setUserSettings = archivesRPC.setUserSettings
     beaker.archives.remove = archivesRPC.remove
     beaker.archives.bulkRemove = archivesRPC.bulkRemove
     beaker.archives.delete = archivesRPC.delete

@@ -33,6 +33,11 @@ module.exports = {
   // local cache management and querying
   // =
 
+  async setUserSettings (url, opts) {
+    var key = datLibrary.fromURLToKey(url)
+    return archivesDb.setUserSettings(0, key, opts)
+  },
+
   async add (url, opts = {}) {
     var key = datLibrary.fromURLToKey(url)
 

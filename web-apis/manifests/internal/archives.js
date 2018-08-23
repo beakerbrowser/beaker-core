@@ -3,6 +3,7 @@ module.exports = {
   status: 'promise',
 
   // local cache management and querying
+  setUserSettings: 'promise',
   add: 'promise',
   remove: 'promise',
   bulkRemove: 'promise',
