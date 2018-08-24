@@ -79,6 +79,7 @@ exports.setup = function setup ({logfilePath}) {
       localSyncPath: userSettings.localSyncPath,
       autoPublishLocal: userSettings.autoPublishLocal
     }
+    archivesEvents.emit('updated', {details})
     if ('isSaved' in newUserSettings) {
       archivesEvents.emit(newUserSettings.isSaved ? 'added' : 'removed', {details})
     }

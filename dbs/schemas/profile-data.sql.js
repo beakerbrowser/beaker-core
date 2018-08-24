@@ -12,10 +12,10 @@ CREATE TABLE archives (
   autoPublishLocal INTEGER DEFAULT 0, -- watch localSyncPath and automatically publish changes (1) or not (0)
   isSaved INTEGER, -- is this archive saved to our library?
   hidden INTEGER DEFAULT 0, -- should this archive be hidden in the library or select-archive modals? (this is useful for internal dats, such as drafts)
-  autoDownload INTEGER DEFAULT 1, -- optimistically download all available data (1) or sparsely download on demand (0)
-  autoUpload INTEGER DEFAULT 1,
-  networked INTEGER DEFAULT 1, -- get on the swarm (1) or do not replicate (0)
-  expiresAt INTEGER, -- remove from library at this time (used for temporary seeding)
+  networked INTEGER DEFAULT 1, -- join the swarm (1) or do not swarm (0)
+  autoDownload INTEGER DEFAULT 1, -- watch and download all available data (1) or sparsely download on demand (0)
+  autoUpload INTEGER DEFAULT 1, -- join the swarm at startup (1) or only swarm when visiting (0)
+  expiresAt INTEGER, -- change autoUpload to 0 at this time (used for temporary seeding)
   createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 
   localPath TEXT -- deprecated
