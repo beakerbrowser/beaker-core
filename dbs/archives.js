@@ -401,7 +401,7 @@ exports.setMeta = async function (key, value = {}) {
   }
 
   // extract the desired values
-  var {title, description, type, mtime, isOwner} = value
+  var {title, description, type, size, mtime, isOwner} = value
   title = typeof title === 'string' ? title : ''
   description = typeof description === 'string' ? description : ''
   if (typeof type === 'string') type = type.split(' ')
@@ -414,9 +414,9 @@ exports.setMeta = async function (key, value = {}) {
   try {
     await db.run(`
       INSERT OR REPLACE INTO
-        archives_meta (key, title, description, mtime, isOwner, lastAccessTime, lastLibraryAccessTime)
-        VALUES        (?,   ?,     ?,           ?,     ?,       ?,              ?)
-    `, [key, title, description, mtime, isOwner, lastAccessTime, lastLibraryAccessTime])
+        archives_meta (key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime)
+        VALUES        (?,   ?,     ?,           ?,     ?,    ?,       ?,              ?)
+    `, [key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime])
     db.run(`DELETE FROM archives_meta_type WHERE key=?`, key)
     if (type) {
       await Promise.all(type.map(t => (
