@@ -84,7 +84,7 @@ exports.query = async function (profileId, query) {
     WHERE.push('archives_meta.key = ?')
     values.push(query.key)
   }
-  if (!query.showHidden) WHERE.push('archives.hidden = 0')
+  if (!query.showHidden) WHERE.push('(archives.hidden = 0 OR archives.hidden IS NULL)')
   if (WHERE.length) WHERE = `WHERE ${WHERE.join(' AND ')}`
   else WHERE = ''
 
