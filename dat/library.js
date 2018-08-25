@@ -536,11 +536,12 @@ exports.queryArchives = async function queryArchives (query) {
   archiveInfos.forEach(archiveInfo => {
     var archive = getArchive(archiveInfo.key)
     if (archive) {
+      archiveInfo.isSwarmed = archiveInfo.userSettings.networked
       archiveInfo.size = archive.size
       archiveInfo.peers = archive.metadata.peers.length
       archiveInfo.peerHistory = archive.peerHistory
     } else {
-      archiveInfo.size = 0
+      archiveInfo.isSwarmed = false
       archiveInfo.peers = 0
       archiveInfo.peerHistory = []
     }
