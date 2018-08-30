@@ -46,7 +46,7 @@
     "function-queue": "0.0.12",
     "hypercore-protocol": "^6.6.4",
     "hyperdrive": "^9.14.0",
-    "hyperdrive-to-zip-stream": "^2.0.0",
+    "hyperdrive-to-zip-stream": "^2.1.1",
     "identify-filetype": "^1.0.0",
     "into-stream": "^3.1.0",
     "lodash.debounce": "^4.0.8",

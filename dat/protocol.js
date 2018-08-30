@@ -159,7 +159,7 @@ exports.electronHandler = async function (request, respond) {
       })
     } else {
       // serve the zip
-      var zs = toZipStream(archive)
+      var zs = toZipStream(archive, filepath)
       zs.on('error', err => console.log('Error while producing .zip file', err))
       return respond({
         statusCode: 200,
