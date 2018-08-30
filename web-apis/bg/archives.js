@@ -154,8 +154,8 @@ module.exports = {
 
     // update the record
     var newValues = {localSyncPath}
-    if ('autoPublishLocal' in opts) {
-      newValues.autoPublishLocal = opts.autoPublishLocal
+    if ('previewMode' in opts) {
+      newValues.previewMode = opts.previewMode
     }
     await archivesDb.setUserSettings(0, key, newValues)
   },

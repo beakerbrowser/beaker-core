@@ -7,7 +7,7 @@ const fs = require('fs')
 const path = require('path')
 const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
-const archivesDb = require('../dbs/archives')
+const mkdirp = require('mkdirp')
 const settingsDb = require('../dbs/settings')
 const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
 const scopedFSes = require('../lib/scoped-fses')
@@ -54,7 +54,7 @@ exports.syncArchiveToFolderDebounced = function (archive, opts = {}) {
   if (archive.syncArchiveToFolderTimeout) {
     clearTimeout(archive.syncArchiveToFolderTimeout)
   }
-  var localSyncPath = archive.localSyncPath // capture this variable in case it changes on us
+  var localSyncPath = archive.localSyncSettings ? archive.localSyncSettings.path : false // capture this variable in case it changes on us
   archive.syncArchiveToFolderTimeout = setTimeout(async () => {
     // dont run if a folder->archive sync is happening due to a detected change
     if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
@@ -96,8 +96,20 @@ const ensureSyncFinished = exports.ensureSyncFinished = async function (archive)
 
 // attach/detach a watcher on the local folder and sync it to the dat
 exports.configureFolderToArchiveWatcher = async function (archive) {
-  console.log('configureFolderToArchiveWatcher()', archive.localSyncPath, !!archive.stopWatchingLocalFolder)
-  var wasWatching = !!archive.stopWatchingLocalFolder
+  console.log('configureFolderToArchiveWatcher()', archive.localSyncSettings, !!archive.stopWatchingLocalFolder)
+
+  // HACKish
+  // it's possible that configureFolderToArchiveWatcher() could be called multiple times in sequence
+  // (for instance because of multiple settings changes)
+  // this is problematic because the method is async, and a previous call may still be in progress
+  // shouldAbort() tracks whether such an event has occurred and lets you drop out
+  // put this after every await:
+  //
+  // if (shouldAbort()) return
+  //
+  // -prf
+  var callCount = archive.folderSyncConfig_CallCount = (archive.folderSyncConfig_CallCount || 0) + 1
+  const shouldAbort = () => callCount !== archive.folderSyncConfig_CallCount
 
   // teardown the existing watch (his watch has ended)
   // =
@@ -115,29 +127,36 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
   // start a new watch
   // =
 
-  if (archive.localSyncPath) {
-    if (!archive.autoPublishLocal) {
-      // do an add-only sync from archive->folder
+  if (archive.localSyncSettings) {
+    // create internal folder if needed
+    if (archive.localSyncSettings.isUsingInternal) {
+      mkdirp.sync(archive.localSyncSettings.path)
+    }
+
+    if (!archive.localSyncSettings.autoPublish) {
+      // no need to setup watcher
+      // just do an add-only sync from archive->folder
       await sync(archive, false, {shallow: false, addOnly: true})
+      if (shouldAbort()) return
     } else {
       // make sure the folder exists
-      let st = await stat(fs, archive.localSyncPath)
+      let st = await stat(fs, archive.localSyncSettings.path)
+      if (shouldAbort()) return
       if (!st) {
-        console.error('Local sync folder not found, aborting watch', archive.localSyncPath)
+        console.error('Local sync folder not found, aborting watch', archive.localSyncSettings.path)
       }
 
-      // sync up if just starting
-      if (!wasWatching) {
-        try {
-          await mergeArchiveAndFolder(archive, archive.localSyncPath)
-        } catch (e) {
-          console.error('Failed to merge local sync folder', e)
-        }
+      // sync up
+      try {
+        await mergeArchiveAndFolder(archive, archive.localSyncSettings.path)
+      } catch (e) {
+        console.error('Failed to merge local sync folder', e)
       }
+      if (shouldAbort()) return
 
       // start watching
       var isSyncing = false
-      var localSyncPath = archive.localSyncPath // capture this variable in case it changes on us
+      var localSyncPath = archive.localSyncSettings.path // capture this variable in case it changes on us
       var scopedFS = scopedFSes.get(localSyncPath)
       archive.stopWatchingLocalFolder = scopedFS.watch('/', path => {
         // TODO
@@ -191,7 +210,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
 //   - paths: Array<string>, a whitelist of files to compare
 //   - localSyncPath: string, override the archive localSyncPath
 exports.diffListing = async function (archive, opts = {}) {
-  var localSyncPath = opts.localSyncPath || archive.localSyncPath
+  var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
   if (!localSyncPath) return console.log(new Error('diffListing() aborting, no localSyncPath')) // sanity check
   var scopedFS = scopedFSes.get(localSyncPath)
   opts = massageDiffOpts(opts)
@@ -211,8 +230,8 @@ exports.diffListing = async function (archive, opts = {}) {
 // diff an individual file
 // - filepath: string, the path of the file in the archive/folder
 exports.diffFile = async function (archive, filepath) {
-  if (!archive.localSyncPath) return console.log(new Error('diffFile() aborting, no localSyncPath')) // sanity check
-  var scopedFS = scopedFSes.get(archive.localSyncPath)
+  if (!archive.localSyncSettings.path) return console.log(new Error('diffFile() aborting, no localSyncPath')) // sanity check
+  var scopedFS = scopedFSes.get(archive.localSyncSettings.path)
   filepath = path.normalize(filepath)
 
   // check the filename to see if it's binary
@@ -317,7 +336,7 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
 async function sync (archive, toArchive, opts = {}) {
-  var localSyncPath = opts.localSyncPath || archive.localSyncPath
+  var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
   if (!localSyncPath) return console.log(new Error('sync() aborting, no localSyncPath')) // sanity check
 
   try {

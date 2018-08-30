@@ -51,6 +51,7 @@
     "into-stream": "^3.1.0",
     "lodash.debounce": "^4.0.8",
     "lodash.get": "^4.4.2",
+    "lodash.isequal": "^4.5.0",
     "lodash.pick": "^4.4.0",
     "lodash.throttle": "^4.1.1",
     "mime": "^1.4.0",

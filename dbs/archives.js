@@ -33,6 +33,12 @@ const getArchiveMetaPath = exports.getArchiveMetaPath = function (archiveOrKey) 
   return path.join(datPath, 'Archives', 'Meta', key.slice(0, 2), key.slice(2))
 }
 
+// get the path to an archive's temporary local sync path
+const getInternalLocalSyncPath = exports.getInternalLocalSyncPath = function (archiveOrKey) {
+  var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)
+  return path.join(datPath, 'Archives', 'LocalCopy', key.slice(0, 2), key.slice(2))  
+}
+
 // delete all db entries and files for an archive
 exports.deleteArchive = async function (key) {
   const path = getArchiveMetaPath(key)
@@ -41,7 +47,8 @@ exports.deleteArchive = async function (key) {
     db.run(`DELETE FROM archives WHERE key=?`, key),
     db.run(`DELETE FROM archives_meta WHERE key=?`, key),
     db.run(`DELETE FROM archives_meta_type WHERE key=?`, key),
-    jetpack.removeAsync(path)
+    jetpack.removeAsync(path),
+    jetpack.removeAsync(getInternalLocalSyncPath(key))
   ])
   return info.size
 }
@@ -99,7 +106,7 @@ exports.query = async function (profileId, query) {
         archives.autoUpload,
         archives.expiresAt,
         archives.localSyncPath,
-        archives.autoPublishLocal
+        archives.previewMode
       FROM archives_meta
       LEFT JOIN archives ON archives.key = archives_meta.key
       LEFT JOIN archives_meta_type ON archives_meta_type.key = archives_meta.key
@@ -120,7 +127,7 @@ exports.query = async function (profileId, query) {
       autoUpload: archive.autoUpload != 0,
       expiresAt: archive.expiresAt,
       localSyncPath: archive.localSyncPath,
-      autoPublishLocal: archive.autoPublishLocal != 0
+      previewMode: archive.previewMode == 1
     }
 
     // user settings
@@ -131,7 +138,7 @@ exports.query = async function (profileId, query) {
     delete archive.autoUpload
     delete archive.expiresAt
     delete archive.localSyncPath
-    delete archive.autoPublishLocal
+    delete archive.previewMode
 
     // deprecated attrs
     delete archive.createdByTitle
@@ -234,7 +241,7 @@ const getUserSettings = exports.getUserSettings = async function (profileId, key
     settings.networked = !!settings.networked
     settings.autoDownload = !!settings.autoDownload
     settings.autoUpload = !!settings.autoUpload
-    settings.autoPublishLocal = !!settings.autoPublishLocal
+    settings.previewMode = settings.previewMode == 1
     return settings
   } catch (e) {
     return {}
@@ -268,7 +275,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         autoUpload: ('autoUpload' in newValues) ? newValues.autoUpload : newValues.isSaved,
         expiresAt: newValues.expiresAt,
         localSyncPath: ('localSyncPath' in newValues) ? newValues.localSyncPath : '',
-        autoPublishLocal: ('autoPublishLocal' in newValues) ? newValues.autoPublishLocal : ''
+        previewMode: ('previewMode' in newValues) ? newValues.previewMode : ''
       }
       let valueArray = [
         profileId,
@@ -280,7 +287,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         flag(value.autoUpload),
         value.expiresAt,
         value.localSyncPath,
-        flag(value.autoPublishLocal)
+        flag(value.previewMode)
       ]
       await db.run(`
         INSERT INTO archives
@@ -294,13 +301,13 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
             autoUpload,
             expiresAt,
             localSyncPath,
-            autoPublishLocal
+            previewMode
           )
           VALUES (${valueArray.map(_ => '?').join(', ')})
       `, valueArray)
     } else {
       // update
-      let { isSaved, hidden, networked, autoDownload, autoUpload, expiresAt, localSyncPath, autoPublishLocal } = newValues
+      let { isSaved, hidden, networked, autoDownload, autoUpload, expiresAt, localSyncPath, previewMode } = newValues
       if (typeof isSaved === 'boolean') value.isSaved = isSaved
       if (typeof hidden === 'boolean') value.hidden = hidden
       if (typeof networked === 'boolean') value.networked = networked
@@ -308,7 +315,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
       if (typeof autoUpload === 'boolean') value.autoUpload = autoUpload
       if (typeof expiresAt === 'number') value.expiresAt = expiresAt
       if (typeof localSyncPath === 'string') value.localSyncPath = localSyncPath
-      if (typeof autoPublishLocal === 'boolean') value.autoPublishLocal = autoPublishLocal
+      if (typeof previewMode === 'boolean') value.previewMode = previewMode
       let valueArray = [
         flag(value.isSaved),
         flag(value.hidden),
@@ -317,7 +324,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         flag(value.autoUpload),
         value.expiresAt,
         value.localSyncPath,
-        flag(value.autoPublishLocal),
+        flag(value.previewMode),
         profileId,
         key
       ]
@@ -331,7 +338,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
             autoUpload = ?,
             expiresAt = ?,
             localSyncPath = ?,
-            autoPublishLocal = ?
+            previewMode = ?
           WHERE
             profileId = ? AND key = ?
       `, valueArray)

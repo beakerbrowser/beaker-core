@@ -8,8 +8,10 @@ CREATE TABLE profiles (
 CREATE TABLE archives (
   profileId INTEGER NOT NULL,
   key TEXT NOT NULL, -- dat key
-  localSyncPath TEXT, -- local FS file that the data is bidirectionally synced to
-  autoPublishLocal INTEGER DEFAULT 0, -- watch localSyncPath and automatically publish changes (1) or not (0)
+  
+  previewMode INTEGER, -- automatically publish changes (0) or write to local folder (1)
+  localSyncPath TEXT, -- custom local folder that the data is synced to
+
   isSaved INTEGER, -- is this archive saved to our library?
   hidden INTEGER DEFAULT 0, -- should this archive be hidden in the library or select-archive modals? (this is useful for internal dats, such as drafts)
   networked INTEGER DEFAULT 1, -- join the swarm (1) or do not swarm (0)
@@ -18,7 +20,8 @@ CREATE TABLE archives (
   expiresAt INTEGER, -- change autoUpload to 0 at this time (used for temporary seeding)
   createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 
-  localPath TEXT -- deprecated
+  localPath TEXT, -- deprecated
+  autoPublishLocal INTEGER DEFAULT 0 -- deprecated -- watch localSyncPath and automatically publish changes (1) or not (0)
 );
 
 CREATE TABLE archives_meta (

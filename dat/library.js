@@ -13,6 +13,7 @@ const CircularAppendFile = require('circular-append-file')
 const debug = require('../lib/debug-logger').debugLogger('dat')
 const throttle = require('lodash.throttle')
 const debounce = require('lodash.debounce')
+const isEqual = require('lodash.isequal')
 const pump = require('pump')
 const siteData = require('../dbs/sitedata')
 const settingsDb = require('../dbs/settings')
@@ -33,6 +34,7 @@ const {ThrottleGroup} = require('stream-throttle')
 
 // file modules
 const mkdirp = require('mkdirp')
+const jetpack = require('fs-jetpack')
 const scopedFSes = require('../lib/scoped-fses')
 
 // constants
@@ -77,7 +79,7 @@ exports.setup = function setup ({logfilePath}) {
       autoDownload: userSettings.autoDownload,
       autoUpload: userSettings.autoUpload,
       localSyncPath: userSettings.localSyncPath,
-      autoPublishLocal: userSettings.autoPublishLocal
+      previewMode: userSettings.previewMode
     }
     archivesEvents.emit('updated', {details})
     if ('isSaved' in newUserSettings) {
@@ -228,7 +230,7 @@ const createNewArchive = exports.createNewArchive = async function createNewArch
     isSaved: !(settings && settings.isSaved === false),
     networked: !(settings && settings.networked === false),
     hidden: settings && settings.hidden === true,
-    autoPublishLocal: settings && settings.autoPublishLocal === true,
+    previewMode: settings && settings.previewMode === true,
     localSyncPath: settings && settings.localSyncPath
   }
 
@@ -423,7 +425,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
-      if (archive.localSyncPath) {
+      if (archive.localSyncSettings) {
         folderSync.syncArchiveToFolder(archive, {paths: [path]})
       }
     }
@@ -453,9 +455,9 @@ const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheck
     let seq = parseInt(version)
     if (Number.isNaN(seq)) {
       if (version === 'preview') {
-        if (archive.localSyncPath) {
+        if (archive.localSyncSettings) {
           // checkout local sync path
-          checkoutFS = scopedFSes.get(archive.localSyncPath)
+          checkoutFS = scopedFSes.get(archive.localSyncSettings.path)
           isPreview = true
         } else {
           if (archive.writable) throw new Error('Can\'t preview: No local folder has been set for this site')
@@ -573,7 +575,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     autoUpload: userSettings.autoUpload,
     expiresAt: userSettings.expiresAt,
     localSyncPath: userSettings.localSyncPath,
-    autoPublishLocal: userSettings.autoPublishLocal
+    previewMode: userSettings.previewMode
   }
   meta.peers = archive.metadata.peers.length
   meta.peerInfo = getArchivePeerInfos(archive)
@@ -680,6 +682,26 @@ const fromKeyToURL = exports.fromKeyToURL = function fromKeyToURL (key) {
   return key
 }
 
+const getLocalSyncSettings = exports.getLocalSyncSettings = function getLocalSyncSettings (archive, userSettings) {
+  if (!archive.writable || !userSettings.isSaved) {
+    return false
+  }
+  if (userSettings.localSyncPath) {
+    return {
+      path: userSettings.localSyncPath,
+      autoPublish: !userSettings.previewMode
+    }
+  }
+  if (userSettings.previewMode) {
+    return {
+      path: archivesDb.getInternalLocalSyncPath(archive),
+      autoPublish: false,
+      isUsingInternal: true
+    }
+  }
+  return false
+}
+
 // internal methods
 // =
 
@@ -714,14 +736,17 @@ function configureAutoDownload (archive, userSettings) {
 }
 
 function configureLocalSync (archive, userSettings) {
-  let oldLocalSyncPath = archive.localSyncPath
-  let oldAutoPublishLocal = archive.autoPublishLocal
-  archive.localSyncPath = (userSettings.isSaved) ? userSettings.localSyncPath : false
-  archive.autoPublishLocal = (userSettings.isSaved) ? userSettings.autoPublishLocal : false
+  var oldLocalSyncSettings = archive.localSyncSettings
+  archive.localSyncSettings = getLocalSyncSettings(archive, userSettings)
 
-  if (archive.localSyncPath !== oldLocalSyncPath || archive.autoPublishLocal !== oldAutoPublishLocal) {
+  if (!isEqual(archive.localSyncSettings, oldLocalSyncSettings)) {
     // configure the local folder watcher if a change occurred
     folderSync.configureFolderToArchiveWatcher(archive)
+  }
+
+  if (!archive.localSyncSettings || !archive.localSyncSettings.isUsingInternal) {
+    // clear the internal directory if it's not in use
+    jetpack.removeAsync(archivesDb.getInternalLocalSyncPath(archive))
   }
 }
 
