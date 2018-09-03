@@ -30,6 +30,7 @@ const hyperdrive = require('hyperdrive')
 // network modules
 const swarmDefaults = require('datland-swarm-defaults')
 const discoverySwarm = require('discovery-swarm')
+const networkSpeed = require('hyperdrive-network-speed')
 const {ThrottleGroup} = require('stream-throttle')
 
 // file modules
@@ -376,6 +377,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   })
   archive.metadata.on('peer-add', () => onNetworkChanged(archive))
   archive.metadata.on('peer-remove', () => onNetworkChanged(archive))
+  archive.networkStats = networkSpeed(archive)
   archive.replicationStreams = [] // list of all active replication streams
   archive.peerHistory = [] // samples of the peer count
 
@@ -580,6 +582,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   meta.peers = archive.metadata.peers.length
   meta.peerInfo = getArchivePeerInfos(archive)
   meta.peerHistory = archive.peerHistory
+  meta.networkStats = archive.networkStats
 
   return meta
 }
