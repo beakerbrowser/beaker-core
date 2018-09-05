@@ -10,6 +10,7 @@ const pda = require('pauls-dat-api')
 const mkdirp = require('mkdirp')
 const settingsDb = require('../dbs/settings')
 const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
+const lock = require('../lib/lock')
 const scopedFSes = require('../lib/scoped-fses')
 const {
   NotFoundError,
@@ -80,16 +81,11 @@ const syncFolderToArchive = exports.syncFolderToArchive = function (archive, opt
 
 // helper to wait for sync on an archive to be finished
 const ensureSyncFinished = exports.ensureSyncFinished = async function (archive) {
-  if (archive.syncFolderToArchiveTimeout || archive.syncArchiveToFolderTimeout) {
-    console.log('ensureSyncFinished() waiting to finish sync', !!archive.syncFolderToArchiveTimeout, !!archive.syncArchiveToFolderTimeout)
-    await new Promise((resolve) => {
-      // wait for 'sync' to be emitted for this key
-      events.once('sync:' + archive.key.toString('hex'), () => {
-        // wait for next tick to allow some internal management updates
-        // (not great code - we basically need the timeout to be cleared, and that happens after the event is emitted)
-        process.nextTick(resolve)
-      })
-    })
+  var isFinished
+  var release = await getArchiveSyncLock(archive)
+  try { isFinished = (archive._activeSyncs == 0) }
+  finally { release() }
+  if (!isFinished) {
     return ensureSyncFinished(archive) // check again
   }
 }
@@ -339,6 +335,8 @@ async function sync (archive, toArchive, opts = {}) {
   var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
   if (!localSyncPath) return console.log(new Error('sync() aborting, no localSyncPath')) // sanity check
 
+  archive._activeSyncs = (archive._activeSyncs || 0) + 1
+  var release = await getArchiveSyncLock(archive)
   try {
     var scopedFS = scopedFSes.get(localSyncPath)
     opts = massageDiffOpts(opts)
@@ -366,12 +364,21 @@ async function sync (archive, toArchive, opts = {}) {
     await dft.applyRight(left, right, diff)
     events.emit('sync', archive.key, toArchive ? 'archive' : 'folder')
     events.emit('sync:' + archive.key.toString('hex'), archive.key, toArchive ? 'archive' : 'folder')
+
+    // decrement active syncs
+    archive._activeSyncs--
   } catch (err) {
     console.error('Failed to sync archive to local path')
     console.error('- Archive:', archive.key.toString('hex'))
     console.error('- Path:', localSyncPath)
     console.error('- Error:', err)
+  } finally {
+    release()
   }
+}
+
+function getArchiveSyncLock (archive) {
+  return lock('sync:' + archive.key.toString('hex'))
 }
 
 // run the build-step, if npm and the package.json are setup
