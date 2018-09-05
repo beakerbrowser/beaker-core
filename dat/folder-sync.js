@@ -420,7 +420,7 @@ function makeDiffFilterByPaths (targetPaths) {
         // a file
         if (filepath === targetPath) return false
       }
-      if (targetPath.startsWith(filepath) && targetPath.charAt(filepath.length) === '/') {
+      if (targetPath.startsWith(filepath) && targetPath.charAt(filepath.length) === path.sep) {
         return false // a parent folder
       }
     }
