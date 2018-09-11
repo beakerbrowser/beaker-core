@@ -424,7 +424,7 @@ exports.setMeta = async function (key, value = {}) {
         archives_meta (key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime)
         VALUES        (?,   ?,     ?,           ?,     ?,    ?,       ?,              ?)
     `, [key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime])
-    db.run(`DELETE FROM archives_meta_type WHERE key=?`, key)
+    await db.run(`DELETE FROM archives_meta_type WHERE key=?`, key)
     if (type) {
       await Promise.all(type.map(t => (
         db.run(`INSERT INTO archives_meta_type (key, type) VALUES (?, ?)`, [key, t])
