@@ -17,7 +17,7 @@ module.exports = {
   getLogFilePath: debugLogger.getLogFilePath,
   getLogFileContent: debugLogger.getLogFileContent,
 
-  setup (opts) {
+  async setup (opts) {
     assert(typeof opts.userDataPath === 'string', 'userDataPath must be a string')
     assert(typeof opts.homePath === 'string', 'homePath must be a string')
     assert(typeof opts.templatesPath === 'string', 'templatesPath must be a string')
@@ -42,7 +42,7 @@ module.exports = {
     }
 
     // setup dat
-    dat.library.setup({logfilePath: join(globals.userDataPath, 'dat.log')})
+    await dat.library.setup({logfilePath: join(globals.userDataPath, 'dat.log')})
 
     // setup web apis
     webapis.setup(opts)

@@ -20,6 +20,7 @@ const settingsDb = require('../dbs/settings')
 
 // dat modules
 const archivesDb = require('../dbs/archives')
+const datStorage = require('./storage')
 const datGC = require('./garbage-collector')
 const folderSync = require('./folder-sync')
 const {addArchiveSwarmLogging} = require('./logging-utils')
@@ -66,7 +67,8 @@ var downThrottleGroup
 // exported API
 // =
 
-exports.setup = function setup ({logfilePath}) {
+exports.setup = async function setup ({logfilePath}) {
+  await datStorage.setup()
   debugLogFile = CircularAppendFile(logfilePath, {maxSize: 1024 /* 1kb */ * 1024 /* 1mb */ * 10 /* 10mb */ })
 
   // wire up event handlers
@@ -364,7 +366,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   mkdirp.sync(metaPath)
 
   // create the archive instance
-  var archive = hyperdrive(metaPath, key, {
+  var archive = hyperdrive(datStorage.create(metaPath), key, {
     sparse: true,
     secretKey,
     metadataStorageCacheSize: 0,
