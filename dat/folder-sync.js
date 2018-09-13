@@ -21,7 +21,7 @@ const {
   SourceTooLargeError
 } = require('beaker-error-constants')
 
-const MAX_DIFF_SIZE = bytes('1mb')
+const MAX_DIFF_SIZE = bytes('100kb')
 
 // exported api
 // =
