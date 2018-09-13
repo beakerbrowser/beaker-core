@@ -429,8 +429,16 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
-      if (archive.localSyncSettings) {
-        folderSync.syncArchiveToFolder(archive, {paths: [path]})
+      let syncSettings = archive.localSyncSettings
+      if (syncSettings) {
+        // need to sync this change to the local folder
+        if (syncSettings.autoPublish) {
+          // bidirectional sync: use the sync queue
+          folderSync.queueSyncEvent(archive, {toFolder: true})
+        } else {
+          // preview mode: just write this update to disk
+          folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
+        }
       }
     }
   })

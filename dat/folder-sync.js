@@ -35,37 +35,10 @@ const events = exports.events = new EventEmitter()
 //   - paths: Array<string>, a whitelist of files to compare
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
-exports.syncArchiveToFolder = function (archive, opts = {}) {
-  // dont run if a folder->archive sync is happening due to a detected change
-  if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
-
-  // run sync
+const syncArchiveToFolder = exports.syncArchiveToFolder = function (archive, opts = {}) {
   return sync(archive, false, opts)
 }
 
-// sync dat to the folder with a debounce of 1s
-// - opts
-//   - shallow: bool, dont descend into changed folders (default true)
-//   - compareContent: bool, compare the actual content (default true)
-//   - paths: Array<string>, a whitelist of files to compare
-//   - localSyncPath: string, override the archive localSyncPath
-//   - addOnly: bool, dont modify or remove any files (default false)
-exports.syncArchiveToFolderDebounced = function (archive, opts = {}) {
-  // debounce the handler
-  if (archive.syncArchiveToFolderTimeout) {
-    clearTimeout(archive.syncArchiveToFolderTimeout)
-  }
-  var localSyncPath = archive.localSyncSettings ? archive.localSyncSettings.path : false // capture this variable in case it changes on us
-  archive.syncArchiveToFolderTimeout = setTimeout(async () => {
-    // dont run if a folder->archive sync is happening due to a detected change
-    if (archive.syncFolderToArchiveTimeout) return console.log('Not running, locked')
-
-    // run sync
-    opts.localSyncPath = opts.localSyncPath || localSyncPath
-    await sync(archive, false, opts)
-    archive.syncArchiveToFolderTimeout = null
-  }, 1e3)
-}
 
 // sync folder to the dat
 // - opts
@@ -88,6 +61,64 @@ const ensureSyncFinished = exports.ensureSyncFinished = async function (archive)
   if (!isFinished) {
     return ensureSyncFinished(archive) // check again
   }
+}
+
+// queue a sync event from folder->archive or archive->folder
+// - debounces the sync event with a 500ms timeout
+// - call with toFolder: true to sync from archive->folder
+// - call with toArchive: true to sync from folder->archive
+// - if both toFolder && toArchive are queued, toArchive wins (local folder wins)
+// - this *will* result in lost changes in the archive if simultaneous changes happen in the local folder,
+//   but it creates very deterministic results
+const queueSyncEvent = exports.queueSyncEvent = function (archive, {toFolder, toArchive}) {
+  if (!archive.syncEventQueue) {
+    archive.syncEventQueue = newQueueObj()
+  }
+
+  // ignore if currently syncing
+  if (archive.syncEventQueue.isSyncing) return console.log('already syncing, ignored')
+
+  // debounce the handler
+  if (archive.syncEventQueue.timeout) {
+    clearTimeout(archive.syncEventQueue.timeout)
+  }
+
+  // queue
+  if (toFolder) archive.syncEventQueue.toFolder = true
+  if (toArchive) archive.syncEventQueue.toArchive = true
+  archive.syncEventQueue.timeout = setTimeout(async () => {
+    const localSyncPath = archive.localSyncSettings.path
+    const {toArchive, toFolder} = archive.syncEventQueue
+
+    // lock
+    archive.syncEventQueue.isSyncing = true
+    console.log('ok timed out, beginning sync', {toArchive, toFolder})
+
+    try {
+      let st = await stat(fs, localSyncPath)
+      if (!st) {
+        // folder has been removed
+        archive.stopWatchingLocalFolder()
+        archive.stopWatchingLocalFolder = null
+        console.error('Local sync folder not found, aborting watch', localSyncPath)
+        return
+      }
+      // sync with priority given to the local folder
+      if (toArchive) await syncFolderToArchive(archive, {localSyncPath, shallow: false})
+      else if (toFolder) await syncArchiveToFolder(archive, {localSyncPath, shallow: false})
+    } catch (e) {
+      console.error('Error syncing folder', localSyncPath, e)
+      if (e.name === 'CycleError') {
+        events.emit('error', archive.key, e)
+      }
+    } finally {
+      // reset the queue
+      archive.syncEventQueue = newQueueObj()
+    }
+  }, 500)
+}
+function newQueueObj () {
+  return {timeout: null, toFolder: false, toArchive: false, isSyncing: false}
 }
 
 // attach/detach a watcher on the local folder and sync it to the dat
@@ -114,9 +145,9 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
     // stop watching
     archive.stopWatchingLocalFolder()
     archive.stopWatchingLocalFolder = null
-    if (archive.syncFolderToArchiveTimeout) {
-      clearTimeout(archive.syncFolderToArchiveTimeout)
-      archive.syncFolderToArchiveTimeout = null
+    if (archive.syncEventQueue && archive.syncEventQueue.timeout) {
+      clearTimeout(archive.syncEventQueue.timeout)
+      archive.syncEventQueue = null
     }
   }
 
@@ -151,9 +182,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
       if (shouldAbort()) return
 
       // start watching
-      var isSyncing = false
-      var localSyncPath = archive.localSyncSettings.path // capture this variable in case it changes on us
-      var scopedFS = scopedFSes.get(localSyncPath)
+      var scopedFS = scopedFSes.get(archive.localSyncSettings.path)
       archive.stopWatchingLocalFolder = scopedFS.watch('/', path => {
         // TODO
         // it would be possible to make this more efficient by ignoring changes that match .datignore
@@ -164,36 +193,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
         // -prf
 
         console.log('changed detected', path)
-        // ignore if currently syncing
-        if (isSyncing) return console.log('already syncing, ignored')
-        // debounce the handler
-        if (archive.syncFolderToArchiveTimeout) {
-          clearTimeout(archive.syncFolderToArchiveTimeout)
-        }
-        archive.syncFolderToArchiveTimeout = setTimeout(async () => {
-          console.log('ok timed out')
-          isSyncing = true
-          try {
-            // await runBuild(archive)
-            let st = await stat(fs, localSyncPath)
-            if (!st) {
-              // folder has been removed
-              archive.stopWatchingLocalFolder()
-              archive.stopWatchingLocalFolder = null
-              console.error('Local sync folder not found, aborting watch', localSyncPath)
-              return
-            }
-            await syncFolderToArchive(archive, {localSyncPath, shallow: false})
-          } catch (e) {
-            console.error('Error syncing folder', localSyncPath, e)
-            if (e.name === 'CycleError') {
-              events.emit('error', archive.key, e)
-            }
-          } finally {
-            isSyncing = false
-            archive.syncFolderToArchiveTimeout = null
-          }
-        }, 500)
+        queueSyncEvent(archive, {toArchive: true})
       })
     }
   }
@@ -380,31 +380,6 @@ async function sync (archive, toArchive, opts = {}) {
 function getArchiveSyncLock (archive) {
   return lock('sync:' + archive.key.toString('hex'))
 }
-
-// run the build-step, if npm and the package.json are setup
-// async function runBuild (archive) {
-//   var localSyncPath = archive.localSyncPath
-//   if (!localSyncPath) return // sanity check
-//   var scopedFS = scopedFSes.get(localSyncPath)
-
-//   // read the package.json
-//   var packageJson
-//   try { packageJson = JSON.parse(await readFile(scopedFS, '/package.json')) } catch (e) { return /* abort */ }
-
-//   // make sure there's a watch-build script
-//   var watchBuildScript = _get(packageJson, 'scripts.watch-build')
-//   if (typeof watchBuildScript !== 'string') return
-
-//   // run the build script
-//   var res
-//   try {
-//     console.log('running watch-build')
-//     res = await exec('npm run watch-build', {cwd: localSyncPath})
-//   } catch (e) {
-//     res = e
-//   }
-//   await new Promise(r => scopedFS.writeFile(WATCH_BUILD_LOG_PATH, res, () => r()))
-// }
 
 function makeDiffFilterByPaths (targetPaths) {
   targetPaths = targetPaths.map(path.normalize)
