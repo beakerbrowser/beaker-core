@@ -14,6 +14,7 @@ const datLibrary = require('./library')
 const directoryListingPage = require('./directory-listing-page')
 const errorPage = require('../lib/error-page')
 const mime = require('../lib/mime')
+const {makeSafe} = require('../lib/strings')
 
 // HACK detect whether the native builds of some key deps are working -prf
 // -prf
@@ -100,7 +101,6 @@ exports.electronHandler = async function (request, respond) {
     var resource = archive ? 'page' : 'site'
     respondError(504, `Timed out searching for ${resource}`, {
       resource,
-      errorCode: 'dat-timeout',
       validatedURL: urlp.href
     })
   }, REQUEST_TIMEOUT_MS)
@@ -121,7 +121,22 @@ exports.electronHandler = async function (request, respond) {
   var hasTrailingSlash = filepath.endsWith('/')
 
   // checkout version if needed
-  var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
+  try {
+    var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
+  } catch (err) {
+    if (err.noPreviewMode) {
+      let latestUrl = makeSafe(request.url.replace('+preview', ''))
+      respondError(404, 'Cannot open preview', {
+        title: 'Cannot open preview',
+        errorInfo: `You are trying to open the "preview" version of this site, but no preview exists.`,
+        errorDescription: `<span>You can open the <a class="link" href="${latestUrl}">latest published version</a> instead.</span>`
+      })
+    } else {
+      debug('Failed to open archive', archiveKey, err)
+      cleanup()
+      return respondError(500, 'Failed')
+    }
+  }
 
   // read the manifest (it's needed in a couple places)
   var manifest

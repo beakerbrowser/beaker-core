@@ -464,8 +464,9 @@ const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheck
           checkoutFS = scopedFSes.get(archive.localSyncSettings.path)
           isPreview = true
         } else {
-          if (archive.writable) throw new Error('Can\'t preview: No local folder has been set for this site')
-          else throw new Error('Can\'t preview: Can only preview sites you own')
+          let err = new Error('Preview mode is not enabled for this dat')
+          err.noPreviewMode = true
+          throw err
         }
       } else {
         throw new Error('Invalid version identifier:' + version)
