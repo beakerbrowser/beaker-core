@@ -466,7 +466,9 @@ const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheck
   if (version) {
     let seq = parseInt(version)
     if (Number.isNaN(seq)) {
-      if (version === 'preview') {
+      if (version === 'latest') {
+        // ignore, we use latest by default
+      } else if (version === 'preview') {
         if (archive.localSyncSettings) {
           // checkout local sync path
           checkoutFS = scopedFSes.get(archive.localSyncSettings.path)
