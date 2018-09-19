@@ -17,7 +17,7 @@ const mime = require("../lib/mime")
 const { makeSafe } = require("../lib/strings")
 const rpc = require("./rpc")
 const { normalizeFilepath } = require("./util")
-const { timer } = require("./time")
+const { timer } = require("../lib/time")
 
 // HACK detect whether the native builds of some key deps are working -prf
 // -prf
@@ -61,6 +61,7 @@ function getReferrer() {
 
 exports.electronHandler = async function(request, respond) {
   try {
+    console.log(request)
     // validate request
     request.url = parseURL(request.url, true)
 
@@ -77,14 +78,16 @@ exports.electronHandler = async function(request, respond) {
     // const response = await request.handle(handler)
     respond(response)
   } catch (error) {
+    console.error(error)
     respond(error)
   }
 }
 
-const parseURL = async url => {
+const parseURL = url => {
   const datURL = parseDatUrl(url, true)
   if (!datURL.host) {
     throw formatError(404, "Archive Not Found", {
+      validatedURL: url,
       title: "Archive Not Found",
       errorDescription: "Invalid URL",
       errorInfo: `${url} is an invalid dat:// URL`
@@ -94,7 +97,7 @@ const parseURL = async url => {
   }
 }
 
-const resolveArchiveKey = async host => {
+const resolveArchiveKey = async ({host, href}) => {
   // resolve the name
   // (if it's a hostname, do a DNS lookup)
   try {
@@ -103,6 +106,7 @@ const resolveArchiveKey = async host => {
     })
   } catch (err) {
     throw formatError(404, `No DNS record found for ${host}`, {
+      validatedURL:href,
       errorDescription: "No DNS record found",
       errorInfo: `No DNS record found for dat://${host}`
     })
@@ -121,11 +125,13 @@ const openArchive = async archiveKey => {
 
 const getArchiveCheckout = async (archive, url, version) => {
   try {
-    var { checkoutFS } = datLibrary.getArchiveCheckout(archive, version)
+    const { checkoutFS } = datLibrary.getArchiveCheckout(archive, version)
+    return checkoutFS
   } catch (err) {
     if (err.noPreviewMode) {
       let latestUrl = makeSafe(url.replace("+preview", ""))
       throw formatError(404, "Cannot open preview", {
+        validatedURL:url.href,
         title: "Cannot open preview",
         errorInfo: `You are trying to open the "preview" version of this site, but no preview exists.`,
         errorDescription: `<span>You can open the <a class="link" href="${latestUrl}">latest published version</a> instead.</span>`
@@ -138,7 +144,7 @@ const getArchiveCheckout = async (archive, url, version) => {
 }
 
 const checkoutArchive = async url => {
-  const archiveKey = await resolveArchiveKey(url.host)
+  const archiveKey = await resolveArchiveKey(url)
   const archive = await openArchive(archiveKey)
   const checkoutFS = await getArchiveCheckout(archive, url.version)
   return checkoutFS
@@ -152,7 +158,7 @@ const readManifest = async checkoutFS => {
   }
 }
 
-const matchHandler = request => {
+const match = request => {
   const { query, pathname } = request.url
   switch (request.method) {
     case "GET": {
@@ -183,7 +189,7 @@ const matchHandler = request => {
     case "PUT": {
       if (query.directory) {
         return rpc.mkdir
-      } else if (url.pathname === "/dat.json") {
+      } else if (pathname === "/dat.json") {
         return rpc.configure
       } else {
         return rpc.writeFile
@@ -217,8 +223,8 @@ const matchHandler = request => {
   }
 }
 
-const selectMatchedEntry = (checkoutFS, manifest, url, enries) => {
-  for (const path of entries) {
+const selectMatchedEntry = (checkoutFS, manifest, url, paths) => {
+  for (const path of paths) {
     const entry = tryEntry(checkoutFS, manifest, url, path)
     if (entry) {
       return entry
@@ -227,11 +233,11 @@ const selectMatchedEntry = (checkoutFS, manifest, url, enries) => {
   return null
 }
 
-const tryEntry = async (checkoutFS, manifest, url, entry) => {
-  const path = resolveEntry(manifest, url, entry)
+const tryEntry = async (checkoutFS, manifest, url, filename) => {
+  const path = resolveEntry(manifest, url, filename)
   // attempt lookup
   try {
-    entry = await pda.stat(checkoutFS, path)
+    const entry = await pda.stat(checkoutFS, path)
     entry.path = path
     return entry
   } catch (_) {
@@ -260,10 +266,10 @@ const matchEntry = async (
   filepath
 ) => {
   const entry = hasTrailingSlash
-    ? matchDirectoryEntry(checkoutFS, manifest, url, filepath)
-    : matchFileEntry(checkoutFS, manifest, url, filepath)
+    ? await matchDirectoryEntry(checkoutFS, manifest, url, filepath)
+    : await matchFileEntry(checkoutFS, manifest, url, filepath)
 
-  return entry || matchFallbackEntry(checkoutFS, manifest, url)
+  return entry || await matchFallbackEntry(checkoutFS, manifest, url)
 }
 
 const matchDirectoryEntry = (checkoutFS, manifest, url, filepath) =>
@@ -315,9 +321,9 @@ const serveEntry = request =>
     const hasTrailingSlash = filepath.endsWith("/")
 
     // lookup entry
-    debug("Attempting to lookup", archiveKey, filepath)
-    checkin(`Attempting to lookup ${archiveKey} ${filepath}`)
-    const entry = matchEntry(
+    debug("Attempting to lookup", filepath)
+    checkin(`Attempting to lookup ${filepath}`)
+    const entry = await matchEntry(
       checkoutFS,
       manifest,
       url,
@@ -326,7 +332,7 @@ const serveEntry = request =>
     )
 
     if (!entry) {
-      return notFound(url.path)
+      return notFound(url)
     } else if (entry.isDirectory()) {
       // make sure there's a trailing slash
       if (hasTrailingSlash) {
@@ -342,7 +348,7 @@ const serveEntry = request =>
       }
     } else {
       checkin("reading file contents")
-      return await serveFile(request)
+      return await serveFile(checkoutFS, entry, manifest, request)
     }
   })
 
@@ -394,10 +400,11 @@ const redirect = url => ({
   data: intoStream("")
 })
 
-const notFound = path =>
+const notFound = url =>
   formatError(404, "File Not Found", {
+    validatedURL: url.href,
     errorDescription: "File Not Found",
-    errorInfo: `Beaker could not find the file ${path}`,
+    errorInfo: `Beaker could not find the file ${url.path}`,
     title: "File Not Found"
   })
 
@@ -413,7 +420,7 @@ const serveDirectory = async (checkoutFS, filepath, manifest) => ({
   )
 })
 
-const serveFile = request =>
+const serveFile = (checkoutFS, entry, manifest, request) =>
   new Promise(resolve => {
     // caching if-match
     // TODO
@@ -464,6 +471,7 @@ const serveFile = request =>
         headersSent = true
         Object.assign(headers, {
           "Content-Type": mimeType,
+          "Referrer-Policy": "origin",
           "Content-Security-Policy": formatCSP(manifest),
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age: 60"
@@ -474,7 +482,7 @@ const serveFile = request =>
           dataStream.destroy() // stop reading data
           resolve({ statusCode: 204, headers, data: intoStream("") })
         } else {
-          resolve({ statusCode, headers, data: dataStream })
+          resolve({ statusCode: 200, headers, data: dataStream })
         }
       })
     )
@@ -503,15 +511,18 @@ const serveFile = request =>
     })
   })
 
-const formatError = (code, status, errorPageInfo) => ({
-  statusCode: code,
-  headers: {
-    "Content-Type": "text/html",
-    "Content-Security-Policy": "default-src 'unsafe-inline' beaker:;",
-    "Access-Control-Allow-Origin": "*"
-  },
-  data: intoStream(errorPage(errorPageInfo || `${code} ${status}`))
-})
+const formatError = (code, status, errorPageInfo) => {
+  errorPageInfo.errorCode = code
+  return {
+    statusCode: code,
+    headers: {
+      "Content-Type": "text/html",
+      "Content-Security-Policy": "default-src 'unsafe-inline' beaker:;",
+      "Access-Control-Allow-Origin": "*"
+    },
+    data: intoStream(errorPage(errorPageInfo || `${code} ${status}`))
+  }
+}
 
 const formatCSP = manifest =>
   manifest && typeof manifest.content_security_policy === "string"

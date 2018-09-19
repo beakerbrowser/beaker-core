@@ -29,7 +29,7 @@ const DEFAULT_HEADERS = {
 }
 
 const RPC_HEADERS = {
-  "Content-Type": "appliaction/json",
+  "Content-Type": "application/json",
   "Content-Security-Policy": "default-src 'unsafe-inline' beaker:;",
   "Access-Control-Allow-Origin": "*"
 }
@@ -41,7 +41,7 @@ const EVENT_STREAM_HEADERS = {
 }
 
 // Data send back on successful operation
-const OK = { ok: true }
+const SUCCEED = { ok: true }
 
 const toStatusCode = error => {
   if (error instanceof TimeoutError) {
@@ -79,7 +79,7 @@ const formatError = error => ({
   data: intoStream(errorPage(error.message))
 })
 
-const formatJSON = (data = OK) => ({
+const formatJSON = (data = SUCCEED) => ({
   statusCode: OK,
   headers: RPC_HEADERS,
   data: intoStream(JSON.stringify(data))
@@ -160,11 +160,11 @@ const rpcWrapperWithRoot = method => async request => {
 
 const rpcWrapperWithFilePath = method => async request => {
   try {
-    const { url, filepath } = request
+    const { url } = request
     const json = await method.call(
       request,
       url.href,
-      filepath,
+      url.pathname,
       new Options(url.query)
     )
     return formatJSON(json)
@@ -175,10 +175,10 @@ const rpcWrapperWithFilePath = method => async request => {
 
 const rpcWrapperWithSource = method => async request => {
   try {
-    const { url, filepath } = request
+    const { url } = request
     const options = new Options(url.query)
     const { src } = options
-    const json = await method.call(request, url.href, src, filepath, options)
+    const json = await method.call(request, url.href, src, url.pathname, options)
     return formatJSON(json)
   } catch (error) {
     return formatError(error)
@@ -231,7 +231,7 @@ exports.writeFile = async request => {
   }
 }
 
-exports.fork = sync request => {
+exports.fork = async request => {
   try {
     const { query, href } = request.url
     const json = await datArchive.fork.call(
