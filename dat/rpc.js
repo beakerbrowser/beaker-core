@@ -10,7 +10,7 @@ const {
   ProtectedFileNotWritableError,
   InvalidPathError,
   TimeoutError
-} = require('beaker-error-constants')
+} = require("beaker-error-constants")
 
 const errorPage = require("../lib/error-page")
 const { PassThrough } = require("stream")
@@ -36,6 +36,8 @@ const RPC_HEADERS = {
 
 const EVENT_STREAM_HEADERS = {
   "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  "Connection": "keep-alive",
   "Content-Security-Policy": "default-src 'unsafe-inline' beaker:;",
   "Access-Control-Allow-Origin": "*"
 }
@@ -72,11 +74,18 @@ const toStatusCode = error => {
   return INTERNAL_SERVER_ERROR
 }
 
-
 const formatError = error => ({
   statusCode: toStatusCode(error),
   headers: RPC_HEADERS,
-  data: intoStream(errorPage(error.message))
+  data: intoStream(
+    JSON.stringify({
+      ok: false,
+      error: {
+        message: error.message,
+        stack: error.stack
+      }
+    })
+  )
 })
 
 const formatJSON = (data = SUCCEED) => ({
@@ -85,13 +94,19 @@ const formatJSON = (data = SUCCEED) => ({
   data: intoStream(JSON.stringify(data))
 })
 
-const formatEventSream = (stream) => {
+const formatEventStream = stream => {
   const data = new PassThrough()
-  stream.on("data", json=> data.push(JSON.stringify(json)))
+  stream.on("data", ([event, change]) => {
+    const chunk = `event: ${event}\ndata: ${JSON.stringify(change)}\n\n`
+    data.push(chunk)
+  })
+  data.once("error", () => stream.close())
+  data.once("finish", () => stream.close())
+  data.resume()
 
   return {
-    statusCode:OK,
-    headers:EVENT_STREAM_HEADERS,
+    statusCode: OK,
+    headers: EVENT_STREAM_HEADERS,
     data
   }
 }
@@ -114,10 +129,10 @@ class Options {
     return parseString(this.query.src)
   }
   get start() {
-    return parseInt(this.query.start)
+    return parseInteger(this.query.start)
   }
   get end() {
-    return parseInt(this.query.end)
+    return parseInteger(this.query.end)
   }
   get reverse() {
     return "reverse" in this.query
@@ -178,7 +193,13 @@ const rpcWrapperWithSource = method => async request => {
     const { url } = request
     const options = new Options(url.query)
     const { src } = options
-    const json = await method.call(request, url.href, src, url.pathname, options)
+    const json = await method.call(
+      request,
+      url.href,
+      src,
+      url.pathname,
+      options
+    )
     return formatJSON(json)
   } catch (error) {
     return formatError(error)
@@ -194,7 +215,7 @@ exports.download = rpcWrapperWithFilePath(datArchive.download)
 exports.readdir = rpcWrapperWithFilePath(datArchive.readdir)
 exports.mkdir = rpcWrapperWithFilePath(datArchive.mkdir)
 exports.copy = rpcWrapperWithSource(datArchive.copy)
-exports.move = rpcWrapperWithSource(datArchive.move)
+exports.rename = rpcWrapperWithSource(datArchive.rename)
 
 exports.createArchive = rpcWrapperStatic(datArchive.createArchive)
 exports.selectArchive = rpcWrapperStatic(datArchive.selectArchive)
@@ -217,15 +238,17 @@ exports.configure = async request => {
 
 exports.writeFile = async request => {
   try {
-    const { query, href } = request.url
+    const { query, href, pathname } = request.url
+    console.log("writeFile", request, request.uploadData)
     const { bytes } = request.uploadData
     const json = await datArchive.writeFile.call(
       request,
-      request.filepath,
+      pathname,
       bytes,
       new Options(query, "binary")
     )
     return formatJSON(json)
+
   } catch (error) {
     return formatError(error)
   }
@@ -247,9 +270,11 @@ exports.fork = async request => {
 
 exports.watch = async request => {
   try {
+    const options = new Options(request.url.query)
     const watcher = await datArchive.watch.call(
       request,
-      new Option(request.query)
+      request.url.href,
+      options.filter 
     )
 
     return formatEventStream(watcher)

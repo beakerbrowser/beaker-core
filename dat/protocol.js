@@ -55,19 +55,18 @@ const REQUEST_TIMEOUT_MS = 30e3 // 30 seconds
 // exported api
 // =
 
-function getReferrer() {
-  return this.referrer
+function getOrigin() {
+  return this.headers.Origin || ""
 }
 
 exports.electronHandler = async function(request, respond) {
   try {
-    console.log(request)
     // validate request
     request.url = parseURL(request.url, true)
 
     // patch request so that it is compatible with `this` in dat-archive.js
     request.sender = request
-    request.getURL = getReferrer
+    request.getURL = getOrigin
 
     const handler = match(request)
     const response = await handler(request)
@@ -164,13 +163,13 @@ const match = request => {
     case "GET": {
       if (query.download_as === "zip") {
         return downloadZip
-      } else if (query.directory) {
+      } else if ("directory" in query) {
         return rpc.readdir
-      } else if (query.watch && pathname === "/") {
+      } else if ("watch" in query && pathname === "/") {
         return rpc.watch
-      } else if (query.history && pathname === "/") {
+      } else if ("history" in query && pathname === "/") {
         return rpc.history
-      } else if (query.info && pathname === "/") {
+      } else if ("info" in query && pathname === "/") {
         return rpc.getInfo
       } else {
         return serveEntry
@@ -186,8 +185,9 @@ const match = request => {
     case "STAT": {
       return rpc.stat
     }
+    case "POST":
     case "PUT": {
-      if (query.directory) {
+      if ("directory" in query) {
         return rpc.mkdir
       } else if (pathname === "/dat.json") {
         return rpc.configure
@@ -196,7 +196,7 @@ const match = request => {
       }
     }
     case "DELETE": {
-      if (query.directory) {
+      if ("directory" in query) {
         return rpc.rmdir
       } else {
         return rpc.unlink
@@ -206,7 +206,7 @@ const match = request => {
       return rpc.copy
     }
     case "MOVE": {
-      return rpc.move
+      return rpc.rename
     }
     case "HISTORY": {
       return rpc.history
