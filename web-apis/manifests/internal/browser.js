@@ -1,6 +1,6 @@
 module.exports = {
   createEventsStream: 'readable',
-  getInfo: 'promise',
+  getInfo: 'sync',
   checkForUpdates: 'promise',
   restartBrowser: 'sync',
 
