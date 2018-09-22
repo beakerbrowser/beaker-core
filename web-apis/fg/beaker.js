@@ -66,11 +66,13 @@ exports.setup = function (rpc) {
     beaker.archives.clearDnsCache = archivesRPC.clearDnsCache
     beaker.archives.getDebugLog = archivesRPC.getDebugLog
     beaker.archives.createDebugStream = () => fromEventStream(archivesRPC.createDebugStream())
-    try {
-      bindEventStream(archivesRPC.createEventStream(), beaker.archives)
-    } catch (e) {
-      // permissions error
-    }
+    window.addEventListener('load', () => {
+      try {
+        bindEventStream(archivesRPC.createEventStream(), beaker.archives)
+      } catch (e) {
+        // permissions error
+      }
+    })
 
     // beaker.history
     beaker.history = {}
