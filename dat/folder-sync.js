@@ -8,6 +8,7 @@ const path = require('path')
 const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
 const mkdirp = require('mkdirp')
+const {toAnymatchRules} = require('@beaker/datignore')
 const settingsDb = require('../dbs/settings')
 const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
 const lock = require('../lib/lock')
@@ -290,17 +291,7 @@ const readDatIgnore = exports.readDatIgnore = async function (fs) {
     // TODO remove this? we're supposed to only use .datignore but many archives wont have one at first -prf
     rulesRaw = await settingsDb.get('default_dat_ignore')
   }
-  return rulesRaw.split('\n')
-    .filter(Boolean)
-    .map(rule => {
-      if (!rule.startsWith('/')) {
-        rule = '**/' + rule
-      }
-      rule = rule.replace(/\r/g, '') // strip windows \r newlines
-      return rule
-    })
-    .concat(['/.git', '/.dat'])
-    .map(path.normalize)
+  return toAnymatchRules(rulesRaw)
 }
 
 // merge the dat.json in the folder and then merge files, with preference to folder files
