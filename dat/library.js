@@ -472,6 +472,7 @@ const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheck
         if (archive.localSyncSettings) {
           // checkout local sync path
           checkoutFS = scopedFSes.get(archive.localSyncSettings.path)
+          checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
           isPreview = true
         } else {
           let err = new Error('Preview mode is not enabled for this dat')

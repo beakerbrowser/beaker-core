@@ -151,6 +151,10 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
       archive.syncEventQueue = null
     }
   }
+  if (archive.stopWatchingDatIgnore) {
+    archive.stopWatchingDatIgnore()
+    archive.stopWatchingDatIgnore = null
+  }
 
   // start a new watch
   // =
@@ -161,19 +165,26 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
       mkdirp.sync(archive.localSyncSettings.path)
     }
 
+    // make sure the folder exists
+    let st = await stat(fs, archive.localSyncSettings.path)
+    if (shouldAbort()) return
+    if (!st) {
+      console.error('Local sync folder not found, aborting watch', archive.localSyncSettings.path)
+    }
+    var scopedFS = scopedFSes.get(archive.localSyncSettings.path)
+
+    // track datignore rules
+    readDatIgnore(scopedFS).then(rules => { archive.datIgnoreRules = rules })
+    archive.stopWatchingDatIgnore = scopedFS.watch('/.datignore', async () => {
+      archive.datIgnoreRules = await readDatIgnore(scopedFS)
+    })
+
     if (!archive.localSyncSettings.autoPublish) {
       // no need to setup watcher
       // just do an add-only sync from archive->folder
       await sync(archive, false, {shallow: false, addOnly: true})
       if (shouldAbort()) return
     } else {
-      // make sure the folder exists
-      let st = await stat(fs, archive.localSyncSettings.path)
-      if (shouldAbort()) return
-      if (!st) {
-        console.error('Local sync folder not found, aborting watch', archive.localSyncSettings.path)
-      }
-
       // sync up
       try {
         await mergeArchiveAndFolder(archive, archive.localSyncSettings.path)
@@ -183,7 +194,6 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
       if (shouldAbort()) return
 
       // start watching
-      var scopedFS = scopedFSes.get(archive.localSyncSettings.path)
       archive.stopWatchingLocalFolder = scopedFS.watch('/', path => {
         // TODO
         // it would be possible to make this more efficient by ignoring changes that match .datignore
@@ -292,6 +302,14 @@ const readDatIgnore = exports.readDatIgnore = async function (fs) {
     rulesRaw = await settingsDb.get('default_dat_ignore')
   }
   return toAnymatchRules(rulesRaw)
+}
+
+// filter function used by scoped-fs to hide files in the datignore
+exports.applyDatIgnoreFilter = function (archive, filepath) {
+  const datIgnoreRules = archive.datIgnoreRules || toAnymatchRules('')
+  var filepaths = explodeFilePaths(filepath) // we need to check parent paths in addition to the target path
+  var res = filepaths.filter(p => anymatch(datIgnoreRules, p)).length === 0
+  return res
 }
 
 // merge the dat.json in the folder and then merge files, with preference to folder files
@@ -419,4 +437,15 @@ async function readFile (fs, filepath) {
       resolve(data || '')
     })
   })
+}
+
+// helper to go from '/foo/bar/baz' to ['/', '/foo', '/foo/bar', '/foo/bar/baz']
+function explodeFilePaths (str) {
+  str = str.replace(/^\/|\/$/g, '') // strip leading and trailing slashes
+  var paths = str.split('/')
+  let lastPath = ''
+  for (let i = 0; i < paths.length; i++) {
+    lastPath = paths[i] = `${lastPath}/${paths[i]}`
+  }
+  return paths
 }
