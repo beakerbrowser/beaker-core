@@ -69,7 +69,7 @@ var downThrottleGroup
 
 exports.setup = async function setup ({logfilePath}) {
   await datStorage.setup()
-  debugLogFile = CircularAppendFile(logfilePath, {maxSize: 1024 /* 1kb */ * 1024 /* 1mb */ * 10 /* 10mb */ })
+  debugLogFile = CircularAppendFile(logfilePath, {maxSize: 1024 /* 1kb */ * 1024 /* 1mb */ * 50 /* 50mb */ })
 
   // wire up event handlers
   archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {
