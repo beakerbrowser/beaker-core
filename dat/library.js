@@ -147,6 +147,7 @@ exports.setup = async function setup ({logfilePath}) {
   addArchiveSwarmLogging({archivesByDKey, log, archiveSwarm})
   archiveSwarm.once('error', () => archiveSwarm.listen(0))
   archiveSwarm.listen(DAT_SWARM_PORT)
+  archiveSwarm.on('error', error => log(null, {event: 'swarm-error', message: error.toString()}))
 
   // load and configure all saved archives
   archivesDb.query(0, {isSaved: true}).then(
@@ -374,8 +375,10 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
     treeCacheSize: 2048
   })
   archive.on('error', err => {
-    console.error('Error in archive', key.toString('hex'), err)
-    debug('Error in archive', key.toString('hex'), err)
+    let k = key.toString('hex')
+    log(k, {event: 'archive-error', message: err.toString()})
+    console.error('Error in archive', k, err)
+    debug('Error in archive', k, err)
   })
   archive.metadata.on('peer-add', () => onNetworkChanged(archive))
   archive.metadata.on('peer-remove', () => onNetworkChanged(archive))
@@ -441,12 +444,6 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
         }
       }
     }
-  })
-  archive.on('error', error => {
-    log(archive.key.toString('hex'), {
-      event: 'error',
-      message: error.toString()
-    })
   })
 
   // now store in main archives listing, as loaded
