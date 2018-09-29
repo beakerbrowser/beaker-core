@@ -177,8 +177,8 @@ exports.getDebugLog = function getDebugLog (key) {
     rs
       .pipe(split())
       .pipe(through({encoding: 'utf8', decodeStrings: false}, (data, _, cb) => {
-        if (data && data.startsWith(key)) {
-          return cb(null, data.slice(key.length) + '\n')
+        if (data && (!key || data.startsWith(key))) {
+          return cb(null, data.slice(64) + '\n')
         }
         cb()
       }))
@@ -886,7 +886,11 @@ function getArchivePeerInfos (archive) {
 function log (key, data) {
   var keys = Array.isArray(key) ? key : [key]
   debug(Object.keys(data).reduce((str, key) => str + `${key}=${data[key]} `, '') + `key=${keys.join(',')}`)
-  keys.forEach(k => debugEvents.emit(k, data))
+  keys.forEach(k => {
+    let data2 = Object.assign(data, {archiveKey: k})
+    debugEvents.emit(k, data2)
+    debugEvents.emit('all', data2)
+  })
   if (keys[0]) {
     debugLogFile.append(keys[0] + JSON.stringify(data) + '\n')
   }
