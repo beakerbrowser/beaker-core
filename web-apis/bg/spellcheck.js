@@ -3,6 +3,25 @@ const os = require('os')
 const semver = require('semver')
 const spellchecker = require('spellchecker')
 
+// Spellchecker thinks contractions are errors, silly spellchecker
+const SKIP_LIST = [
+  'ain',
+  'couldn',
+  'didn',
+  'doesn',
+  'hadn',
+  'hasn',
+  'mightn',
+  'mustn',
+  'needn',
+  'oughtn',
+  'shan',
+  'shouldn',
+  'wasn',
+  'weren',
+  'wouldn',
+]
+
 
 function setupLinux(locale) {
   // Load proper dictionary for locale
@@ -47,15 +66,27 @@ if (process.platform === 'linux') {
 
 module.exports = {
   async spellCheck(text) {
-    //..
+    return false
   },
   async isMisspelled(text) {
-    //..
+    const misspelled = spellchecker.isMisspelled(text);
+
+    // Makes everything faster.
+    if (!misspelled) {
+      return false;
+    }
+
+    // Check the locale and skip list.
+    if (locale.match(EN_VARIANT) && _.contains(SKIP_LIST, text)) {
+      return false;
+    }
+
+    return true;
   },
   async getSuggestions(text) {
-    //..
+    return spellchecker.getCorrectionsForMisspelling(text);
   },
-  async add(text) {
-    //..
+  add(text) {
+    spellchecker.add(text)
   }
 }
