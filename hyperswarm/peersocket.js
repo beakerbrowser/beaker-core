@@ -1,9 +1,8 @@
 const EventEmitter = require('events')
-const crypto = require('crypto')
 const createSwarm = require('@hyperswarm/network')
 const lpstream = require('length-prefixed-stream')
 const pump = require('pump')
-const sodium = require('sodium')
+const sodium = require('sodium-universal')
 const schemas = require('./peersocket-schemas')
 const {extractOrigin} = require('../../../lib/strings')
 
