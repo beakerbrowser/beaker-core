@@ -1,6 +1,7 @@
 const EventEmitter = require('events')
 const crypto = require('crypto')
 const createSwarm = require('@hyperswarm/network')
+const lpstream = require('length-prefixed-stream')
 const schemas = require('./peersocket-schemas')
 const {extractOrigin} = require('../../../lib/strings')
 
@@ -147,6 +148,8 @@ function handleConnection (swarm, socket, details) {
   if (lobby) {
     // create the connection
     var id = ++lobby.connIdCounter
+    var encoder = lpstream.encode()
+    var decoder = lpstream.decode()
     var conn = {
       id,
       socket,
@@ -155,9 +158,10 @@ function handleConnection (swarm, socket, details) {
     }
     lobby.connections.add(conn)
     lobby.emit('connection', {socketInfo: {id}})
+    encoder.pipe(socket).pipe(decoder)
 
     // wire up events
-    socket.on('data', message => {
+    decoder.on('data', message => {
       try {
         message = decodeMsg(message)
         conn.events.emit('message', {message})

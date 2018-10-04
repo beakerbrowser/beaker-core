@@ -50,7 +50,7 @@ module.exports = {
     var conn = getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
     if (conn) {
       return new Promise((resolve, reject) => {
-        conn.socket.write(PeerSocket.encodeMsg(data), err => {
+        conn.encoder.write(PeerSocket.encodeMsg(data), err => {
           if (err) {
             console.error('Error writing to PeerSocket', err)
             reject(new Error('Failed to send message'))

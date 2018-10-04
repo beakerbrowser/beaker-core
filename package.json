@@ -51,6 +51,7 @@
     "hyperdrive-to-zip-stream": "^2.1.1",
     "identify-filetype": "^1.0.0",
     "into-stream": "^3.1.0",
+    "length-prefixed-stream": "^1.6.0",
     "lodash.debounce": "^4.0.8",
     "lodash.get": "^4.4.2",
     "lodash.isequal": "^4.5.0",
