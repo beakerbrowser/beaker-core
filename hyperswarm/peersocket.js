@@ -3,6 +3,7 @@ const crypto = require('crypto')
 const createSwarm = require('@hyperswarm/network')
 const lpstream = require('length-prefixed-stream')
 const pump = require('pump')
+const sodium = require('sodium')
 const schemas = require('./peersocket-schemas')
 const {extractOrigin} = require('../../../lib/strings')
 
@@ -116,12 +117,10 @@ function decodeMsg (msg) {
 // internal methods
 // =
 
-function sha256 (str) {
-  return crypto.createHash('sha256').update(str).digest()
-}
-
 function createLobbyTopic (lobbyType, lobbyName) {
-  return sha256(`peersocket-${lobbyType}-${lobbyName}`)
+  var out = Buffer.allocUnsafe(32)
+  sodium.crypto_generichash(out, Buffer.from(`peersocket-${lobbyType}-${lobbyName}`, 'utf8'))
+  return out
 }
 
 function getSwarmId (sender, tabIdentity) {
