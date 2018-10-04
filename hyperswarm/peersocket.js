@@ -2,6 +2,7 @@ const EventEmitter = require('events')
 const crypto = require('crypto')
 const createSwarm = require('@hyperswarm/network')
 const lpstream = require('length-prefixed-stream')
+const pump = require('pump')
 const schemas = require('./peersocket-schemas')
 const {extractOrigin} = require('../../../lib/strings')
 
@@ -158,7 +159,13 @@ function handleConnection (swarm, socket, details) {
     }
     lobby.connections.add(conn)
     lobby.emit('connection', {socketInfo: {id}})
-    encoder.pipe(socket).pipe(decoder)
+
+    // wire up message-framers and handle close
+    pump(encoder, socket, decoder, err => {
+      if (err) console.log('PeerSocket connection error', err)        
+      lobby.connections.remove(conn)
+      conn.events.emit('close')
+    })
 
     // wire up events
     decoder.on('data', message => {
@@ -168,10 +175,6 @@ function handleConnection (swarm, socket, details) {
       } catch (e) {
         console.log('Failed to decode received PeerSocket message', e)
       }
-    })
-    socket.on('close', () => {
-      lobby.connections.remove(conn)
-      conn.events.emit('close')
     })
   }
 }
