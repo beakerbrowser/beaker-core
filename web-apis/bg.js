@@ -9,32 +9,32 @@ const bookmarksManifest = require('./manifests/internal/bookmarks')
 const downloadsManifest = require('./manifests/internal/downloads')
 const historyManifest = require('./manifests/internal/history')
 const sitedataManifest = require('./manifests/internal/sitedata')
-const spellcheckManifest = require('./manifests/internal/spellcheck')
 
 // internal apis
 const archivesAPI = require('./bg/archives')
 const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
-const spellcheckAPI = require('./bg/spellcheck')
 
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')
+const spellcheckManifest = require('./manifests/external/spellcheck')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
+const spellcheckAPI = require('./bg/spellcheck')
 
 // experimental manifests
-const experimentalLibraryManifest = require('./manifests/external/experimental/library')
-const experimentalGlobalFetchManifest = require('./manifests/external/experimental/global-fetch')
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
 const experimentalDatPeersManifest = require('./manifests/external/experimental/dat-peers')
+const experimentalGlobalFetchManifest = require('./manifests/external/experimental/global-fetch')
+const experimentalLibraryManifest = require('./manifests/external/experimental/library')
 
 // experimental apis
-const experimentalLibraryAPI = require('./bg/experimental/library')
-const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
 const experimentalCapturePageAPI = require('./bg/experimental/capture-page')
 const experimentalDatPeersAPI = require('./bg/experimental/dat-peers')
+const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
+const experimentalLibraryAPI = require('./bg/experimental/library')
 
 // exported api
 // =
@@ -47,16 +47,16 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('downloads', downloadsManifest, globals.downloadsWebAPI, internalOnly)
   globals.rpcAPI.exportAPI('history', historyManifest, historyAPI, internalOnly)
   globals.rpcAPI.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
-  globals.rpcAPI.exportAPI('spellcheck', spellcheckManifest, spellcheckAPI, internalOnly)
 
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
+  globals.rpcAPI.exportAPI('spellchecker', spellcheckManifest, spellcheckAPI, secureOnly)
 
   // experimental apis
-  globals.rpcAPI.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
-  globals.rpcAPI.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-dat-peers', experimentalDatPeersManifest, experimentalDatPeersAPI, secureOnly)
+  globals.rpcAPI.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
+  globals.rpcAPI.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
 }
 
 function internalOnly (event, methodName, args) {
