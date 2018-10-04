@@ -1,7 +1,7 @@
 module.exports = {
-  joinLobby: 'sync',
-  leaveLobby: 'sync',
-  getActiveConnectionsInLobby: 'sync',
+  joinLobby: 'async',
+  leaveLobby: 'async',
+  getActiveSocketsInLobby: 'sync',
   createLobbyEventStream: 'readable',
 
   socketSend: 'async',

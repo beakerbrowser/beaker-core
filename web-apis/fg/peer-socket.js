@@ -3,17 +3,20 @@ const {EventTarget, Event, fromEventStream} = require('./event-target')
 const LOBBY_EVENT_STREAM = new Symbol() // eslint-disable-line
 
 module.exports = function (peerSocketRPC) {
+  var TAB_IDENT = 0
+  var CAN_CHANGE_TAB_IDENT = true
+
   class PeerSocketLobby extends EventTarget {
-    constructor (type, id) {
+    constructor (type, name) {
       super()
-      this.id = id
+      setImmutableAttr(this, 'type', type)
+      setImmutableAttr(this, 'name', name)
       this.closed = false
-      peerSocketRPC.joinLobby(type, id)
 
       // wire up the events
-      var s = fromEventStream(peerSocketRPC.createLobbyEventStream(this.id))
+      var s = fromEventStream(peerSocketRPC.createLobbyEventStream(TAB_IDENT, this.type, this.name))
       s.addEventListener('connection', ({socketInfo}) => {
-        this.dispatchEvent(new Event('connection', {target: this, socket: new PeerSocket(socketInfo)}))
+        this.dispatchEvent(new Event('connection', {target: this, socket: new PeerSocket(this, socketInfo)}))
       })
       s.addEventListener('leave', () => {
         this.closed = true
@@ -23,47 +26,98 @@ module.exports = function (peerSocketRPC) {
     }
 
     getSockets () {
-      return Array.from(this)
+      return peerSocketRPC.getActiveSocketsInLobby(TAB_IDENT, this.type, this.name).map(si => new PeerSocket(this, si))
     }
 
-    leave () {
-      if (!this.closed) {
-        peerSocketRPC.leaveLobby(this.id)
-      }
+    async leave () {
+      await peerSocketRPC.leaveLobby(TAB_IDENT, this.type, this.name)
     }
 
-    *[Symbol.iterator]() {
-      var socketInfos = peerSocketRPC.getActiveConnectionsInLobby(this.id)
-      for (let socketInfo of socketInfos) {
-        yield new PeerSocket(socketInfo)
-      }
+    createSocketStream () {
+      var connectionEventHandler
+      return new ReadableStream({
+        start: (controller) => {
+          // handle socket events
+          connectionEventHandler = e => controller.enqueue(e.socket)
+          this.addEventListener('connection', connectionEventHandler))
+
+          // push all existing sockets
+          var sockets = this.getSockets()
+          sockets.forEach(socket => controller.enqueue(socket))
+        },
+        cancel: () => {
+          this.removeEventListener('connection', connectionEventHandler))
+        }
+      })
     }
   }
 
   class PeerSocket extends EventTarget {
-    constructor (socketInfo) {
+    constructor (lobby, socketInfo) {
       super()
-      this.id = socketInfo.id
+      setImmutableAttr(this, 'id', socketInfo.id)
+      setImmutableAttr(this, 'lobby', lobby)
 
       // wire up the events
-      var s = fromEventStream(peerSocketRPC.createSocketEventStream(this.id))
+      var s = fromEventStream(peerSocketRPC.createSocketEventStream(TAB_IDENT, this.lobby.type, this.lobby.name, this.id))
       s.addEventListener('message', ({message}) => this.dispatchEvent(new Event('message', {target: this, message})))
-      s.addEventListener('close', evt => this.dispatchEvent(new Event('close', {target: this})))
+      s.addEventListener('close', evt => {
+        this.dispatchEvent(new Event('close', {target: this}))
+        s.close()
+      })
     }
 
     // open lobby
-    static joinLobby (lobbyName) {
+    async static joinOpenLobby (lobbyName) {
+      // tab identities are now locked
+      CAN_CHANGE_TAB_IDENT = false
+
+      // join an instantiate
+      await peerSocketRPC.joinLobby(TAB_IDENT, 'open', lobbyName)
       return new PeerSocketLobby('open', lobbyName)
     }
 
     // origin-specific lobby
-    static joinSiteLobby () {
+    async static joinSiteLobby () {
+      // tab identities are now locked
+      CAN_CHANGE_TAB_IDENT = false
+
+      // join an instantiate
+      await peerSocketRPC.joinLobby(TAB_IDENT, 'origin', lobbyName)
       return new PeerSocketLobby('origin', window.location.origin)
     }
 
-    async send (data) {
-      peerSocketRPC.socketSend(this.id, data)
+    static setDebugIdentity (n) {
+      if (!CAN_CHANGE_TAB_IDENT) {
+        throw new Error('setDebugIdentity must be called before joining any lobbies')
+      }
+      TAB_IDENT = +n || 0
     }
+
+    async send (data) {
+      peerSocketRPC.socketSend(TAB_IDENT, this.lobby.type, this.lobby.name, this.id, data)
+    }
+
+    createMessageStream () {
+      var messageEventHandler
+      return new ReadableStream({
+        start: (controller) => {
+          messageEventHandler = e => controller.enqueue(e.message)
+          this.addEventListener('message', messageEventHandler))
+        },
+        cancel: () => {
+          this.removeEventListener('message', messageEventHandler))
+        }
+      })
+    }
+  }
+
+  function setImmutableAttr (obj, name, value) {
+    Object.defineProperty(obj, name, {
+      value,
+      enumerable: true,
+      writable: false
+    })
   }
 
   return PeerSocket

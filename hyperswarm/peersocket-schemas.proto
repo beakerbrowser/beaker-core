@@ -1,0 +1,4 @@
+message PeerSocketMessage {
+  optional string contentType = 1;
+  required bytes payload = 2;
+}
