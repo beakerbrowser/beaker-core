@@ -6,12 +6,14 @@ const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
 const dbs = require('./dbs')
 const webapis = require('./web-apis/bg')
+const spellChecker = require('./web-apis/bg/spell-checker')
 
 module.exports = {
   getEnvVar,
   globals,
   dat,
   dbs,
+  spellChecker,
 
   debugLogger: debugLogger.debugLogger,
   getLogFilePath: debugLogger.getLogFilePath,
