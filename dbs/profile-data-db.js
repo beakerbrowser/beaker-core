@@ -1,6 +1,5 @@
 const sqlite3 = require('sqlite3')
 const path = require('path')
-const fs = require('fs')
 const {cbPromise} = require('../lib/functions')
 const {setupSqliteDB} = require('../lib/db')
 

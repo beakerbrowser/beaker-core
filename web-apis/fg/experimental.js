@@ -60,7 +60,7 @@ exports.setup = function (rpc) {
         datPeersRPC.send(this.id, data)
       }
     }
-    function prepDatPeersEvents (event, details) {
+    const prepDatPeersEvents = (event, details) => {
       var peer = new DatPeer(details.peerId, details.sessionData)
       delete details.peerId
       delete details.sessionData

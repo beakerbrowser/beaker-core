@@ -4,7 +4,6 @@ const url = require('url')
 const { cbPromise } = require('../lib/functions')
 const { setupSqliteDB } = require('../lib/db')
 const datDns = require('../dat/dns')
-const datLibrary = require('../dat/library')
 
 // globals
 // =

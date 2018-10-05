@@ -1,3 +1,5 @@
+/* globals ReadableStream */
+
 const {EventTarget, Event, fromEventStream} = require('./event-target')
 
 const LOBBY_EVENT_STREAM = new Symbol() // eslint-disable-line
@@ -22,7 +24,7 @@ module.exports = function (peerSocketRPC) {
         this.closed = true
         s.close()
         this.dispatchEvent(new Event('leave'))
-      }
+      })
     }
 
     getSockets () {
@@ -39,14 +41,14 @@ module.exports = function (peerSocketRPC) {
         start: (controller) => {
           // handle socket events
           connectionEventHandler = e => controller.enqueue(e.socket)
-          this.addEventListener('connection', connectionEventHandler))
+          this.addEventListener('connection', connectionEventHandler)
 
           // push all existing sockets
           var sockets = this.getSockets()
           sockets.forEach(socket => controller.enqueue(socket))
         },
         cancel: () => {
-          this.removeEventListener('connection', connectionEventHandler))
+          this.removeEventListener('connection', connectionEventHandler)
         }
       })
     }
@@ -68,7 +70,7 @@ module.exports = function (peerSocketRPC) {
     }
 
     // open lobby
-    async static joinOpenLobby (lobbyName) {
+    static async joinOpenLobby (lobbyName) {
       // tab identities are now locked
       CAN_CHANGE_TAB_IDENT = false
 
@@ -78,12 +80,12 @@ module.exports = function (peerSocketRPC) {
     }
 
     // origin-specific lobby
-    async static joinSiteLobby () {
+    static async joinSiteLobby () {
       // tab identities are now locked
       CAN_CHANGE_TAB_IDENT = false
 
       // join an instantiate
-      await peerSocketRPC.joinLobby(TAB_IDENT, 'origin', lobbyName)
+      await peerSocketRPC.joinLobby(TAB_IDENT, 'origin', window.location.origin)
       return new PeerSocketLobby('origin', window.location.origin)
     }
 
@@ -103,10 +105,10 @@ module.exports = function (peerSocketRPC) {
       return new ReadableStream({
         start: (controller) => {
           messageEventHandler = e => controller.enqueue(e.message)
-          this.addEventListener('message', messageEventHandler))
+          this.addEventListener('message', messageEventHandler)
         },
         cancel: () => {
-          this.removeEventListener('message', messageEventHandler))
+          this.removeEventListener('message', messageEventHandler)
         }
       })
     }

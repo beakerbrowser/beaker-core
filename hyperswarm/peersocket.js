@@ -1,5 +1,5 @@
 const EventEmitter = require('events')
-const createSwarm = require('@hyperswarm/network')
+const createHyperswarmNetwork = require('@hyperswarm/network')
 const lpstream = require('length-prefixed-stream')
 const pump = require('pump')
 const sodium = require('sodium-universal')
@@ -71,7 +71,8 @@ function leaveLobby (sender, tabIdentity, lobbyType, lobbyName) {
   var swarm = getSwarm(sender, tabIdentity)
   if (swarm) {
     var topic = createLobbyTopic(lobbyType, lobbyName)
-    if (swarm.lobbies.has(topic)) {
+    var lobby = swarm.lobbies.get(topic)
+    if (lobby) {
       // leave the swarm topic and close all connections
       lobby.connections.forEach(({socket}) => socket.close())
       swarm.leave(topic)
@@ -82,11 +83,11 @@ function leaveLobby (sender, tabIdentity, lobbyType, lobbyName) {
 }
 
 function getLobbyConnection (sender, tabIdentity, lobbyType, lobbyName, socketId) {
-  var lobby = PeerSocket.getLobby(sender, tabIdentity, lobbyType, lobbyName)
+  var lobby = getLobby(sender, tabIdentity, lobbyType, lobbyName)
   if (lobby) {
-    return Array.fom(lobby.connections).find({id} => id === socketId)
+    return Array.from(lobby.connections).find(({id}) => id === socketId)
   }
-} 
+}
 
 function encodeMsg (payload) {
   var contentType
@@ -100,7 +101,6 @@ function encodeMsg (payload) {
 }
 
 function decodeMsg (msg) {
-  var payload
   msg = schemas.PeerSocketMessage.decode(msg)
   if (msg.contentType === 'application/json') {
     try {
@@ -132,7 +132,7 @@ function getSwarmId (sender, tabIdentity) {
 
 function createSwarm (sender, tabIdentity) {
   let swarmId = getSwarmId(sender, tabIdentity)
-  swarm = createSwarm({ephemeral: true})
+  var swarm = createHyperswarmNetwork({ephemeral: true})
   swarms.set(swarmId, swarm)
   swarm.lobbies = new Map()
 
@@ -160,7 +160,7 @@ function handleConnection (swarm, socket, details) {
 
     // wire up message-framers and handle close
     pump(encoder, socket, decoder, err => {
-      if (err) console.log('PeerSocket connection error', err)        
+      if (err) console.log('PeerSocket connection error', err)
       lobby.connections.remove(conn)
       conn.events.emit('close')
     })

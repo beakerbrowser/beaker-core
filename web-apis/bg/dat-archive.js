@@ -9,7 +9,6 @@ const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
-const scopedFSes = require('../../lib/scoped-fses')
 const {
   DAT_MANIFEST_FILENAME,
   DAT_CONFIGURABLE_FIELDS,
