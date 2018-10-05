@@ -366,7 +366,7 @@ module.exports = {
       }
 
       checkin('downloading file')
-      return pda.download(archive, filepath)
+      await pda.download(archive, filepath)
     })
   },
 
