@@ -3,8 +3,8 @@ const createHyperswarmNetwork = require('@hyperswarm/network')
 const lpstream = require('length-prefixed-stream')
 const pump = require('pump')
 const sodium = require('sodium-universal')
-const schemas = require('./peersocket-schemas')
-const {extractOrigin} = require('../../../lib/strings')
+const schemas = require('./peer-socket-schemas')
+const {extractOrigin} = require('../lib/strings')
 
 // globals
 // =
@@ -39,17 +39,15 @@ function getLobby (sender, tabIdentity, lobbyType, lobbyName) {
   var swarm = getSwarm(sender, tabIdentity)
   if (swarm) {
     var topic = createLobbyTopic(lobbyType, lobbyName)
-    if (swarm.lobbies.has(topic)) {
-      return swarm.lobbies.get(topic)
-    }
+    return swarm.lobbies.get(topic.toString('hex'))
   }
 }
 
 function getOrCreateLobby (sender, tabIdentity, lobbyType, lobbyName) {
-  var swarm = getSwarm(sender, tabIdentity)
+  var swarm = getOrCreateSwarm(sender, tabIdentity)
   if (swarm) {
     var topic = createLobbyTopic(lobbyType, lobbyName)
-    if (!swarm.lobbies.has(topic)) {
+    if (!swarm.lobbies.has(topic.toString('hex'))) {
       // create the lobby
       var lobby = Object.assign(new EventEmitter(), {
         topic,
@@ -58,12 +56,12 @@ function getOrCreateLobby (sender, tabIdentity, lobbyType, lobbyName) {
         connections: new Set(),
         connIdCounter: 0
       })
-      swarm.lobbies.set(topic, lobby)
+      swarm.lobbies.set(topic.toString('hex'), lobby)
 
       // join the swarm topic
       swarm.join(topic, {lookup: true, announce: true})
     }
-    return swarm.lobbies.get(topic)
+    return swarm.lobbies.get(topic.toString('hex'))
   }
 }
 
@@ -71,13 +69,13 @@ function leaveLobby (sender, tabIdentity, lobbyType, lobbyName) {
   var swarm = getSwarm(sender, tabIdentity)
   if (swarm) {
     var topic = createLobbyTopic(lobbyType, lobbyName)
-    var lobby = swarm.lobbies.get(topic)
+    var lobby = swarm.lobbies.get(topic.toString('hex'))
     if (lobby) {
       // leave the swarm topic and close all connections
       lobby.connections.forEach(({socket}) => socket.close())
       swarm.leave(topic)
       lobby.emit('leave')
-      swarm.lobbies.delete(topic)
+      swarm.lobbies.delete(topic.toString('hex'))
     }
   }
 }
@@ -140,10 +138,21 @@ function createSwarm (sender, tabIdentity) {
   swarm.on('connection', (socket, details) => {
     handleConnection(swarm, socket, details)
   })
+  return swarm
 }
 
 function handleConnection (swarm, socket, details) {
-  var lobby = swarm.lobbies.get(details.topic)
+  var topic
+  if (!details.peer) {
+    // DEBUG HACK
+    // if no peer info is available, fallback to the first available lobby
+    // this MUST BE FIXED upstream prior to merging
+    // -prf
+    topic = Array.from(swarm.lobbies.keys())[0]
+  } else {
+    topic = details.peer.topic.toString('hex')
+  }
+  var lobby = swarm.lobbies.get(topic)
   if (lobby) {
     // create the connection
     var id = ++lobby.connIdCounter
@@ -153,26 +162,28 @@ function handleConnection (swarm, socket, details) {
       id,
       socket,
       details,
+      encoder,
+      decoder,
       events: new EventEmitter()
     }
     lobby.connections.add(conn)
     lobby.emit('connection', {socketInfo: {id}})
+
+    // wire up events
+    decoder.on('data', message => {
+      try {
+        message = decodeMsg(message)
+        conn.events.emit('message', {message: message.payload})
+      } catch (e) {
+        console.log('Failed to decode received PeerSocket message', e)
+      }
+    })
 
     // wire up message-framers and handle close
     pump(encoder, socket, decoder, err => {
       if (err) console.log('PeerSocket connection error', err)
       lobby.connections.remove(conn)
       conn.events.emit('close')
-    })
-
-    // wire up events
-    decoder.on('data', message => {
-      try {
-        message = decodeMsg(message)
-        conn.events.emit('message', {message})
-      } catch (e) {
-        console.log('Failed to decode received PeerSocket message', e)
-      }
     })
   }
 }

@@ -1,6 +1,6 @@
 const emitStream = require('emit-stream')
 const globals = require('../../../globals')
-const PeerSocket = require('../../../hyperswarm/peersocket')
+const PeerSocket = require('../../../hyperswarm/peer-socket')
 
 // constants
 // =
@@ -17,12 +17,12 @@ module.exports = {
   async joinLobby (tabIdentity, lobbyType, lobbyName) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     PeerSocket.getOrCreateLobby(this.sender, tabIdentity, lobbyType, lobbyName)
-  }
+  },
 
   async leaveLobby (tabIdentity, lobbyType, lobbyName) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     PeerSocket.leaveLobby(this.sender, tabIdentity, lobbyType, lobbyName)
-  }
+  },
 
   getActiveSocketsInLobby (tabIdentity, lobbyType, lobbyName) {
     // NOTE
@@ -31,10 +31,10 @@ module.exports = {
     // -prf
     var lobby = PeerSocket.getLobby(this.sender, tabIdentity, lobbyType, lobbyName)
     if (lobby) {
-      return lobby.connections.map(({id}) => ({id})) // extract only the id
+      return Array.from(lobby.connections).map(({id}) => ({id})) // extract only the id
     }
     return []
-  }
+  },
 
   async createLobbyEventStream (tabIdentity, lobbyType, lobbyName) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
@@ -43,11 +43,11 @@ module.exports = {
       return emitStream(lobby)
     }
     throw new Error('Lobby is not active')
-  }
+  },
 
   async socketSend (tabIdentity, lobbyType, lobbyName, socketId, data) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
-    var conn = getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
+    var conn = PeerSocket.getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
     if (conn) {
       return new Promise((resolve, reject) => {
         conn.encoder.write(PeerSocket.encodeMsg(data), err => {
@@ -61,11 +61,11 @@ module.exports = {
       })
     }
     throw new Error('Socket is closed')
-  }
+  },
 
   async createSocketEventStream (tabIdentity, lobbyType, lobbyName, socketId) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
-    var conn = getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
+    var conn = PeerSocket.getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
     if (conn) {
       return emitStream(conn.events)
     }

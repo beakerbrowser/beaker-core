@@ -7,9 +7,8 @@ const experimentalLibraryManifest = require('../manifests/external/experimental/
 const experimentalGlobalFetchManifest = require('../manifests/external/experimental/global-fetch')
 const experimentalCapturePageManifest = require('../manifests/external/experimental/capture-page')
 const experimentalDatPeersManifest = require('../manifests/external/experimental/dat-peers')
-const experimentalPeerSocketManifest = require('../manifests/external/experimental/peer-socket')
 
-const createPeerSocketAPI = require('./peer-socket')
+const PeerSocketAPI = require('./peer-socket')
 
 exports.setup = function (rpc) {
   const experimental = {}
@@ -21,7 +20,6 @@ exports.setup = function (rpc) {
     const globalFetchRPC = rpc.importAPI('experimental-global-fetch', experimentalGlobalFetchManifest, opts)
     const capturePageRPC = rpc.importAPI('experimental-capture-page', experimentalCapturePageManifest, opts)
     const datPeersRPC = rpc.importAPI('experimental-dat-peers', experimentalDatPeersManifest, opts)
-    const peerSocketRPC = rpc.importAPI('experimental-peer-socket', experimentalPeerSocketManifest, opts)
 
     // experimental.library
     let libraryEvents = ['added', 'removed', 'updated', 'folder-synced', 'network-changed']
@@ -82,7 +80,7 @@ exports.setup = function (rpc) {
     experimental.datPeers.setSessionData = datPeersRPC.setSessionData
 
     // experimental.PeerSocket
-    experimental.PeerSocket = createPeerSocketAPI(peerSocketRPC)
+    experimental.PeerSocket = PeerSocketAPI.setup(rpc)
   }
 
   return experimental

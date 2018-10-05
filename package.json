@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "lint": "eslint . --ignore-pattern 'node_modules/*' --fix",
-    "protobuf": "protocol-buffers hyperswarm/peersocket-schemas.proto -o hyperswarm/peersocket-schemas.js"
+    "protobuf": "protocol-buffers hyperswarm/peer-socket-schemas.proto -o hyperswarm/peer-socket-schemas.js"
   },
   "pre-commit": [
     "lint"

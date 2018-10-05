@@ -1,12 +1,13 @@
 /* globals ReadableStream */
 
+const errors = require('beaker-error-constants')
 const {EventTarget, Event, fromEventStream} = require('./event-target')
+const experimentalPeerSocketManifest = require('../manifests/external/experimental/peer-socket')
 
-const LOBBY_EVENT_STREAM = new Symbol() // eslint-disable-line
-
-module.exports = function (peerSocketRPC) {
+exports.setup = function (rpc) {
   var TAB_IDENT = 0
   var CAN_CHANGE_TAB_IDENT = true
+  const peerSocketRPC = rpc.importAPI('experimental-peer-socket', experimentalPeerSocketManifest, {timeout: false, errors})
 
   class PeerSocketLobby extends EventTarget {
     constructor (type, name) {
@@ -18,6 +19,7 @@ module.exports = function (peerSocketRPC) {
       // wire up the events
       var s = fromEventStream(peerSocketRPC.createLobbyEventStream(TAB_IDENT, this.type, this.name))
       s.addEventListener('connection', ({socketInfo}) => {
+        console.log('new connection', socketInfo)
         this.dispatchEvent(new Event('connection', {target: this, socket: new PeerSocket(this, socketInfo)}))
       })
       s.addEventListener('leave', () => {
