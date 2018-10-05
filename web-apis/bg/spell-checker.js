@@ -1,4 +1,3 @@
-const spellchecker = require('spellchecker')
 const spellCheckerLib = require('../../lib/spell-checker')
 
 let self = module.exports = {
@@ -6,7 +5,7 @@ let self = module.exports = {
     return !self.isMisspelled(text)
   },
   isMisspelled(text) {
-    const misspelled = spellchecker.isMisspelled(text)
+    const misspelled = spellCheckerLib.spellchecker.isMisspelled(text)
 
     // Makes everything faster.
     if (!misspelled) {
@@ -14,16 +13,16 @@ let self = module.exports = {
     }
 
     // Check the locale and skip list.
-    if (locale.match(/^en/) && SKIP_LIST.includes(text)) {
+    if (spellCheckerLib.locale.match(/^en/) && spellCheckerLib.SKIP_LIST.includes(text)) {
       return false
     }
 
     return true
   },
   getSuggestions(text) {
-    return spellchecker.getCorrectionsForMisspelling(text)
+    return spellCheckerLib.spellchecker.getCorrectionsForMisspelling(text)
   },
   add(text) {
-    spellchecker.add(text)
+    spellCheckerLib.spellchecker.add(text)
   }
 }
