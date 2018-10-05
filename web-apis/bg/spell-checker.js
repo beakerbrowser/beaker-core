@@ -77,7 +77,7 @@ let self = module.exports = {
     }
 
     // Check the locale and skip list.
-    if (locale.match(EN_VARIANT) && _.contains(SKIP_LIST, text)) {
+    if (locale.match(/^en/) && SKIP_LIST.includes(text)) {
       return false
     }
 

@@ -4,4 +4,4 @@ exports.setup = function ({rpcAPI}) {
   webApis.setup({rpcAPI})
 }
 
-exports.createSpellChecker = require('./web-apis/fg/spellcheck')
+exports.createSpellChecker = require('./web-apis/fg/spell-checker')
