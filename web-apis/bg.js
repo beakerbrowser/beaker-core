@@ -50,7 +50,7 @@ exports.setup = function () {
 
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
-  globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI, secureOnly)
+  globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)

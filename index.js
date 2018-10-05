@@ -7,6 +7,7 @@ const dat = require('./dat')
 const dbs = require('./dbs')
 const webapis = require('./web-apis/bg')
 const spellChecker = require('./web-apis/bg/spell-checker')
+const spellCheckerLib = require('./lib/spell-checker')
 
 module.exports = {
   getEnvVar,
@@ -48,5 +49,8 @@ module.exports = {
 
     // setup web apis
     webapis.setup(opts)
+
+    // setup spellchecker
+    spellCheckerLib.setup()
   }
 }
