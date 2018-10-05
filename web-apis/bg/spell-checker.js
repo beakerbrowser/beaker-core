@@ -64,27 +64,27 @@ if (process.platform === 'linux') {
   console.info('Using OS spell check API')
 }
 
-module.exports = {
-  async spellCheck(text) {
-    return false
+let self = module.exports = {
+  spellCheck(text) {
+    return !self.isMisspelled(text)
   },
-  async isMisspelled(text) {
-    const misspelled = spellchecker.isMisspelled(text);
+  isMisspelled(text) {
+    const misspelled = spellchecker.isMisspelled(text)
 
     // Makes everything faster.
     if (!misspelled) {
-      return false;
+      return false
     }
 
     // Check the locale and skip list.
-    if (locale.match(EN_VARIANT) && _.contains(SKIP_LIST, text)) {
-      return false;
+    if (locale.match(/^en/) && SKIP_LIST.includes(text)) {
+      return false
     }
 
-    return true;
+    return true
   },
-  async getSuggestions(text) {
-    return spellchecker.getCorrectionsForMisspelling(text);
+  getSuggestions(text) {
+    return spellchecker.getCorrectionsForMisspelling(text)
   },
   add(text) {
     spellchecker.add(text)

@@ -7,7 +7,6 @@ const bookmarksManifest = require('../manifests/internal/bookmarks')
 const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
-const spellcheckManifest = require('../manifests/internal/spellcheck')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -21,7 +20,6 @@ exports.setup = function (rpc) {
     const downloadsRPC = rpc.importAPI('downloads', downloadsManifest, opts)
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
-    const spellcheckRPC = rpc.importAPI('spellChecker', spellcheckManifest, opts)
 
     // beaker.archives
     beaker.archives = new EventTarget()
@@ -137,13 +135,6 @@ exports.setup = function (rpc) {
     beaker.sitedata.setAppPermissions = sitedataRPC.setAppPermissions
     beaker.sitedata.clearPermission = sitedataRPC.clearPermission
     beaker.sitedata.clearPermissionAllOrigins = sitedataRPC.clearPermissionAllOrigins
-
-    // beaker.spellChecker
-    beaker.spellChecker = {}
-    beaker.spellChecker.spellCheck = spellcheckRPC.spellCheck
-    beaker.spellChecker.isMisspelled = spellcheckRPC.isMisspelled
-    beaker.spellChecker.getSuggestions = spellcheckRPC.getSuggestions
-    beaker.spellChecker.add = spellcheckRPC.add
   }
 
   return beaker
