@@ -16,7 +16,10 @@ const LAB_PERMS_OBJ = {perm: API_PERM_ID, labApi: LAB_API_ID, apiDocsUrl: API_DO
 module.exports = {
   async joinLobby (tabIdentity, lobbyType, lobbyName) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
-    PeerSocket.getOrCreateLobby(this.sender, tabIdentity, lobbyType, lobbyName)
+    var lobby = PeerSocket.getOrCreateLobby(this.sender, tabIdentity, lobbyType, lobbyName)
+    return {
+      sessionData: lobby.self.sessionData
+    }
   },
 
   async leaveLobby (tabIdentity, lobbyType, lobbyName) {
@@ -34,6 +37,11 @@ module.exports = {
       return Array.from(lobby.connections).map(({id}) => ({id})) // extract only the id
     }
     return []
+  },
+
+  async setLobbySessionData (tabIdentity, lobbyType, lobbyName, sessionData) {
+    await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
+    return PeerSocket.setLobbySessionData(this.sender, tabIdentity, lobbyType, lobbyName, sessionData)
   },
 
   async createLobbyEventStream (tabIdentity, lobbyType, lobbyName) {

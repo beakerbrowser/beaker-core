@@ -10,10 +10,17 @@ exports.setup = function (rpc) {
   const peerSocketRPC = rpc.importAPI('experimental-peer-socket', experimentalPeerSocketManifest, {timeout: false, errors})
 
   class PeerSocketLobby extends EventTarget {
-    constructor (type, name) {
+    constructor (type, name, lobbyInitInfo) {
       super()
       setImmutableAttr(this, 'type', type)
       setImmutableAttr(this, 'name', name)
+      this.self = {
+        sessionData: lobbyInitInfo.sessionData,
+        setSessionData: async (sessionData) => {
+          await peerSocketRPC.setLobbySessionData(TAB_IDENT, this.type, this.name, sessionData)
+          this.self.sessionData = sessionData
+        }
+      }
       this.closed = false
 
       // wire up the events
@@ -21,6 +28,9 @@ exports.setup = function (rpc) {
       s.addEventListener('connection', ({socketInfo}) => {
         console.log('new connection', socketInfo)
         this.dispatchEvent(new Event('connection', {target: this, socket: new PeerSocket(this, socketInfo)}))
+      })
+      s.addEventListener('self-session-data', ({sessionData}) => {
+        this.self.sessionData = sessionData
       })
       s.addEventListener('leave', () => {
         this.closed = true
@@ -61,10 +71,15 @@ exports.setup = function (rpc) {
       super()
       setImmutableAttr(this, 'id', socketInfo.id)
       setImmutableAttr(this, 'lobby', lobby)
+      this.sessionData = socketInfo.sessionData
 
       // wire up the events
       var s = fromEventStream(peerSocketRPC.createSocketEventStream(TAB_IDENT, this.lobby.type, this.lobby.name, this.id))
       s.addEventListener('message', ({message}) => this.dispatchEvent(new Event('message', {target: this, message})))
+      s.addEventListener('session-data', ({sessionData}) => {
+        this.sessionData = sessionData
+        this.dispatchEvent(new Event('session-data', {target: this, sessionData}))
+      })
       s.addEventListener('close', evt => {
         this.dispatchEvent(new Event('close', {target: this}))
         s.close()
@@ -77,8 +92,8 @@ exports.setup = function (rpc) {
       CAN_CHANGE_TAB_IDENT = false
 
       // join an instantiate
-      await peerSocketRPC.joinLobby(TAB_IDENT, 'open', lobbyName)
-      return new PeerSocketLobby('open', lobbyName)
+      var lobbyInitInfo = await peerSocketRPC.joinLobby(TAB_IDENT, 'open', lobbyName)
+      return new PeerSocketLobby('open', lobbyName, lobbyInitInfo)
     }
 
     // origin-specific lobby
@@ -87,8 +102,8 @@ exports.setup = function (rpc) {
       CAN_CHANGE_TAB_IDENT = false
 
       // join an instantiate
-      await peerSocketRPC.joinLobby(TAB_IDENT, 'origin', window.location.origin)
-      return new PeerSocketLobby('origin', window.location.origin)
+      var lobbyInitInfo = await peerSocketRPC.joinLobby(TAB_IDENT, 'origin', window.location.origin)
+      return new PeerSocketLobby('origin', window.location.origin, lobbyInitInfo)
     }
 
     static setDebugIdentity (n) {

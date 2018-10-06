@@ -9,7 +9,7 @@ const {extractOrigin} = require('../lib/strings')
 // constants
 // =
 
-const {MESSAGE, SESSION_DATA} = PeerSocket.schemas.PeerSocketMessageType
+const {MESSAGE, SESSION_DATA} = schemas.PeerSocketMessageType
 const MAX_SESSION_DATA_SIZE = 256 // bytes
 
 // globals
@@ -23,7 +23,7 @@ var swarms = new Map() // origin -> hyperswarm net instance
 module.exports = {
   getSwarm,
   getOrCreateSwarm,
-  
+
   getLobby,
   getOrCreateLobby,
   leaveLobby,
@@ -114,13 +114,14 @@ function setLobbySessionData (sender, tabIdentity, lobbyType, lobbyName, session
   // store & broadcast
   lobby.self.sessionData = sessionData
   lobby.connections.forEach(conn => sendSessionData(lobby, conn))
+  lobby.emit('self-session-data', {sessionData})
 
   return false
 }
 
 function sendMessage (conn, message) {
   return new Promise((resolve, reject) => {
-    conn.encoder.write(PeerSocket.encodeMessage(message), err => {
+    conn.encoder.write(encodeMessage(message), err => {
       if (err) {
         console.error('Error writing to PeerSocket', err)
         reject(new Error('Failed to send message'))
