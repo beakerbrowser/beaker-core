@@ -10,6 +10,7 @@ const {extractOrigin} = require('../lib/strings')
 // =
 
 const {MESSAGE, SESSION_DATA} = PeerSocket.schemas.PeerSocketMessageType
+const MAX_SESSION_DATA_SIZE = 256 // bytes
 
 // globals
 // =
@@ -27,12 +28,11 @@ module.exports = {
   getOrCreateLobby,
   leaveLobby,
   getLobbyConnection,
+  setLobbySessionData,
 
   sendMessage,
-  sendSessionData,
-
-  encodeMsg,
-  decodeMsg,
+  encodeMessage,
+  decodeMessage,
   schemas
 }
 
@@ -64,6 +64,9 @@ function getOrCreateLobby (sender, tabIdentity, lobbyType, lobbyName) {
         topic,
         name: lobbyName,
         type: lobbyType,
+        self: {
+          sessionData: null
+        },
         connections: new Set(),
         connIdCounter: 0
       })
@@ -98,54 +101,60 @@ function getLobbyConnection (sender, tabIdentity, lobbyType, lobbyName, socketId
   }
 }
 
-function sendMessage (conn, content) {
-  return new Promise((resolve, reject) => {
-    conn.encoder.write(PeerSocket.encodeMsg({messageType: MESSAGE, content}), err => {
-      if (err) {
-        console.error('Error writing to PeerSocket', err)
-        reject(new Error('Failed to send message'))
-      } else {
-        resolve()
-      }
-    })
-  })
-}
+function setLobbySessionData (sender, tabIdentity, lobbyType, lobbyName, sessionData) {
+  var lobby = getLobby(sender, tabIdentity, lobbyType, lobbyName)
+  if (!lobby) throw new Error('Lobby is not active')
 
-function sendSessionData (conn, sessionData) {
-  return new Promise((resolve, reject) => {
-    conn.encoder.write(PeerSocket.encodeMsg({messageType: SESSION_DATA, content}), err => {
-      if (err) {
-        console.error('Error writing to PeerSocket', err)
-        reject(new Error('Failed to send message'))
-      } else {
-        resolve()
-      }
-    })
-  })
-}
-
-function encodeMsg ({messageType, content}) {
-  var contentType
-  if (Buffer.isBuffer(content)) {
-    contentType = 'application/octet-stream'
-  } else {
-    contentType = 'application/json'
-    content = Buffer.from(JSON.stringify(content), 'utf8')
+  // validate session data
+  var len = Buffer.length(Buffer.isBuffer(sessionData) ? sessionData : Buffer.from(JSON.stringify(sessionData), 'utf8'))
+  if (len > MAX_SESSION_DATA_SIZE) {
+    throw new Error(`Session data is too large. The total size must be no greater than ${MAX_SESSION_DATA_SIZE} bytes.`)
   }
-  return schemas.PeerSocketMessage.encode({messageType, content, contentType})
+
+  // store & broadcast
+  lobby.self.sessionData = sessionData
+  lobby.connections.forEach(conn => sendSessionData(lobby, conn))
+
+  return false
 }
 
-function decodeMsg (msg) {
-  msg = schemas.PeerSocketMessage.decode(msg)
-  if (msg.contentType === 'application/json') {
-    try {
-      msg.content = JSON.parse(msg.content.toString('utf8'))
-    } catch (e) {
-      console.error('Failed to parse PeerSocket message', e, msg)
-      msg.content = null
+function sendMessage (conn, message) {
+  return new Promise((resolve, reject) => {
+    conn.encoder.write(PeerSocket.encodeMessage(message), err => {
+      if (err) {
+        console.error('Error writing to PeerSocket', err)
+        reject(new Error('Failed to send message'))
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+function encodeMessage (message) {
+  message.messageType = message.messageType || MESSAGE
+  if (message.content && !message.contentType) {
+    if (Buffer.isBuffer(message.content)) {
+      message.contentType = 'application/octet-stream'
+    } else {
+      message.contentType = 'application/json'
+      message.content = Buffer.from(JSON.stringify(message.content), 'utf8')
     }
   }
-  return msg
+  return schemas.PeerSocketMessage.encode(message)
+}
+
+function decodeMessage (message) {
+  message = schemas.PeerSocketMessage.decode(message)
+  if (message.contentType === 'application/json') {
+    try {
+      message.content = JSON.parse(message.content.toString('utf8'))
+    } catch (e) {
+      console.error('Failed to parse PeerSocket message', e, message)
+      message.content = null
+    }
+  }
+  return message
 }
 
 // internal methods
@@ -201,29 +210,22 @@ function handleConnection (swarm, socket, details) {
       details,
       encoder,
       decoder,
-      events: new EventEmitter()
+      events: new EventEmitter(),
+      sessionData: null
     }
     lobby.connections.add(conn)
     lobby.emit('connection', {socketInfo: {id}})
 
+    // send the handshake
+    // TODO- handshake message?
+
+    // send current session data
+    if (lobby.self.sessionData) {
+      sendSessionData(lobby, conn)
+    }
+
     // wire up events
-    decoder.on('data', message => {
-      try {
-        message = decodeMsg(message)
-        switch (message.messageType) {
-          case schemas.PeerSocketMessageType.MESSAGE:
-            conn.events.emit('message', {message: message.content})
-            break
-          case schemas.PeerSocketMessageType.SESSION_DATA:
-            // TODO
-            break
-          default:
-            throw new Error('Unknown message type: ' + message.messageType)
-        }
-      } catch (e) {
-        console.log('Failed to decode received PeerSocket message', e)
-      }
-    })
+    decoder.on('data', message => handleMessage(conn, message))
 
     // wire up message-framers and handle close
     pump(encoder, socket, decoder, err => {
@@ -231,5 +233,36 @@ function handleConnection (swarm, socket, details) {
       lobby.connections.remove(conn)
       conn.events.emit('close')
     })
+  }
+}
+
+function handleMessage (conn, message) {
+  try {
+    message = decodeMessage(message)
+    switch (message.messageType) {
+      case schemas.PeerSocketMessageType.MESSAGE:
+        conn.events.emit('message', {message: message.content})
+        break
+      case schemas.PeerSocketMessageType.SESSION_DATA:
+        conn.sessionData = message.content
+        conn.events.emit('session-data', {sessionData: message.content})
+        break
+      default:
+        throw new Error('Unknown message type: ' + message.messageType)
+    }
+  } catch (e) {
+    console.log('Failed to decode received PeerSocket message', e)
+  }
+}
+
+async function sendSessionData (lobby, conn) {
+  try {
+    sendMessage(conn, {
+      messageType: SESSION_DATA,
+      content: lobby.self.sessionData
+    })
+  } catch (e) {
+    console.log('Failed to send PeerSocket session data', e)
+    // TODO bubble error?
   }
 }

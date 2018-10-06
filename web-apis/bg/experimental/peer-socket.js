@@ -49,7 +49,7 @@ module.exports = {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var conn = PeerSocket.getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
     if (conn) {
-      return PeerSocket.sendMessage(conn, content)
+      return PeerSocket.sendMessage(conn, {content})
     }
     throw new Error('Socket is closed')
   },
