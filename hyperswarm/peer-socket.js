@@ -6,6 +6,11 @@ const sodium = require('sodium-universal')
 const schemas = require('./peer-socket-schemas')
 const {extractOrigin} = require('../lib/strings')
 
+// constants
+// =
+
+const {MESSAGE, SESSION_DATA} = PeerSocket.schemas.PeerSocketMessageType
+
 // globals
 // =
 
@@ -17,12 +22,18 @@ var swarms = new Map() // origin -> hyperswarm net instance
 module.exports = {
   getSwarm,
   getOrCreateSwarm,
+  
   getLobby,
   getOrCreateLobby,
   leaveLobby,
   getLobbyConnection,
+
+  sendMessage,
+  sendSessionData,
+
   encodeMsg,
-  decodeMsg
+  decodeMsg,
+  schemas
 }
 
 function getSwarm (sender, tabIdentity) {
@@ -87,25 +98,51 @@ function getLobbyConnection (sender, tabIdentity, lobbyType, lobbyName, socketId
   }
 }
 
-function encodeMsg (payload) {
+function sendMessage (conn, content) {
+  return new Promise((resolve, reject) => {
+    conn.encoder.write(PeerSocket.encodeMsg({messageType: MESSAGE, content}), err => {
+      if (err) {
+        console.error('Error writing to PeerSocket', err)
+        reject(new Error('Failed to send message'))
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+function sendSessionData (conn, sessionData) {
+  return new Promise((resolve, reject) => {
+    conn.encoder.write(PeerSocket.encodeMsg({messageType: SESSION_DATA, content}), err => {
+      if (err) {
+        console.error('Error writing to PeerSocket', err)
+        reject(new Error('Failed to send message'))
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+function encodeMsg ({messageType, content}) {
   var contentType
-  if (Buffer.isBuffer(payload)) {
+  if (Buffer.isBuffer(content)) {
     contentType = 'application/octet-stream'
   } else {
     contentType = 'application/json'
-    payload = Buffer.from(JSON.stringify(payload), 'utf8')
+    content = Buffer.from(JSON.stringify(content), 'utf8')
   }
-  return schemas.PeerSocketMessage.encode({contentType, payload})
+  return schemas.PeerSocketMessage.encode({messageType, content, contentType})
 }
 
 function decodeMsg (msg) {
   msg = schemas.PeerSocketMessage.decode(msg)
   if (msg.contentType === 'application/json') {
     try {
-      msg.payload = JSON.parse(msg.payload.toString('utf8'))
+      msg.content = JSON.parse(msg.content.toString('utf8'))
     } catch (e) {
       console.error('Failed to parse PeerSocket message', e, msg)
-      msg.payload = null
+      msg.content = null
     }
   }
   return msg
@@ -173,7 +210,16 @@ function handleConnection (swarm, socket, details) {
     decoder.on('data', message => {
       try {
         message = decodeMsg(message)
-        conn.events.emit('message', {message: message.payload})
+        switch (message.messageType) {
+          case schemas.PeerSocketMessageType.MESSAGE:
+            conn.events.emit('message', {message: message.content})
+            break
+          case schemas.PeerSocketMessageType.SESSION_DATA:
+            // TODO
+            break
+          default:
+            throw new Error('Unknown message type: ' + message.messageType)
+        }
       } catch (e) {
         console.log('Failed to decode received PeerSocket message', e)
       }

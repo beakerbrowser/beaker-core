@@ -45,20 +45,11 @@ module.exports = {
     throw new Error('Lobby is not active')
   },
 
-  async socketSend (tabIdentity, lobbyType, lobbyName, socketId, data) {
+  async socketSend (tabIdentity, lobbyType, lobbyName, socketId, content) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var conn = PeerSocket.getLobbyConnection(this.sender, tabIdentity, lobbyType, lobbyName, socketId)
     if (conn) {
-      return new Promise((resolve, reject) => {
-        conn.encoder.write(PeerSocket.encodeMsg(data), err => {
-          if (err) {
-            console.error('Error writing to PeerSocket', err)
-            reject(new Error('Failed to send message'))
-          } else {
-            resolve()
-          }
-        })
-      })
+      return PeerSocket.sendMessage(conn, content)
     }
     throw new Error('Socket is closed')
   },

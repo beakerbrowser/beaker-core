@@ -88,6 +88,7 @@
   },
   "devDependencies": {
     "eslint": "^5.6.1",
-    "pre-commit": "^1.2.2"
+    "pre-commit": "^1.2.2",
+    "protocol-buffers": "^4.1.0"
   }
 }

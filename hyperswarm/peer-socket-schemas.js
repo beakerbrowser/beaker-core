@@ -10,6 +10,11 @@ var encodings = require('protocol-buffers-encodings')
 var varint = encodings.varint
 var skip = encodings.skip
 
+exports.PeerSocketMessageType = {
+  "MESSAGE": 0,
+  "SESSION_DATA": 1
+}
+
 var PeerSocketMessage = exports.PeerSocketMessage = {
   buffer: true,
   encodingLength: null,
@@ -21,8 +26,9 @@ definePeerSocketMessage()
 
 function definePeerSocketMessage () {
   var enc = [
-    encodings.string,
-    encodings.bytes
+    encodings.enum,
+    encodings.bytes,
+    encodings.string
   ]
 
   PeerSocketMessage.encodingLength = encodingLength
@@ -31,13 +37,17 @@ function definePeerSocketMessage () {
 
   function encodingLength (obj) {
     var length = 0
-    if (defined(obj.contentType)) {
-      var len = enc[0].encodingLength(obj.contentType)
+    if (defined(obj.messageType)) {
+      var len = enc[0].encodingLength(obj.messageType)
       length += 1 + len
     }
-    if (!defined(obj.payload)) throw new Error("payload is required")
-    var len = enc[1].encodingLength(obj.payload)
+    if (!defined(obj.content)) throw new Error("content is required")
+    var len = enc[1].encodingLength(obj.content)
     length += 1 + len
+    if (defined(obj.contentType)) {
+      var len = enc[2].encodingLength(obj.contentType)
+      length += 1 + len
+    }
     return length
   }
 
@@ -45,15 +55,20 @@ function definePeerSocketMessage () {
     if (!offset) offset = 0
     if (!buf) buf = Buffer.allocUnsafe(encodingLength(obj))
     var oldOffset = offset
-    if (defined(obj.contentType)) {
-      buf[offset++] = 10
-      enc[0].encode(obj.contentType, buf, offset)
+    if (defined(obj.messageType)) {
+      buf[offset++] = 8
+      enc[0].encode(obj.messageType, buf, offset)
       offset += enc[0].encode.bytes
     }
-    if (!defined(obj.payload)) throw new Error("payload is required")
+    if (!defined(obj.content)) throw new Error("content is required")
     buf[offset++] = 18
-    enc[1].encode(obj.payload, buf, offset)
+    enc[1].encode(obj.content, buf, offset)
     offset += enc[1].encode.bytes
+    if (defined(obj.contentType)) {
+      buf[offset++] = 26
+      enc[2].encode(obj.contentType, buf, offset)
+      offset += enc[2].encode.bytes
+    }
     encode.bytes = offset - oldOffset
     return buf
   }
@@ -64,8 +79,9 @@ function definePeerSocketMessage () {
     if (!(end <= buf.length && offset <= buf.length)) throw new Error("Decoded message is not valid")
     var oldOffset = offset
     var obj = {
-      contentType: "",
-      payload: null
+      messageType: 0,
+      content: null,
+      contentType: ""
     }
     var found1 = false
     while (true) {
@@ -79,13 +95,17 @@ function definePeerSocketMessage () {
       var tag = prefix >> 3
       switch (tag) {
         case 1:
-        obj.contentType = enc[0].decode(buf, offset)
+        obj.messageType = enc[0].decode(buf, offset)
         offset += enc[0].decode.bytes
         break
         case 2:
-        obj.payload = enc[1].decode(buf, offset)
+        obj.content = enc[1].decode(buf, offset)
         offset += enc[1].decode.bytes
         found1 = true
+        break
+        case 3:
+        obj.contentType = enc[2].decode(buf, offset)
+        offset += enc[2].decode.bytes
         break
         default:
         offset = skip(prefix & 7, buf, offset)
