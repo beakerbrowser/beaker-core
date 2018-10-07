@@ -1,10 +1,10 @@
 module.exports = {
-  joinLobby: 'async',
-  leaveLobby: 'async',
+  joinLobby: 'promise',
+  leaveLobby: 'promise',
   getActiveSocketsInLobby: 'sync',
-  setLobbySessionData: 'async',
+  setLobbySessionData: 'promise',
   createLobbyEventStream: 'readable',
 
-  socketSend: 'async',
+  socketSend: 'promise',
   createSocketEventStream: 'readable'
 }
