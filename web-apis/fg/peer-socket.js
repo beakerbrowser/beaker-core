@@ -1,4 +1,4 @@
-/* globals ReadableStream */
+/* globals ReadableStream WritableStream */
 
 const errors = require('beaker-error-constants')
 const {EventTarget, Event, fromEventStream} = require('./event-target')
@@ -113,21 +113,37 @@ exports.setup = function (rpc) {
       TAB_IDENT = +n || 0
     }
 
-    async send (data) {
+    async write (data) {
       peerSocketRPC.socketSend(TAB_IDENT, this.lobby.type, this.lobby.name, this.id, data)
     }
 
-    createMessageStream () {
+    createReadStream () {
       var messageEventHandler
+      const cancel = () => this.removeEventListener('message', messageEventHandler)
       return new ReadableStream({
         start: (controller) => {
           messageEventHandler = e => controller.enqueue(e.message)
           this.addEventListener('message', messageEventHandler)
+          this.addEventListener('close', () => {
+            controller.close()
+            cancel()
+          })
         },
-        cancel: () => {
-          this.removeEventListener('message', messageEventHandler)
-        }
+        cancel
       })
+    }
+
+    createWriteStream () {
+      return new WritableStream({
+        write: (data) => this.write(data)
+        // NOTE
+        // currently not possible to close or cancel a peersocket
+        // -prf
+      })
+    }
+
+    createDuplexStream () {
+      return {readable: this.createReadStream(), writable: this.createWriteStream()}
     }
   }
 
