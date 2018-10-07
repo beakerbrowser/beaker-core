@@ -16,7 +16,7 @@ const LAB_PERMS_OBJ = {perm: API_PERM_ID, labApi: LAB_API_ID, apiDocsUrl: API_DO
 module.exports = {
   async joinLobby (tabIdentity, lobbyType, lobbyName) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
-    var lobby = PeerSocket.getOrCreateLobby(this.sender, tabIdentity, lobbyType, lobbyName)
+    var lobby = await PeerSocket.getOrCreateLobby(this.sender, tabIdentity, lobbyType, lobbyName)
     return {
       sessionData: lobby.self.sessionData
     }
