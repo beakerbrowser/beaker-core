@@ -36,7 +36,7 @@ const getArchiveMetaPath = exports.getArchiveMetaPath = function (archiveOrKey) 
 // get the path to an archive's temporary local sync path
 const getInternalLocalSyncPath = exports.getInternalLocalSyncPath = function (archiveOrKey) {
   var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)
-  return path.join(datPath, 'Archives', 'LocalCopy', key.slice(0, 2), key.slice(2))  
+  return path.join(datPath, 'Archives', 'LocalCopy', key.slice(0, 2), key.slice(2))
 }
 
 // delete all db entries and files for an archive

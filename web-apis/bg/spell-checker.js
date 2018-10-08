@@ -1,10 +1,10 @@
 const spellCheckerLib = require('../../lib/spell-checker')
 
 let self = module.exports = {
-  spellCheck(text) {
+  spellCheck (text) {
     return !self.isMisspelled(text)
   },
-  isMisspelled(text) {
+  isMisspelled (text) {
     const misspelled = spellCheckerLib.spellchecker.isMisspelled(text)
 
     // Makes everything faster.
@@ -19,10 +19,10 @@ let self = module.exports = {
 
     return true
   },
-  getSuggestions(text) {
+  getSuggestions (text) {
     return spellCheckerLib.spellchecker.getCorrectionsForMisspelling(text)
   },
-  add(text) {
+  add (text) {
     spellCheckerLib.spellchecker.add(text)
   }
 }

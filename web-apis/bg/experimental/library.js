@@ -93,7 +93,7 @@ module.exports = {
       apiDocsUrl: API_DOCS_URL,
       sender: this.sender
     })
-    var query = _pick(query, QUERY_FIELDS)
+    query = _pick(query, QUERY_FIELDS)
     var archives = await datLibrary.queryArchives(query)
     return archives.map(a => {
       a = _pick(a, ARCHIVE_FIELDS)

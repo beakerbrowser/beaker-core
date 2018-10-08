@@ -40,7 +40,6 @@ const syncArchiveToFolder = exports.syncArchiveToFolder = function (archive, opt
   return sync(archive, false, opts)
 }
 
-
 // sync folder to the dat
 // - opts
 //   - shallow: bool, dont descend into changed folders (default true)

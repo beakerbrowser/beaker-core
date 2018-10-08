@@ -8,7 +8,7 @@ exports.list = async function (profileId, masterKey) {
   // get draft list
   var records = await db.all(`SELECT draftKey as key FROM archive_drafts WHERE profileId = ? AND masterKey = ? ORDER BY createdAt`, [profileId, masterKey])
   // fetch full info from archives db
-  return Promise.all(records.map(async ({key}) => await archivesDb.query(profileId, {key, showHidden: true})))
+  return Promise.all(records.map(async ({key}) => archivesDb.query(profileId, {key, showHidden: true})))
 }
 
 exports.add = function (profileId, masterKey, draftKey) {

@@ -3,4 +3,4 @@ module.exports = {
     isMisspelled: 'sync',
     getSuggestions: 'sync',
     add: 'sync',
-}  
+}
