@@ -4,9 +4,12 @@
   "description": "Beaker browser's core software",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint index.js globals.js webview.js **/*.js */**/*.js --ignore-pattern 'node_modules/*' --fix --quiet",
+    "lint": "eslint . --ignore-pattern 'node_modules/*' --fix",
     "test": "ava ./*-test.js -s -T15000"
   },
+  "pre-commit": [
+    "lint"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/beakerbrowser/beaker-core.git"
@@ -78,5 +81,9 @@
     "textextensions": "^2.2.0",
     "through2": "^2.0.3",
     "utp-native": "^2.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "pre-commit": "^1.2.2"
   }
 }
