@@ -7,6 +7,7 @@ const concat = require('concat-stream')
 const pick = require('lodash.pick')
 const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
+const {normalizeFilepath} = require('../../dat/util')
 const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
 const scopedFSes = require('../../lib/scoped-fses')
@@ -708,14 +709,6 @@ async function parseUrlParts (url) {
     version = urlp.version
   }
   return {archiveKey, filepath, version}
-}
-
-function normalizeFilepath (str) {
-  str = decodeURIComponent(str)
-  if (str.charAt(0) !== '/') {
-    str = '/' + str
-  }
-  return str
 }
 
 // helper to handle the URL argument that's given to most args
