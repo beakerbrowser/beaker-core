@@ -34,7 +34,7 @@ function has (str, v) {
   return str.indexOf(v) !== -1
 }
 
-const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archivesByDKey, log, archiveSwarm}) {
+exports.addArchiveSwarmLogging = function ({archivesByDKey, log, archiveSwarm}) {
   archiveSwarm.on('listening', () => {
     archiveSwarm._discovery.dns.on('traffic', (type, details) => {
       let archive = archivesByDKey[getDNSMessageDiscoveryKey(archivesByDKey, details.message)]

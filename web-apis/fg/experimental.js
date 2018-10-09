@@ -8,6 +8,8 @@ const experimentalGlobalFetchManifest = require('../manifests/external/experimen
 const experimentalCapturePageManifest = require('../manifests/external/experimental/capture-page')
 const experimentalDatPeersManifest = require('../manifests/external/experimental/dat-peers')
 
+const PeerSocketAPI = require('./peer-socket')
+
 exports.setup = function (rpc) {
   const experimental = {}
   const opts = {timeout: false, errors}
@@ -56,7 +58,7 @@ exports.setup = function (rpc) {
         datPeersRPC.send(this.id, data)
       }
     }
-    function prepDatPeersEvents (event, details) {
+    const prepDatPeersEvents = (event, details) => {
       var peer = new DatPeer(details.peerId, details.sessionData)
       delete details.peerId
       delete details.sessionData
@@ -76,6 +78,9 @@ exports.setup = function (rpc) {
     experimental.datPeers.broadcast = datPeersRPC.broadcast
     experimental.datPeers.getSessionData = datPeersRPC.getSessionData
     experimental.datPeers.setSessionData = datPeersRPC.setSessionData
+
+    // experimental.PeerSocket
+    experimental.PeerSocket = PeerSocketAPI.setup(rpc)
   }
 
   return experimental

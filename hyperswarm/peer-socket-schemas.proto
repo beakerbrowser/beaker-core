@@ -1,0 +1,9 @@
+enum PeerSocketMessageType {
+  MESSAGE = 0;
+  SESSION_DATA = 1;
+}
+message PeerSocketMessage {
+  optional PeerSocketMessageType messageType = 1 [default = MESSAGE];
+  required bytes content = 2;
+  optional string contentType = 3;
+}

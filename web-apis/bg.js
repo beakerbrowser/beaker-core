@@ -29,12 +29,14 @@ const experimentalCapturePageManifest = require('./manifests/external/experiment
 const experimentalDatPeersManifest = require('./manifests/external/experimental/dat-peers')
 const experimentalGlobalFetchManifest = require('./manifests/external/experimental/global-fetch')
 const experimentalLibraryManifest = require('./manifests/external/experimental/library')
+const experimentalPeerSocketManifest = require('./manifests/external/experimental/peer-socket')
 
 // experimental apis
 const experimentalCapturePageAPI = require('./bg/experimental/capture-page')
 const experimentalDatPeersAPI = require('./bg/experimental/dat-peers')
 const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
 const experimentalLibraryAPI = require('./bg/experimental/library')
+const experimentalPeerSocketAPI = require('./bg/experimental/peer-socket')
 
 // exported api
 // =
@@ -57,6 +59,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('experimental-dat-peers', experimentalDatPeersManifest, experimentalDatPeersAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
+  globals.rpcAPI.exportAPI('experimental-peer-socket', experimentalPeerSocketManifest, experimentalPeerSocketAPI, secureOnly)
 }
 
 function internalOnly (event, methodName, args) {

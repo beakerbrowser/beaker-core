@@ -20,7 +20,7 @@ var supportsSparseFiles = false
 
 exports.setup = async function () {
   await new Promise((resolve) => {
-    detectSparseFiles(function (err, yes) {
+    detectSparseFiles(function (_, yes) {
       supportsSparseFiles = yes
       if (!yes) {
         debug('Sparse-file support not detected. Falling back to indexed data files.')

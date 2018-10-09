@@ -456,7 +456,7 @@ const getArchive = exports.getArchive = function getArchive (key) {
   return archives[key]
 }
 
-const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
+exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
   var isHistoric = false
   var isPreview = false
   var checkoutFS = archive

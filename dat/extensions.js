@@ -57,7 +57,7 @@ exports.getPeer = getPeer
 function broadcastEphemeralMessage (archive, payload) {
   datEphemeralExtMsg.broadcast(archive, encodeEphemeralMsg(payload))
 }
-exports.broadcastEphemeralMessage =broadcastEphemeralMessage
+exports.broadcastEphemeralMessage = broadcastEphemeralMessage
 
 // impl for datPeers.send(peerId, msg)
 function sendEphemeralMessage (archive, peerId, payload) {
