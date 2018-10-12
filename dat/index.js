@@ -4,5 +4,6 @@ module.exports = {
   folderSync: require('./folder-sync'),
   garbageCollector: require('./garbage-collector'),
   library: require('./library'),
-  protocol: require('./protocol')
+  protocol: require('./protocol'),
+  watchlist: require('./watchlist')
 }
