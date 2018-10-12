@@ -6,5 +6,6 @@ module.exports = {
   profileData: require('./profile-data-db'),
   settings: require('./settings'),
   sitedata: require('./sitedata'),
-  templates: require('./templates')
+  templates: require('./templates'),
+  watchlist: require('./watchlist')
 }

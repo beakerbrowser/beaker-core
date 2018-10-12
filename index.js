@@ -47,6 +47,9 @@ module.exports = {
     // setup dat
     await dat.library.setup({logfilePath: join(globals.userDataPath, 'dat.log')})
 
+    // setup watchlist
+    await dat.watchlist.setup()
+
     // setup web apis
     webapis.setup(opts)
 
