@@ -107,5 +107,5 @@ async function watch (site) {
   if (site.resolved === 0) {
     watchlistEvents.emit('resolved', site)
   }
-  await updateWatchlist(site, {resolved: 1})
+  await updateWatchlist(0, site, {resolved: 1})
 }

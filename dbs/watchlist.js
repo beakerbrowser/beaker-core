@@ -24,12 +24,12 @@ exports.addSite = async function (profileId, url, opts) {
       throw "Site already being watched."
     } else {
       // add site to watch list
-      site = await db.run('INSERT INTO watchlist (profileId, url, description, seedWhenResolved, createdAt) VALUES (?, ?, ?, ?, ?);', [profileId, url, opts.description, opts.seedWhenResolved, ts])
+      await db.run('INSERT INTO watchlist (profileId, url, description, seedWhenResolved, createdAt) VALUES (?, ?, ?, ?, ?);', [profileId, url, opts.description, opts.seedWhenResolved, ts])
     }
   } finally {
     release()
   }
-  return site
+  return await db.get('SELECT rowid, * from watchlist WHERE profileId = ? AND url = ?', [profileId, url])
 }
 
 exports.getSites = async function (profileId) {
