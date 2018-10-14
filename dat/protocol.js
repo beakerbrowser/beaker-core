@@ -278,15 +278,10 @@ exports.electronHandler = async function (request, respond) {
   }
 
   // caching if-match
-  // TODO
-  // this unfortunately caches the CSP header too
-  // we'll need the etag to change when CSP perms change
-  // TODO- try including all headers...
-  // -prf
-  // const ETag = 'block-' + entry.content.blockOffset
-  // if (request.headers['if-none-match'] === ETag) {
-  //   return respondError(304, 'Not Modified')
-  // }
+  const ETag = (checkoutFS.isLocalFS) ? false : 'block-' + entry.offset
+  if (request.headers['if-none-match'] === ETag) {
+    return respondError(304, 'Not Modified')
+  }
 
   // fetch the permissions
   // TODO this has been disabled until we can create a better UX -prf
@@ -326,10 +321,18 @@ exports.electronHandler = async function (request, respond) {
       Object.assign(headers, {
         'Content-Type': mimeType,
         'Content-Security-Policy': cspHeader,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age: 60'
-        // ETag
+        'Access-Control-Allow-Origin': '*'
       })
+      if (ETag) {
+        Object.assign(headers, {
+          'Cache-Control': 'public, max-age: 60',
+          ETag
+        })
+      } else {
+        Object.assign(headers,{
+          'Cache-Control': 'no-cache'
+        })
+      }
 
       if (request.method === 'HEAD') {
         dataStream.destroy() // stop reading data
