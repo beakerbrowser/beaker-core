@@ -77,6 +77,7 @@ exports.setup = function (rpc) {
     beaker.browser.removeAsDefaultProtocolClient = beakerBrowserRPC.removeAsDefaultProtocolClient
     beaker.browser.fetchBody = beakerBrowserRPC.fetchBody
     beaker.browser.downloadURL = beakerBrowserRPC.downloadURL
+    beaker.browser.getResourceContentType = beakerBrowserRPC.getResourceContentType
     beaker.browser.listBuiltinFavicons = beakerBrowserRPC.listBuiltinFavicons
     beaker.browser.getBuiltinFavicon = beakerBrowserRPC.getBuiltinFavicon
     beaker.browser.setWindowDimensions = beakerBrowserRPC.setWindowDimensions

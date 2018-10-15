@@ -21,6 +21,8 @@ module.exports = {
   fetchBody: 'promise',
   downloadURL: 'promise',
 
+  getResourceContentType: 'sync',
+
   setWindowDimensions: 'promise',
   showOpenDialog: 'promise',
   showContextMenu: 'promise',
