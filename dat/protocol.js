@@ -329,7 +329,7 @@ exports.electronHandler = async function (request, respond) {
           ETag
         })
       } else {
-        Object.assign(headers,{
+        Object.assign(headers, {
           'Cache-Control': 'no-cache'
         })
       }
