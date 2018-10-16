@@ -1,14 +1,6 @@
 const lock = require('../lib/lock')
 const db = require('./profile-data-db')
 
-class BadParamError extends Error {
-  constructor (msg) {
-    super()
-    this.name = 'BadParamError'
-    this.message = msg
-  }
-}
-
 // exported methods
 // =
 
@@ -21,7 +13,7 @@ exports.addSite = async function (profileId, url, opts) {
     // check if site already being watched
     var site = await db.get('SELECT rowid, * from watchlist WHERE profileId = ? AND url = ?', [profileId, url])
     if (site) {
-      throw "Site already being watched."
+      throw new Error("Site already being watched.")
     } else {
       // add site to watch list
       await db.run('INSERT INTO watchlist (profileId, url, description, seedWhenResolved, createdAt) VALUES (?, ?, ?, ?, ?);', [profileId, url, opts.description, opts.seedWhenResolved, ts])
