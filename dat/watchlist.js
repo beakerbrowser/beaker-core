@@ -20,27 +20,27 @@ exports.setup = async function setup () {
       watch(site)
     }
   } catch (err) {
-    console.error('Failed to load the watchlist', err)
+    throw new Error('Failed to load the watchlist')
   }
 }
 
 exports.addSite = async function addSite(profileId, url, opts) {
     // validate parameters
   if (!url || typeof url !== 'string') {
-    console.error('url must be a string')
+    throw new Error('url must be a string')
   }
   if (!opts.description || typeof opts.description !== 'string') {
-    console.error('description must be a string')
+    throw new Error('description must be a string')
   }
   if (typeof opts.seedWhenResolved !== 'boolean') {
-    console.error('seedWhenResolved must be a boolean')
+    throw new Error('seedWhenResolved must be a boolean')
   }
 
   try {
     var site = await watchlistDb.addSite(profileId, url, opts)
     watch(site)
   } catch (err) {
-    console.error('Failed to add to watchlist', err)
+    throw new Error('Failed to add to watchlist')
   }
 }
 
@@ -52,14 +52,14 @@ const updateWatchlist = exports.updateWatchlist = async function (profileId, sit
   try {
     await watchlistDb.updateWatchlist(profileId, site, opts)
   } catch (err) {
-    console.error('Failed to update the watchlist', err)
+    throw new Error('Failed to update the watchlist')
   }
 }
 
 exports.removeSite = async function removeSite(profileId, url) {
   // validate parameters
   if (!url || typeof url !== 'string') {
-    console.error('url must be a string')
+    throw new Error('url must be a string')
   }
   return await watchlistDb.removeSite(profileId, url)
 }
