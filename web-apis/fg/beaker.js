@@ -7,6 +7,7 @@ const bookmarksManifest = require('../manifests/internal/bookmarks')
 const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
+const watchlistManifest = require('../manifests/internal/watchlist')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -20,6 +21,7 @@ exports.setup = function (rpc) {
     const downloadsRPC = rpc.importAPI('downloads', downloadsManifest, opts)
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
+    const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
 
     // beaker.archives
     beaker.archives = new EventTarget()
@@ -136,6 +138,14 @@ exports.setup = function (rpc) {
     beaker.sitedata.setAppPermissions = sitedataRPC.setAppPermissions
     beaker.sitedata.clearPermission = sitedataRPC.clearPermission
     beaker.sitedata.clearPermissionAllOrigins = sitedataRPC.clearPermissionAllOrigins
+
+    // beaker.watchlist
+    beaker.watchlist = {}
+    beaker.watchlist.add = watchlistRPC.add
+    beaker.watchlist.list = watchlistRPC.list
+    beaker.watchlist.update = watchlistRPC.update
+    beaker.watchlist.remove = watchlistRPC.remove
+    beaker.watchlist.createEventsStream = () => fromEventStream(watchlistRPC.createEventsStream())
   }
 
   return beaker
