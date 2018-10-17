@@ -80,6 +80,7 @@ exports.setup = function (rpc) {
     beaker.browser.getResourceContentType = beakerBrowserRPC.getResourceContentType
     beaker.browser.listBuiltinFavicons = beakerBrowserRPC.listBuiltinFavicons
     beaker.browser.getBuiltinFavicon = beakerBrowserRPC.getBuiltinFavicon
+    beaker.browser.uploadFavicon = beakerBrowserRPC.uploadFavicon
     beaker.browser.setWindowDimensions = beakerBrowserRPC.setWindowDimensions
     beaker.browser.showOpenDialog = beakerBrowserRPC.showOpenDialog
     beaker.browser.showContextMenu = beakerBrowserRPC.showContextMenu

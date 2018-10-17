@@ -17,6 +17,7 @@ module.exports = {
 
   listBuiltinFavicons: 'promise',
   getBuiltinFavicon: 'promise',
+  uploadFavicon: 'promise',
 
   fetchBody: 'promise',
   downloadURL: 'promise',
