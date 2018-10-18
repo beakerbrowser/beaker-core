@@ -24,7 +24,7 @@ exports.setup = async function setup () {
   }
 }
 
-exports.addSite = async function addSite(profileId, url, opts) {
+exports.addSite = async function addSite (profileId, url, opts) {
     // validate parameters
   if (!url || typeof url !== 'string') {
     throw new Error('url must be a string')
@@ -44,8 +44,8 @@ exports.addSite = async function addSite(profileId, url, opts) {
   }
 }
 
-exports.getSites = async function getSites(profileId) {
-  return await watchlistDb.getSites(profileId)
+exports.getSites = async function getSites (profileId) {
+  return watchlistDb.getSites(profileId)
 }
 
 const updateWatchlist = exports.updateWatchlist = async function (profileId, site, opts) {
@@ -56,12 +56,12 @@ const updateWatchlist = exports.updateWatchlist = async function (profileId, sit
   }
 }
 
-exports.removeSite = async function removeSite(profileId, url) {
+exports.removeSite = async function removeSite (profileId, url) {
   // validate parameters
   if (!url || typeof url !== 'string') {
     throw new Error('url must be a string')
   }
-  return await watchlistDb.removeSite(profileId, url)
+  return watchlistDb.removeSite(profileId, url)
 }
 
 // events
