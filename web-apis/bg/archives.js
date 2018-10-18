@@ -230,7 +230,7 @@ module.exports = {
     opts.shallow = false
     return folderSync.syncArchiveToFolder(archive, opts)
   },
-  
+
   // drafts
   // =
 

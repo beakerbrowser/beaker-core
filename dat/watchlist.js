@@ -2,7 +2,9 @@ const EventEmitter = require('events')
 const emitStream = require('emit-stream')
 
 // dat modules
+const pda = require('pauls-dat-api')
 const datLibrary = require('../dat/library')
+const datDns = require('../dat/dns')
 const watchlistDb = require('../dbs/watchlist')
 
 // globals
@@ -24,7 +26,7 @@ exports.setup = async function setup () {
   }
 }
 
-exports.addSite = async function addSite(profileId, url, opts) {
+exports.addSite = async function addSite (profileId, url, opts) {
     // validate parameters
   if (!url || typeof url !== 'string') {
     throw new Error('url must be a string')
@@ -35,6 +37,9 @@ exports.addSite = async function addSite(profileId, url, opts) {
   if (typeof opts.seedWhenResolved !== 'boolean') {
     throw new Error('seedWhenResolved must be a boolean')
   }
+  if (!url.startsWith('dat://')) {
+    url = 'dat://' + url
+  }
 
   try {
     var site = await watchlistDb.addSite(profileId, url, opts)
@@ -44,8 +49,8 @@ exports.addSite = async function addSite(profileId, url, opts) {
   }
 }
 
-exports.getSites = async function getSites(profileId) {
-  return await watchlistDb.getSites(profileId)
+exports.getSites = async function getSites (profileId) {
+  return watchlistDb.getSites(profileId)
 }
 
 const updateWatchlist = exports.updateWatchlist = async function (profileId, site, opts) {
@@ -56,12 +61,12 @@ const updateWatchlist = exports.updateWatchlist = async function (profileId, sit
   }
 }
 
-exports.removeSite = async function removeSite(profileId, url) {
+exports.removeSite = async function removeSite (profileId, url) {
   // validate parameters
   if (!url || typeof url !== 'string') {
     throw new Error('url must be a string')
   }
-  return await watchlistDb.removeSite(profileId, url)
+  return watchlistDb.removeSite(profileId, url)
 }
 
 // events
@@ -74,9 +79,22 @@ exports.createEventsStream = function createEventsStream () {
 // =
 
 async function watch (site) {
-  await datLibrary.loadArchive(site.url)
+  // resolve DNS
+  var key
+  try {
+    key = await datDns.resolveName(site.url)
+  } catch (e) {}
+  if (!key) {
+    // try again in 30s
+    setTimeout(watch, 30e3)
+    return
+  }
+
+  // load archive
+  var archive = await datLibrary.loadArchive(key)
   if (site.resolved === 0) {
     watchlistEvents.emit('resolved', site)
   }
+  pda.download(archive, '/').catch(e => { /* ignore cancels */ }) // download the site to make sure it's available
   await updateWatchlist(0, site, {resolved: 1})
 }
