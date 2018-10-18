@@ -19,11 +19,11 @@ exports.addSite = async function (profileId, url, opts) {
   } finally {
     release()
   }
-  return await db.get('SELECT rowid, * from watchlist WHERE profileId = ? AND url = ?', [profileId, url])
+  return db.get('SELECT rowid, * from watchlist WHERE profileId = ? AND url = ?', [profileId, url])
 }
 
 exports.getSites = async function (profileId) {
-  return await db.all(`SELECT * FROM watchlist WHERE profileId = ?1`, [profileId])
+  return db.all(`SELECT * FROM watchlist WHERE profileId = ?1`, [profileId])
 }
 
 exports.updateWatchlist = async function (profileId, site, opts) {
