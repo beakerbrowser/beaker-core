@@ -4,6 +4,7 @@ const emitStream = require('emit-stream')
 // dat modules
 const pda = require('pauls-dat-api')
 const datLibrary = require('../dat/library')
+const datDns = require('../dat/dns')
 const watchlistDb = require('../dbs/watchlist')
 
 // globals
@@ -78,7 +79,19 @@ exports.createEventsStream = function createEventsStream () {
 // =
 
 async function watch (site) {
-  var archive = await datLibrary.loadArchive(site.url)
+  // resolve DNS
+  var key
+  try {
+    key = await datDns.resolveName(site.url)
+  } catch (e) {}
+  if (!key) {
+    // try again in 30s
+    setTimeout(watch, 30e3)
+    return
+  }
+
+  // load archive
+  var archive = await datLibrary.loadArchive(key)
   if (site.resolved === 0) {
     watchlistEvents.emit('resolved', site)
   }
