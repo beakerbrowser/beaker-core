@@ -36,6 +36,9 @@ exports.addSite = async function addSite (profileId, url, opts) {
   if (typeof opts.seedWhenResolved !== 'boolean') {
     throw new Error('seedWhenResolved must be a boolean')
   }
+  if (!url.startsWith('dat://')) {
+    url = 'dat://' + url
+  }
 
   try {
     var site = await watchlistDb.addSite(profileId, url, opts)
