@@ -24,6 +24,7 @@ exports.setup = function (opts) {
 
   defaultSettings = {
     auto_update_enabled: 1,
+    auto_redirect_to_dat: 1,
     custom_start_page: 'blank',
     start_page_background_image: '',
     workspace_default_path: path.join(opts.homePath, 'Sites'),
@@ -99,6 +100,13 @@ migrations = [
     db.exec(`
       INSERT INTO settings (key, value) VALUES ('start_page_background_image', '');
       PRAGMA user_version = 2
+    `, cb)
+  },
+  // version 3
+  function (cb) {
+    db.exec(`
+      INSERT INTO settings (key, value) VALUES ('auto_redirect_to_dat', 1);
+      PRAGMA user_version = 3
     `, cb)
   }
 ]
