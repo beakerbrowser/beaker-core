@@ -22,10 +22,6 @@ module.exports = {
     reqOptions.host = urlp.host
     reqOptions.path = urlp.pathname + urlp.search + urlp.hash
 
-    if (reqOptions.protocol !== 'https:' && reqOptions.protocol !== 'http:') {
-      throw new Error('Can only send requests to http or https URLs')
-    }
-
     // check perms
     await globals.permsAPI.checkLabsPerm({
       perm: API_PERM_ID + ':' + reqOptions.protocol + '//' + reqOptions.host,
@@ -33,6 +29,10 @@ module.exports = {
       apiDocsUrl: API_DOCS_URL,
       sender: this.sender
     })
+
+    if (reqOptions.protocol !== 'https:' && reqOptions.protocol !== 'http:') {
+      throw new Error('Can only send requests to http or https URLs')
+    }
 
     return new Promise((resolve, reject) => {
       // start request

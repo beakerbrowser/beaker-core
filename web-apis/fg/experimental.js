@@ -1,4 +1,4 @@
-/* globals Request Response */
+/* globals Request Response fetch */
 
 const {EventTargetFromStream} = require('./event-target')
 const errors = require('beaker-error-constants')
@@ -35,12 +35,20 @@ exports.setup = function (rpc) {
       if (request.method !== 'HEAD' && request.method !== 'GET') {
         throw new Error('Only HEAD and GET requests are currently supported by globalFetch()')
       }
-      var responseData = await globalFetchRPC.fetch({
-        method: request.method,
-        url: request.url,
-        headers: request.headers
-      })
-      return new Response(responseData.body, responseData)
+      try {
+        var responseData = await globalFetchRPC.fetch({
+          method: request.method,
+          url: request.url,
+          headers: request.headers
+        })
+        return new Response(responseData.body, responseData)
+      } catch (e) {
+        if (e.message === 'Can only send requests to http or https URLs' && request.url.startsWith('dat://')) {
+          // we can just use `fetch` for dat:// URLs, because dat:// does not enforce CORS
+          return fetch(input, init)
+        }
+        throw e
+      }
     }
 
     // experimental.capturePage
