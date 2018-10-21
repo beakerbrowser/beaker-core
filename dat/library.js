@@ -148,9 +148,11 @@ exports.setup = async function setup ({logfilePath}) {
   archiveSwarm.once('error', () => archiveSwarm.listen(0))
   archiveSwarm.listen(DAT_SWARM_PORT)
   archiveSwarm.on('error', error => log(null, {event: 'swarm-error', message: error.toString()}))
+}
 
+exports.loadSavedArchives = function () {
   // load and configure all saved archives
-  archivesDb.query(0, {isSaved: true}).then(
+  return archivesDb.query(0, {isSaved: true}).then(
     archives => archives.forEach(a => loadArchive(a.key, a.userSettings)),
     err => console.error('Failed to load networked archives', err)
   )
