@@ -277,11 +277,15 @@ exports.electronHandler = async function (request, respond) {
     }
   }
 
+  // TODO
+  // Electron is being really aggressive about caching and not following the headers correctly
+  // caching is disabled till we can figure out why
+  // -prf
   // caching if-match
-  const ETag = (checkoutFS.isLocalFS) ? false : 'block-' + entry.offset
-  if (request.headers['if-none-match'] === ETag) {
-    return respondError(304, 'Not Modified')
-  }
+  // const ETag = (checkoutFS.isLocalFS) ? false : 'block-' + entry.offset
+  // if (request.headers['if-none-match'] === ETag) {
+  //   return respondError(304, 'Not Modified')
+  // }
 
   // fetch the permissions
   // TODO this has been disabled until we can create a better UX -prf
@@ -321,18 +325,18 @@ exports.electronHandler = async function (request, respond) {
       Object.assign(headers, {
         'Content-Type': mimeType,
         'Content-Security-Policy': cspHeader,
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache'
       })
-      if (ETag) {
-        Object.assign(headers, {
-          'Cache-Control': 'public, max-age: 60',
-          ETag
-        })
-      } else {
-        Object.assign(headers, {
-          'Cache-Control': 'no-cache'
-        })
-      }
+      // TODO
+      // Electron is being really aggressive about caching and not following the headers correctly
+      // caching is disabled till we can figure out why
+      // -prf
+      // if (ETag) {
+      //   Object.assign(headers, {ETag})
+      // } else {
+      //   Object.assign(headers, {'Cache-Control': 'no-cache'})
+      // }
 
       if (request.method === 'HEAD') {
         dataStream.destroy() // stop reading data
