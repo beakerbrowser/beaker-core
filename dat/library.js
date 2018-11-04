@@ -153,7 +153,20 @@ exports.setup = async function setup ({logfilePath}) {
 exports.loadSavedArchives = function () {
   // load and configure all saved archives
   return archivesDb.query(0, {isSaved: true}).then(
-    archives => archives.forEach(a => loadArchive(a.key, a.userSettings)),
+    async (archives) => {
+      // HACK
+      // load the archives one at a time and give 5 seconds between each
+      // why: the purpose of loading saved archives is to seed them
+      // loading them all at once can bog down the user's device
+      // if the user tries to access an archive, Beaker will load it immediately
+      // so spacing out the loads has no visible impact on the user
+      // (except for reducing the overall load for the user)
+      // -prf
+      for (let a of archives) {
+        loadArchive(a.key, a.userSettings)
+        await new Promise(r => setTimeout(r, 5e3)) // wait 5s
+      }
+    },
     err => console.error('Failed to load networked archives', err)
   )
 }
