@@ -159,6 +159,9 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
   // =
 
   if (archive.localSyncSettings) {
+    // create diff cache
+    archive._compareContentCache = {}
+
     // create internal folder if needed
     if (archive.localSyncSettings.isUsingInternal) {
       mkdirp.sync(archive.localSyncSettings.path)
@@ -206,6 +209,9 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
         queueSyncEvent(archive, {toArchive: true})
       })
     }
+  } else {
+    // clear diff cache
+    archive._compareContentCache = {}
   }
 }
 
@@ -230,6 +236,7 @@ exports.diffListing = async function (archive, opts = {}) {
   }
 
   // run diff
+  opts.compareContentCache = archive._compareContentCache
   return dft.diff({fs: scopedFS}, {fs: archive}, opts)
 }
 
@@ -362,6 +369,7 @@ async function sync (archive, toArchive, opts = {}) {
     var right = toArchive ? {fs: archive} : {fs: scopedFS}
 
     // run diff
+    opts.compareContentCache = archive._compareContentCache
     var diff = await dft.diff(left, right, opts)
     if (opts.addOnly) {
       diff = diff.filter(d => d.change === 'add')
