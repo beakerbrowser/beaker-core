@@ -108,6 +108,10 @@ const RPC_API = {
     return emitStream(daemonEvents)
   },
 
+  createDebugStream () {
+    return emitStream(debugEvents)
+  },
+
   configureArchive (key, userSettings) {
     var archive = getArchive(key)
     if (archive) {

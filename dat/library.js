@@ -123,8 +123,7 @@ exports.getDebugLog = function getDebugLog (key) {
 }
 
 exports.createDebugStream = function createDebugStream () {
-  // DAEMON
-  // return emitStream(debugEvents)
+  return daemon.createDebugStream()
 }
 
 // read metadata for the archive, and store it in the meta db
