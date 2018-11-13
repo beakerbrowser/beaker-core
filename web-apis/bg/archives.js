@@ -3,7 +3,7 @@ const mkdirp = require('mkdirp')
 const jetpack = require('fs-jetpack')
 const templatesDb = require('../../dbs/templates')
 const datDns = require('../../dat/dns')
-const folderSync = require('../../dat/folder-sync')
+// const folderSync = require('../../dat/folder-sync') DAEMON
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
 const archivesDb = require('../../dbs/archives')
@@ -92,6 +92,8 @@ module.exports = {
   // =
 
   async validateLocalSyncPath (key, localSyncPath) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
     localSyncPath = path.normalize(localSyncPath)
 
@@ -117,6 +119,8 @@ module.exports = {
   },
 
   async setLocalSyncPath (key, localSyncPath, opts = {}) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
     localSyncPath = localSyncPath ? path.normalize(localSyncPath) : null
 
@@ -161,6 +165,8 @@ module.exports = {
   },
 
   async ensureLocalSyncFinished (key) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
 
     // load the archive
@@ -178,6 +184,8 @@ module.exports = {
   // =
 
   async diffLocalSyncPathListing (key, opts) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
 
     // load the archive
@@ -191,6 +199,8 @@ module.exports = {
   },
 
   async diffLocalSyncPathFile (key, filepath) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
 
     // load the archive
@@ -204,6 +214,8 @@ module.exports = {
   },
 
   async publishLocalSyncPathListing (key, opts = {}) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
 
     // load the archive
@@ -218,6 +230,8 @@ module.exports = {
   },
 
   async revertLocalSyncPathListing (key, opts = {}) {
+    return // DAEMON
+
     key = datLibrary.fromURLToKey(key)
 
     // load the archive

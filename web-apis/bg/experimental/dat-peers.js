@@ -3,7 +3,7 @@ const {PermissionsError} = require('beaker-error-constants')
 const globals = require('../../../globals')
 const datLibrary = require('../../../dat/library')
 const datDns = require('../../../dat/dns')
-const datExtensions = require('../../../dat/extensions')
+// const datExtensions = require('../../../dat/extensions') DAEMON
 const {DAT_HASH_REGEX} = require('../../../lib/const')
 
 // constants

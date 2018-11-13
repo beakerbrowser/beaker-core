@@ -105,6 +105,7 @@ exports.electronHandler = async function (request, respond) {
     })
   }, REQUEST_TIMEOUT_MS)
 
+console.log('loading archive')
   try {
     // start searching the network
     archive = await datLibrary.getOrLoadArchive(archiveKey)
@@ -113,6 +114,7 @@ exports.electronHandler = async function (request, respond) {
     cleanup()
     return respondError(500, 'Failed')
   }
+console.log('got archive')
 
   // parse path
   var filepath = decodeURIComponent(urlp.path)
