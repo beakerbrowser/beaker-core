@@ -188,7 +188,8 @@ const RPC_API = {
 
     // store in the discovery listing, so the swarmer can find it
     // but not yet in the regular archives listing, because it's not fully loaded
-    archivesByDKey[datEncoding.toStr(archive.discoveryKey)] = archive
+    var discoveryKey = datEncoding.toStr(archive.discoveryKey)
+    archivesByDKey[discoveryKey] = archive
 
     // setup the archive based on current settings
     configureNetwork(archive, userSettings)
@@ -210,7 +211,11 @@ const RPC_API = {
       archive.metadata.download({start: 0, end: -1})
     }
 
+    // store in the archives list
     archives[datEncoding.toStr(archive.key)] = archive
+
+    // return some archive info
+    return {discoveryKey, writable: archive.writable}
   },
 
   async unloadArchive (key) {

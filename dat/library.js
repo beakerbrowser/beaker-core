@@ -142,7 +142,7 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
     ])
     manifest = archive.manifest = manifest || {}
     var {title, description, type} = manifest
-    var isOwner = false // archive.writable DAEMON
+    var isOwner = archive.writable
     var size = archive.size || 0 // DAEMON
     var mtime = updateMTime ? Date.now() : oldMeta.mtime
 
@@ -532,11 +532,8 @@ function createArchiveProxy (key, archiveInfo) {
   const stat = makeArchiveProxyCbFn(key, 'stat')
   return {
     key: datEncoding.toBuf(key),
-
-    // DAEMON
-    version: 0,
-    writable: false,
-    discoveryKey: null,
+    discoveryKey: atEncoding.toBuf(archiveInfo.discoveryKey),
+    writable: archiveInfo.writable,
 
     ready: makeArchiveProxyCbFn(key, 'ready'),
     download: makeArchiveProxyCbFn(key, 'download'),
