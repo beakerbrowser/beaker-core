@@ -99,9 +99,19 @@ exports.setup = async function ({rpcAPI, logfilePath}) {
 // =
 
 const RPC_API = {
-  setup (opts) {
+  async setup (opts) {
     datPath = opts.datPath
     folderSync.setup(opts)
+  },
+
+  // up/down are in MB/s
+  async setBandwidthThrottle ({up, down}) {
+    if (typeof up !== 'undefined') {
+      upThrottleGroup = up ? new ThrottleGroup({rate: up * 1e6}) : null
+    }
+    if (typeof down !== 'undefined') {
+      downThrottleGroup = down ? new ThrottleGroup({rate: down * 1e6}) : null
+    }
   },
 
   createEventStream () {
@@ -112,26 +122,7 @@ const RPC_API = {
     return emitStream(debugEvents)
   },
 
-  configureArchive (key, userSettings) {
-    var archive = getArchive(key)
-    if (archive) {
-      configureNetwork(archive, userSettings)
-      configureAutoDownload(archive, userSettings)
-      configureLocalSync(archive, userSettings)
-    }
-  },
-
-  // up/down are in MB/s
-  setBandwidthThrottle ({up, down}) {
-    if (typeof up !== 'undefined') {
-      upThrottleGroup = up ? new ThrottleGroup({rate: up * 1e6}) : null
-    }
-    if (typeof down !== 'undefined') {
-      downThrottleGroup = down ? new ThrottleGroup({rate: down * 1e6}) : null
-    }
-  },
-
-  getDebugLog (key) {
+  async getDebugLog (key) {
     return new Promise((resolve, reject) => {
       let rs = debugLogFile.createReadStream()
       rs
@@ -146,6 +137,30 @@ const RPC_API = {
       rs.on('error', reject)
     })
   },
+
+  async configureArchive (key, userSettings) {
+    var archive = getArchive(key)
+    if (archive) {
+      configureNetwork(archive, userSettings)
+      configureAutoDownload(archive, userSettings)
+      configureLocalSync(archive, userSettings)
+    }
+  },
+
+  async getArchiveInfo (key) {
+    var archive = getArchive(key)
+    if (!archive) return {}
+    return {
+      version: archive.version,
+      size: archive.size,
+      peers: archive.metadata.peers.length,
+      peerInfo: getArchivePeerInfos(archive),
+      peerHistory: archive.peerHistory,
+      networkStats: archive.networkStats
+    }
+  },
+
+  updateSizeTracking,
 
   async loadArchive (opts) {
     var {
@@ -181,7 +196,7 @@ const RPC_API = {
         else resolve()
       })
     })
-    updateSizeTracking(archive)
+    await updateSizeTracking(archive)
 
     // attach extensions
     datExtensions.attach(archive)
@@ -327,12 +342,14 @@ const leaveSwarm = exports.leaveSwarm = function leaveSwarm (key) {
 // =
 
 function getArchive (key) {
+  if (key.key) return key // we were given an archive
   return archives[key]
 }
 
 async function updateSizeTracking (archive) {
-  // fetch size
+  archive = getArchive(archive)
   archive.size = await pda.readSize(archive, '/')
+  return archive.size
 }
 
 function configureAutoDownload (archive, userSettings) {

@@ -135,15 +135,13 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
     await pify(archive.ready.bind(archive))()
 
     // read the archive meta and size on disk
-    var [manifest, oldMeta] = await Promise.all([
+    var [manifest, oldMeta, size] = await Promise.all([
       pda.readManifest(archive).catch(_ => {}),
       archivesDb.getMeta(key),
-      // daemon.updateSizeTracking(archive) DAEMON
+      daemon.updateSizeTracking(key)
     ])
-    manifest = archive.manifest = manifest || {}
-    var {title, description, type} = manifest
+    var {title, description, type} = (manifest || {})
     var isOwner = archive.writable
-    var size = archive.size || 0 // DAEMON
     var mtime = updateMTime ? Date.now() : oldMeta.mtime
 
     // write the record
@@ -403,10 +401,8 @@ const isArchiveLoaded = exports.isArchiveLoaded = function isArchiveLoaded (key)
   return key in archives
 }
 
-const updateSizeTracking = exports.updateSizeTracking = async function updateSizeTracking (archive) {
-  // DAEMON
-  // fetch size
-  // archive.size = await pda.readSize(archive, '/')
+exports.updateSizeTracking = function updateSizeTracking (archive) {
+  return daemon.updateSizeTracking(datEncoding.toStr(archive.key))
 }
 
 // archive fetch/query
@@ -421,19 +417,20 @@ exports.queryArchives = async function queryArchives (query) {
   }
 
   // attach some live data
-  archiveInfos.forEach(archiveInfo => {
+  await Promise.all(archiveInfos.map(async (archiveInfo) => {
     var archive = getArchive(archiveInfo.key)
     if (archive) {
+      var info = await daemon.getArchiveInfo(archiveInfo.key)
       archiveInfo.isSwarmed = archiveInfo.userSettings.networked
-      archiveInfo.size = 0 // archive.size DAEMON
-      archiveInfo.peers = 0 // archive.metadata.peers.length DAEMON
-      archiveInfo.peerHistory = [] // archive.peerHistory DAEMON
+      archiveInfo.size = info.size
+      archiveInfo.peers = info.peers
+      archiveInfo.peerHistory = info.peerHistory
     } else {
       archiveInfo.isSwarmed = false
       archiveInfo.peers = 0
       archiveInfo.peerHistory = []
     }
-  })
+  }))
   return archiveInfos
 }
 
@@ -443,16 +440,19 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   var archive = await getOrLoadArchive(key)
 
   // fetch archive data
-  var [meta, userSettings] = await Promise.all([
+  var [meta, userSettings, manifest, archiveInfo] = await Promise.all([
     archivesDb.getMeta(key),
-    archivesDb.getUserSettings(0, key)
+    archivesDb.getUserSettings(0, key),
+    pda.readManifest(archive).catch(_ => {}),
+    daemon.getArchiveInfo(key)
   ])
+  manifest = manifest || {}
   meta.key = key
   meta.url = `dat://${key}`
-  meta.links = {} // archive.manifest.links || {} DAEMON
-  meta.manifest = {} // archive.manifest DAEMON
-  meta.version = 1 // archive.version DAEMON
-  meta.size = 1 // archive.size DAEMON
+  meta.links = manifest.links || {}
+  meta.manifest = manifest
+  meta.version = archiveInfo.version
+  meta.size = archiveInfo.size
   meta.userSettings = {
     isSaved: userSettings.isSaved,
     hidden: userSettings.hidden,
@@ -463,10 +463,10 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     localSyncPath: userSettings.localSyncPath,
     previewMode: userSettings.previewMode
   }
-  meta.peers = 0 // archive.metadata.peers.length DAEMON
-  meta.peerInfo = [] // getArchivePeerInfos(archive) DAEMON
-  meta.peerHistory = [] // archive.peerHistory DAEMON
-  meta.networkStats = {} // archive.networkStats DAEMON
+  meta.peers = archiveInfo.peers
+  meta.peerInfo = archiveInfo.peerInfo
+  meta.peerHistory = archiveInfo.peerHistory
+  meta.networkStats = archiveInfo.networkStats
 
   return meta
 }
@@ -532,7 +532,7 @@ function createArchiveProxy (key, archiveInfo) {
   const stat = makeArchiveProxyCbFn(key, 'stat')
   return {
     key: datEncoding.toBuf(key),
-    discoveryKey: atEncoding.toBuf(archiveInfo.discoveryKey),
+    discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
     writable: archiveInfo.writable,
 
     ready: makeArchiveProxyCbFn(key, 'ready'),
