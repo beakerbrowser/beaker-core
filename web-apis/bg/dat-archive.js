@@ -427,12 +427,11 @@ module.exports = {
 
   async watch (url, pathPattern) {
     var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
-    // DAEMON
     if (version === 'preview') {
       // staging area
-      return pda.watch(checkoutFS, pathPattern)
+      return datLibrary.getDaemon().callWatch(checkoutFS, pathPattern)
     }
-    return pda.watch(archive, pathPattern)
+    return datLibrary.getDaemon().callWatch(archive, pathPattern)
   },
 
   async createNetworkActivityStream (url) {

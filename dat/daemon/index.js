@@ -269,29 +269,25 @@ const RPC_API = {
   // archive methods
   // =
 
-  callArchiveAsyncMethod (key, method, ...args) {
+  callArchiveAsyncMethod (key, version, method, ...args) {
     var cb = args.slice(-1)[0]
-    var archive = archives[key]
-    if (!archive) cb(new Error('Archive not loaded: ' + key))
-    archive[method](...args)
+    var checkout = getArchiveCheckout(key, version)
+    checkout[method](...args)
   },
 
-  callArchiveReadStreamMethod (key, method, ...args) {
-    var archive = archives[key]
-    if (!archive) throw new Error('Archive not loaded: ' + key)
-    return archive[method](...args)
+  callArchiveReadStreamMethod (key, version, method, ...args) {
+    var checkout = getArchiveCheckout(key, version)
+    return checkout[method](...args)
   },
 
-  callArchiveWriteStreamMethod (key, method, ...args) {
-    var archive = archives[key]
-    if (!archive) throw new Error('Archive not loaded: ' + key)
-    return archive[method](...args)
+  callArchiveWriteStreamMethod (key, version, method, ...args) {
+    var checkout = getArchiveCheckout(key, version)
+    return checkout[method](...args)
   },
 
-  callWatch (key, ...args) {
-    var archive = archives[key]
-    if (!archive) throw new Error('Archive not loaded: ' + key)
-    return emitStream(pda.watch(archive, ...args))
+  callWatch (key, version, ...args) {
+    var checkout = getArchiveCheckout(key, version)
+    return emitStream(pda.watch(checkout, ...args))
   },
 
   async clearFileCache (key, userSettings) {
@@ -383,6 +379,36 @@ const leaveSwarm = exports.leaveSwarm = function leaveSwarm (key) {
 function getArchive (key) {
   if (key.key) return key // we were given an archive
   return archives[key]
+}
+
+function getArchiveCheckout (key, version) {
+  var archive = getArchive(key)
+  var checkoutFS = archive
+  if (version) {
+    let seq = parseInt(version)
+    if (Number.isNaN(seq)) {
+      if (version === 'latest') {
+        // ignore, we use latest by default
+      } else if (version === 'preview') {
+        if (archive.localSyncSettings) {
+          // checkout local sync path
+          checkoutFS = scopedFSes.get(archive.localSyncSettings.path)
+          checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
+        } else {
+          let err = new Error('Preview mode is not enabled for this dat')
+          err.noPreviewMode = true // DAEMON
+          throw err
+        }
+      } else {
+        throw new Error('Invalid version identifier:' + version)
+      }
+    } else {
+      if (seq <= 0) throw new Error('Version too low')
+      if (seq > archive.version) throw new Error('Version too high')
+      checkoutFS = archive.checkout(seq, {metadataStorageCacheSize: 0, contentStorageCacheSize: 0, treeCacheSize: 0})
+    }
+  }
+  return checkoutFS
 }
 
 async function updateSizeTracking (archive) {

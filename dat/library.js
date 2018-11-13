@@ -6,6 +6,7 @@ const pda = require('pauls-dat-api')
 const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
 const debounce = require('lodash.debounce')
+const mkdirp = require('mkdirp')
 
 // dbs
 const siteData = require('../dbs/sitedata')
@@ -15,9 +16,6 @@ const archivesDb = require('../dbs/archives')
 // dat modules
 const datGC = require('./garbage-collector')
 
-// file modules
-const mkdirp = require('mkdirp')
-const scopedFSes = require('../lib/scoped-fses')
 
 // constants
 // =
@@ -308,7 +306,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   })
 
   // create the archive proxy instance
-  var archive = createArchiveProxy(key, archiveInfo)
+  var archive = createArchiveProxy(key, undefined, archiveInfo)
 
   // update db
   archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
@@ -344,37 +342,26 @@ const getArchive = exports.getArchive = function getArchive (key) {
   return archives[key]
 }
 
-const getArchiveCheckout = exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
+exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
   var isHistoric = false
   var isPreview = false
   var checkoutFS = archive
-  // DAEMON
-  // if (version) {
-  //   let seq = parseInt(version)
-  //   if (Number.isNaN(seq)) {
-  //     if (version === 'latest') {
-  //       // ignore, we use latest by default
-  //     } else if (version === 'preview') {
-  //       if (archive.localSyncSettings) {
-  //         // checkout local sync path
-  //         checkoutFS = scopedFSes.get(archive.localSyncSettings.path)
-  //         checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
-  //         isPreview = true
-  //       } else {
-  //         let err = new Error('Preview mode is not enabled for this dat')
-  //         err.noPreviewMode = true
-  //         throw err
-  //       }
-  //     } else {
-  //       throw new Error('Invalid version identifier:' + version)
-  //     }
-  //   } else {
-  //     if (seq <= 0) throw new Error('Version too low')
-  //     if (seq > archive.version) throw new Error('Version too high')
-  //     checkoutFS = archive.checkout(seq, {metadataStorageCacheSize: 0, contentStorageCacheSize: 0, treeCacheSize: 0})
-  //     isHistoric = true
-  //   }
-  // }
+  if (version) {
+    let seq = parseInt(version)
+    if (Number.isNaN(seq)) {
+      if (version === 'latest') {
+        // ignore, we use latest by default
+      } else if (version === 'preview') {
+        isPreview = true
+        checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
+      } else {
+        throw new Error('Invalid version identifier:' + version)
+      }
+    } else {
+      checkoutFS = createArchiveProxy(archive.key, version, archive)
+      isHistoric = true
+    }
+  }
   return {isHistoric, isPreview, checkoutFS}
 }
 
@@ -527,38 +514,38 @@ const fromKeyToURL = exports.fromKeyToURL = function fromKeyToURL (key) {
 // archive proxy
 // =
 
-function makeArchiveProxyCbFn (key, method) {
-  return (...args) => daemon.callArchiveAsyncMethod(key, method, ...args)
+function makeArchiveProxyCbFn (key, version, method) {
+  return (...args) => daemon.callArchiveAsyncMethod(key, version, method, ...args)
 }
 
-function makeArchiveProxyReadStreamFn (key, method) {
-  return (...args) => daemon.callArchiveReadStreamMethod(key, method, ...args)
+function makeArchiveProxyReadStreamFn (key, version, method) {
+  return (...args) => daemon.callArchiveReadStreamMethod(key, version, method, ...args)
 }
 
-function makeArchiveProxyWriteStreamFn (key, method) {
-  return (...args) => daemon.callArchiveWriteStreamMethod(key, method, ...args)
+function makeArchiveProxyWriteStreamFn (key, version, method) {
+  return (...args) => daemon.callArchiveWriteStreamMethod(key, version, method, ...args)
 }
 
-function createArchiveProxy (key, archiveInfo) {
+function createArchiveProxy (key, version, archiveInfo) {
   key = datEncoding.toStr(key)
-  const stat = makeArchiveProxyCbFn(key, 'stat')
+  const stat = makeArchiveProxyCbFn(key, version, 'stat')
   return {
     key: datEncoding.toBuf(key),
     discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
     writable: archiveInfo.writable,
 
-    ready: makeArchiveProxyCbFn(key, 'ready'),
-    download: makeArchiveProxyCbFn(key, 'download'),
-    history: makeArchiveProxyReadStreamFn(key, 'history'),
-    createReadStream: makeArchiveProxyReadStreamFn(key, 'createReadStream'),
-    readFile: makeArchiveProxyCbFn(key, 'readFile'),
-    createDiffStream: makeArchiveProxyReadStreamFn(key, 'createDiffStream'),
-    createWriteStream: makeArchiveProxyWriteStreamFn(key, 'createWriteStream'),
-    writeFile: makeArchiveProxyCbFn(key, 'writeFile'),
-    unlink: makeArchiveProxyCbFn(key, 'unlink'),
-    mkdir: makeArchiveProxyCbFn(key, 'mkdir'),
-    rmdir: makeArchiveProxyCbFn(key, 'rmdir'),
-    readdir: makeArchiveProxyCbFn(key, 'readdir'),
+    ready: makeArchiveProxyCbFn(key, version, 'ready'),
+    download: makeArchiveProxyCbFn(key, version, 'download'),
+    history: makeArchiveProxyReadStreamFn(key, version, 'history'),
+    createReadStream: makeArchiveProxyReadStreamFn(key, version, 'createReadStream'),
+    readFile: makeArchiveProxyCbFn(key, version, 'readFile'),
+    createDiffStream: makeArchiveProxyReadStreamFn(key, version, 'createDiffStream'),
+    createWriteStream: makeArchiveProxyWriteStreamFn(key, version, 'createWriteStream'),
+    writeFile: makeArchiveProxyCbFn(key, version, 'writeFile'),
+    unlink: makeArchiveProxyCbFn(key, version, 'unlink'),
+    mkdir: makeArchiveProxyCbFn(key, version, 'mkdir'),
+    rmdir: makeArchiveProxyCbFn(key, version, 'rmdir'),
+    readdir: makeArchiveProxyCbFn(key, version, 'readdir'),
     stat: (...args) => {
       var cb = args.pop()
       args.push((err, st) => {
@@ -579,7 +566,8 @@ function createArchiveProxy (key, archiveInfo) {
       })
       stat(...args)
     },
-    lstat: makeArchiveProxyCbFn(key, 'lstat'),
-    access: makeArchiveProxyCbFn(key, 'access')
+    lstat: makeArchiveProxyCbFn(key, version, 'lstat'),
+    access: makeArchiveProxyCbFn(key, version, 'access')
   }
 }
+
