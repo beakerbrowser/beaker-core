@@ -8,7 +8,6 @@ const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
 const mkdirp = require('mkdirp')
 const {toAnymatchRules} = require('@beaker/datignore')
-// const settingsDb = require('../dbs/settings') DAEMON
 const {isFileNameBinary, isFileContentBinary} = require('../../lib/mime')
 const lock = require('../../lib/lock')
 const scopedFSes = require('../../lib/scoped-fses')
@@ -23,10 +22,19 @@ const {
 
 const MAX_DIFF_SIZE = bytes('100kb')
 
+// globals
+// =
+
+var disallowedSavePaths = []
+
 // exported api
 // =
 
 const events = exports.events = new EventEmitter()
+
+exports.setup = function (opts) {
+  disallowedSavePaths = opts.disallowedSavePaths
+}
 
 // sync dat to the folder
 // - opts
@@ -278,13 +286,12 @@ exports.diffFile = async function (archive, filepath) {
 
 // validate a path to be used for sync
 exports.assertSafePath = async function (p) {
-  // DAEMON
   // check whether this is an OS path
-  // for (let disallowedSavePath of globals.disallowedSavePaths) {
-  //   if (path.normalize(p) === path.normalize(disallowedSavePath)) {
-  //     throw new ProtectedFileNotWritableError(`This is a protected folder. Please pick another folder or subfolder.`)
-  //   }
-  // }
+  for (let disallowedSavePath of disallowedSavePaths) {
+    if (path.normalize(p) === path.normalize(disallowedSavePath)) {
+      throw new ProtectedFileNotWritableError(`This is a protected folder. Please pick another folder or subfolder.`)
+    }
+  }
 
   // stat the folder
   const stat = await new Promise(resolve => {
@@ -303,11 +310,6 @@ exports.assertSafePath = async function (p) {
 // read a datignore from a fs space and turn it into anymatch rules
 const readDatIgnore = exports.readDatIgnore = async function (fs) {
   var rulesRaw = await readFile(fs, '.datignore')
-  if (!rulesRaw) {
-    // DAEMON
-    // TODO remove this? we're supposed to only use .datignore but many archives wont have one at first -prf
-    // rulesRaw = await settingsDb.get('default_dat_ignore')
-  }
   return toAnymatchRules(rulesRaw)
 }
 

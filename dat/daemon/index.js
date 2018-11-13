@@ -76,6 +76,10 @@ exports.setup = async function ({rpcAPI, logfilePath}) {
 // =
 
 const RPC_API = {
+  setup (opts) {
+    folderSync.setup(opts)
+  },
+
   configureArchive (key, userSettings) {
     var archive = getArchive(key)
     if (archive) {

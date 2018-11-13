@@ -46,7 +46,7 @@ module.exports = {
     }
 
     // setup dat
-    await dat.library.setup({rpcAPI: opts.rpcAPI, datDaemonWc: opts.datDaemonWc})
+    await dat.library.setup(opts)
 
     // setup watchlist
     await dat.watchlist.setup()
