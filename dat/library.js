@@ -93,6 +93,8 @@ exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}
   datGC.setup()
 }
 
+exports.getDaemon = () => daemon
+
 exports.loadSavedArchives = function () {
   // load and configure all saved archives
   return archivesDb.query(0, {isSaved: true}).then(

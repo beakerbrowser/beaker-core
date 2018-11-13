@@ -427,6 +427,7 @@ module.exports = {
 
   async watch (url, pathPattern) {
     var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
+    // DAEMON
     if (version === 'preview') {
       // staging area
       return pda.watch(checkoutFS, pathPattern)

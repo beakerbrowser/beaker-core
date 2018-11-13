@@ -99,6 +99,9 @@ exports.setup = async function ({rpcAPI, logfilePath}) {
 // =
 
 const RPC_API = {
+  // setup & config
+  // =
+
   async setup (opts) {
     datPath = opts.datPath
     folderSync.setup(opts)
@@ -113,6 +116,9 @@ const RPC_API = {
       downThrottleGroup = down ? new ThrottleGroup({rate: down * 1e6}) : null
     }
   },
+
+  // event streams & debug
+  // =
 
   createEventStream () {
     return emitStream(daemonEvents)
@@ -137,6 +143,9 @@ const RPC_API = {
       rs.on('error', reject)
     })
   },
+
+  // archive management
+  // =
 
   async configureArchive (key, userSettings) {
     var archive = getArchive(key)
@@ -257,6 +266,9 @@ const RPC_API = {
     delete archives[key]
   },
 
+  // archive methods
+  // =
+
   callArchiveAsyncMethod (key, method, ...args) {
     var cb = args.slice(-1)[0]
     var archive = archives[key]
@@ -293,7 +305,17 @@ const RPC_API = {
     // force a reconfig of the autodownloader
     stopAutodownload(archive)
     configureAutoDownload(archive, userSettings)
-  }
+  },
+
+  // folder sync
+  // =
+
+  fs_assertSafePath: folderSync.assertSafePath,
+  fs_ensureSyncFinished: folderSync.ensureSyncFinished,
+  fs_diffListing: folderSync.diffListing,
+  fs_diffFile: folderSync.diffFile,
+  fs_syncFolderToArchive: folderSync.syncFolderToArchive,
+  fs_syncArchiveToFolder: folderSync.syncArchiveToFolder
 }
 
 // archive networking
