@@ -3,7 +3,6 @@ const parseDatUrl = require('parse-dat-url')
 const parseRange = require('range-parser')
 const once = require('once')
 const debug = require('../lib/debug-logger').debugLogger('dat-serve')
-const pda = require('pauls-dat-api')
 const intoStream = require('into-stream')
 const toZipStream = require('hyperdrive-to-zip-stream')
 const slugify = require('slugify')
@@ -140,7 +139,7 @@ exports.electronHandler = async function (request, respond) {
 
   // read the manifest (it's needed in a couple places)
   var manifest
-  try { manifest = await pda.readManifest(checkoutFS) } catch (e) { manifest = null }
+  try { manifest = await checkoutFS.pda.readManifest() } catch (e) { manifest = null }
 
   // read manifest CSP
   if (manifest && manifest.content_security_policy && typeof manifest.content_security_policy === 'string') {
@@ -202,7 +201,7 @@ exports.electronHandler = async function (request, respond) {
     }
     // attempt lookup
     try {
-      entry = await pda.stat(checkoutFS, path)
+      entry = await checkoutFS.pda.stat(path)
       entry.path = path
     } catch (e) {}
   }

@@ -215,7 +215,7 @@ module.exports = {
       resume()
 
       checkin('updating archive')
-      await pda.updateManifest(checkoutFS, manifestUpdates)
+      await checkoutFS.pda.updateManifest(manifestUpdates)
       await datLibrary.pullLatestArchiveMeta(archive)
     })
   },
@@ -266,7 +266,7 @@ module.exports = {
       checkin('looking up archive')
       const {checkoutFS} = await lookupArchive(this.sender, url, opts)
       checkin('stating file')
-      return pda.stat(checkoutFS, filepath)
+      return checkoutFS.pda.stat(filepath)
     })
   },
 
@@ -276,7 +276,7 @@ module.exports = {
       checkin('looking up archive')
       const {checkoutFS} = await lookupArchive(this.sender, url, opts)
       checkin('reading file')
-      return pda.readFile(checkoutFS, filepath, opts)
+      return checkoutFS.pda.readFile(filepath, opts)
     })
   },
 
@@ -297,7 +297,7 @@ module.exports = {
       resume()
 
       checkin('writing file')
-      return pda.writeFile(checkoutFS, filepath, data, opts)
+      return checkoutFS.pda.writeFile(filepath, data, opts)
     })
   },
 
@@ -314,7 +314,7 @@ module.exports = {
       resume()
 
       checkin('deleting file')
-      return pda.unlink(checkoutFS, filepath)
+      return checkoutFS.pda.unlink(filepath)
     })
   },
 
@@ -328,12 +328,12 @@ module.exports = {
       const senderOrigin = archivesDb.extractOrigin(this.sender.getURL())
       await assertWritePermission(archive, this.sender)
       assertUnprotectedFilePath(dstpath, this.sender)
-      const sourceSize = await pda.readSize(archive, filepath)
+      const sourceSize = await archive.pda.readSize(filepath)
       await assertQuotaPermission(archive, senderOrigin, sourceSize)
       resume()
 
       checkin('copying file')
-      return pda.copy(checkoutFS, filepath, dstpath)
+      return checkoutFS.pda.copy(filepath, dstpath)
     })
   },
 
@@ -351,7 +351,7 @@ module.exports = {
       resume()
 
       checkin('renaming file')
-      return pda.rename(checkoutFS, filepath, dstpath)
+      return checkoutFS.pda.rename(filepath, dstpath)
     })
   },
 
@@ -366,7 +366,7 @@ module.exports = {
       }
 
       checkin('downloading file')
-      await pda.download(archive, filepath)
+      await archive.pda.download(filepath)
     })
   },
 
@@ -377,12 +377,12 @@ module.exports = {
       const {checkoutFS} = await lookupArchive(this.sender, url, opts)
 
       checkin('reading directory')
-      var names = await pda.readdir(checkoutFS, filepath, opts)
+      var names = await checkoutFS.pda.readdir(filepath, opts)
       if (opts.stat) {
         for (let i = 0; i < names.length; i++) {
           names[i] = {
             name: names[i],
-            stat: await pda.stat(checkoutFS, path.join(filepath, names[i]))
+            stat: await checkoutFS.pda.stat(path.join(filepath, names[i]))
           }
         }
       }
@@ -404,7 +404,7 @@ module.exports = {
       resume()
 
       checkin('making directory')
-      return pda.mkdir(checkoutFS, filepath)
+      return checkoutFS.pda.mkdir(filepath)
     })
   },
 
@@ -421,7 +421,7 @@ module.exports = {
       resume()
 
       checkin('removing directory')
-      return pda.rmdir(checkoutFS, filepath, opts)
+      return checkoutFS.pda.rmdir(filepath, opts)
     })
   },
 
@@ -429,14 +429,14 @@ module.exports = {
     var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
     if (version === 'preview') {
       // staging area
-      return datLibrary.getDaemon().callWatch(checkoutFS, pathPattern)
+      return checkoutFS.pda.watch(pathPattern)
     }
-    return datLibrary.getDaemon().callWatch(archive, pathPattern)
+    return archive.pda.watch(pathPattern)
   },
 
   async createNetworkActivityStream (url) {
     var {archive} = await lookupArchive(this.sender, url)
-    return pda.createNetworkActivityStream(archive)
+    return archive.pda.createNetworkActivityStream()
   },
 
   async resolveName (name) {

@@ -2,7 +2,6 @@ const EventEmitter = require('events')
 const emitStream = require('emit-stream')
 
 // dat modules
-const pda = require('pauls-dat-api')
 const datLibrary = require('../dat/library')
 const datDns = require('../dat/dns')
 const watchlistDb = require('../dbs/watchlist')
@@ -95,6 +94,6 @@ async function watch (site) {
   if (site.resolved === 0) {
     watchlistEvents.emit('resolved', site)
   }
-  pda.download(archive, '/').catch(e => { /* ignore cancels */ }) // download the site to make sure it's available
+  archive.pda.download('/').catch(e => { /* ignore cancels */ }) // download the site to make sure it's available
   await updateWatchlist(0, site, {resolved: 1})
 }

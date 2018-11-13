@@ -41,7 +41,7 @@ var daemon
 
 exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}) {
   // connect to the daemon
-  daemon = createDaemonRPC(rpcAPI, datDaemonWc)
+  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
   daemonEvents = emitStream(daemon.createEventStream())
 
@@ -136,7 +136,7 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 
     // read the archive meta and size on disk
     var [manifest, oldMeta, size] = await Promise.all([
-      pda.readManifest(archive).catch(_ => {}),
+      archive.pda.readManifest().catch(_ => {}),
       archivesDb.getMeta(key),
       daemon.updateSizeTracking(key)
     ])
@@ -175,8 +175,8 @@ const createNewArchive = exports.createNewArchive = async function createNewArch
 
   // write the manifest and default datignore
   await Promise.all([
-    pda.writeManifest(archive, manifest),
-    pda.writeFile(archive, '/.datignore', await settingsDb.get('default_dat_ignore'), 'utf8')
+    archive.pda.writeManifest(manifest),
+    archive.pda.writeFile('/.datignore', await settingsDb.get('default_dat_ignore'), 'utf8')
   ])
 
   // write the user settings
@@ -198,7 +198,7 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
   }
 
   // fetch old archive meta
-  var srcManifest = await pda.readManifest(srcArchive).catch(_ => {})
+  var srcManifest = await srcArchive.pda.readManifest().catch(_ => {})
   srcManifest = srcManifest || {}
 
   // override any manifest data
@@ -229,9 +229,9 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
 
   // write a .datignore if DNE
   try {
-    await pda.stat(dstArchive, '/.datignore')
+    await dstArchive.pda.stat('/.datignore')
   } catch (e) {
-    await pda.writeFile(dstArchive, '/.datignore', await settingsDb.get('default_dat_ignore'), 'utf8')
+    await dstArchive.pda.writeFile('/.datignore', await settingsDb.get('default_dat_ignore'), 'utf8')
   }
 
   return dstArchiveUrl
@@ -314,7 +314,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
 
   // wire up events
   archive.pullLatestArchiveMeta = debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
-  archive.fileActStream = daemon.callWatch(archive)
+  archive.fileActStream = archive.pda.watch()
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
@@ -431,7 +431,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   var [meta, userSettings, manifest, archiveInfo] = await Promise.all([
     archivesDb.getMeta(key),
     archivesDb.getUserSettings(0, key),
-    pda.readManifest(archive).catch(_ => {}),
+    archive.pda.readManifest().catch(_ => {}),
     daemon.getArchiveInfo(key)
   ])
   manifest = manifest || {}
@@ -466,17 +466,6 @@ exports.clearFileCache = async function clearFileCache (key) {
 
 // helpers
 // =
-
-function createDaemonRPC (rpcAPI, datDaemonWc) {
-  var api = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
-  // wrap some functions
-  var callWatch = api.callWatch.bind(api)
-  api.callWatch = (archive, ...args) => {
-    var key = datEncoding.toStr(archive.key ? archive.key : archive)
-    return emitStream(callWatch(key, ...args))
-  }
-  return api
-}
 
 const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
   if (Buffer.isBuffer(url)) {
@@ -526,9 +515,31 @@ function makeArchiveProxyWriteStreamFn (key, version, method) {
   return (...args) => daemon.callArchiveWriteStreamMethod(key, version, method, ...args)
 }
 
+function makeArchiveProxyPDAPromiseFn (key, version, method) {
+  return (...args) => daemon.callArchivePDAPromiseMethod(key, version, method, ...args)
+}
+
+function makeArchiveProxyPDAReadStreamFn (key, version, method) {
+  return (...args) => daemon.callArchivePDAReadStreamMethod(key, version, method, ...args)
+}
+
+function fixStatObject (st) {
+  st.atime = new Date(st.atime)
+  st.mtime = new Date(st.mtime)
+  st.ctime = new Date(st.ctime)
+  st.isSocket = () => false
+  st.isSymbolicLink = () => false
+  st.isFile = () => (st.mode & 32768) === 32768
+  st.isBlockDevice = () => false
+  st.isDirectory = () => (st.mode & 16384) === 16384
+  st.isCharacterDevice = () => false
+  st.isFIFO = () => false
+}
+
 function createArchiveProxy (key, version, archiveInfo) {
   key = datEncoding.toStr(key)
   const stat = makeArchiveProxyCbFn(key, version, 'stat')
+  const pdaStat = makeArchiveProxyPDAPromiseFn(key, version, 'stat')
   return {
     key: datEncoding.toBuf(key),
     discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
@@ -549,25 +560,36 @@ function createArchiveProxy (key, version, archiveInfo) {
     stat: (...args) => {
       var cb = args.pop()
       args.push((err, st) => {
-        if (st) {
-          // turn into proper stat object
-          st.atime = new Date(st.atime)
-          st.mtime = new Date(st.mtime)
-          st.ctime = new Date(st.ctime)
-          st.isSocket = () => false
-          st.isSymbolicLink = () => false
-          st.isFile = () => st.mode & 32768 === 32768
-          st.isBlockDevice = () => false
-          st.isDirectory = () => st.mode & 16384 === 16384
-          st.isCharacterDevice = () => false
-          st.isFIFO = () => false
-        }
+        if (st) fixStatObject(st)
         cb(err, st)
       })
       stat(...args)
     },
     lstat: makeArchiveProxyCbFn(key, version, 'lstat'),
-    access: makeArchiveProxyCbFn(key, version, 'access')
+    access: makeArchiveProxyCbFn(key, version, 'access'),
+
+    pda: {
+      stat: async (...args) => {
+        var st = await pdaStat(...args)
+        if (st) fixStatObject(st)
+        return st
+      },
+      readFile: makeArchiveProxyPDAPromiseFn(key, version, 'readFile'),
+      readdir: makeArchiveProxyPDAPromiseFn(key, version, 'readdir'),
+      readSize: makeArchiveProxyPDAPromiseFn(key, version, 'readSize'),
+      writeFile: makeArchiveProxyPDAPromiseFn(key, version, 'writeFile'),
+      mkdir: makeArchiveProxyPDAPromiseFn(key, version, 'mkdir'),
+      copy: makeArchiveProxyPDAPromiseFn(key, version, 'copy'),
+      rename: makeArchiveProxyPDAPromiseFn(key, version, 'rename'),
+      unlink: makeArchiveProxyPDAPromiseFn(key, version, 'unlink'),
+      rmdir: makeArchiveProxyPDAPromiseFn(key, version, 'rmdir'),
+      download: makeArchiveProxyPDAPromiseFn(key, version, 'download'),
+      watch: makeArchiveProxyPDAReadStreamFn(key, version, 'watch'),
+      createNetworkActivityStream: makeArchiveProxyPDAReadStreamFn(key, version, 'createNetworkActivityStream'),
+      readManifest: makeArchiveProxyPDAPromiseFn(key, version, 'readManifest'),
+      writeManifest: makeArchiveProxyPDAPromiseFn(key, version, 'writeManifest'),
+      updateManifest: makeArchiveProxyPDAPromiseFn(key, version, 'updateManifest')
+    }
   }
 }
 

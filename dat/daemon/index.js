@@ -285,9 +285,19 @@ const RPC_API = {
     return checkout[method](...args)
   },
 
-  callWatch (key, version, ...args) {
+  callArchiveReadStreamMethod (key, version, method, ...args) {
     var checkout = getArchiveCheckout(key, version)
-    return emitStream(pda.watch(checkout, ...args))
+    return checkout[method](...args)
+  },
+
+  callArchivePDAPromiseMethod (key, version, method, ...args) {
+    var checkout = getArchiveCheckout(key, version)
+    return pda[method](checkout, ...args)
+  },
+
+  callArchivePDAReadStreamMethod (key, version, method, ...args) {
+    var checkout = getArchiveCheckout(key, version)
+    return pda[method](checkout, ...args)
   },
 
   async clearFileCache (key, userSettings) {
@@ -396,7 +406,7 @@ function getArchiveCheckout (key, version) {
           checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
         } else {
           let err = new Error('Preview mode is not enabled for this dat')
-          err.noPreviewMode = true // DAEMON
+          err.noPreviewMode = true
           throw err
         }
       } else {
