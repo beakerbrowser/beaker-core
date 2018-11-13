@@ -319,12 +319,12 @@ const RPC_API = {
   // =
 
   fs_assertSafePath: folderSync.assertSafePath,
-  fs_ensureSyncFinished: folderSync.ensureSyncFinished,
-  fs_diffListing: folderSync.diffListing,
-  fs_diffFile: folderSync.diffFile,
-  fe_queueSyncEvent: folderSync.queueSyncEvent,
-  fs_syncFolderToArchive: folderSync.syncFolderToArchive,
-  fs_syncArchiveToFolder: folderSync.syncArchiveToFolder,
+  fs_ensureSyncFinished: key => folderSync.ensureSyncFinished(getArchive(key)),
+  fs_diffListing: (key, opts) => folderSync.diffListing(getArchive(key), opts),
+  fs_diffFile: (key, filepath) => folderSync.diffFile(getArchive(key), opts),
+  fe_queueSyncEvent: (key, opts) => folderSync.queueSyncEvent(getArchive(key), opts),
+  fs_syncFolderToArchive: (key, opts) => folderSync.syncFolderToArchive(getArchive(key), opts),
+  fs_syncArchiveToFolder: (key, opts) => folderSync.syncArchiveToFolder(getArchive(key), opts),
 
   // dat extensions
   // =
@@ -384,8 +384,9 @@ const leaveSwarm = exports.leaveSwarm = function leaveSwarm (key) {
 // =
 
 function getArchive (key) {
-  if (key.key) return key // we were given an archive
-  return archives[key]
+  if (key instanceof hyperdrive) return key
+  if (key.key) key = key.key
+  return archives[datEncoding.toStr(key)]
 }
 
 function getArchiveCheckout (key, version) {
