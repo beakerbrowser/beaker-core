@@ -523,9 +523,9 @@ function makeArchiveProxyPDAReadStreamFn (key, version, method) {
 }
 
 function fixStatObject (st) {
-  st.atime = new Date(st.atime)
-  st.mtime = new Date(st.mtime)
-  st.ctime = new Date(st.ctime)
+  st.atime = (new Date(st.atime)).getTime()
+  st.mtime = (new Date(st.mtime)).getTime()
+  st.ctime = (new Date(st.ctime)).getTime()
   st.isSocket = () => false
   st.isSymbolicLink = () => false
   st.isFile = () => (st.mode & 32768) === 32768
