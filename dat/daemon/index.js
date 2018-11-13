@@ -8,6 +8,7 @@ const throttle = require('lodash.throttle')
 const isEqual = require('lodash.isequal')
 const pump = require('pump')
 const jetpack = require('fs-jetpack')
+const {join} = require('path')
 
 // dat modules
 const hyperdrive = require('hyperdrive')
@@ -31,6 +32,7 @@ const RPC_MANIFEST = require('./manifest')
 // globals
 // =
 
+var datPath
 var networkId = crypto.randomBytes(32)
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archivesByDKey = {} // same, but discoveryKey -> archive
@@ -77,6 +79,7 @@ exports.setup = async function ({rpcAPI, logfilePath}) {
 
 const RPC_API = {
   setup (opts) {
+    datPath = opts.datPath
     folderSync.setup(opts)
   },
 
@@ -123,8 +126,6 @@ const RPC_API = {
       userSettings
     } = opts
 
-    console.log('loading archive', opts)
-
     // create the archive instance
     var archive = hyperdrive(datStorage.create(metaPath), key, {
       sparse: true,
@@ -144,8 +145,6 @@ const RPC_API = {
     archive.replicationStreams = [] // list of all active replication streams
     archive.peerHistory = [] // samples of the peer count
 
-    console.log('load 1')
-
     // wait for ready
     await new Promise((resolve, reject) => {
       archive.ready(err => {
@@ -153,9 +152,7 @@ const RPC_API = {
         else resolve()
       })
     })
-    console.log('load 2')
     updateSizeTracking(archive)
-    console.log('load 2b')
 
     // attach extensions
     datExtensions.attach(archive)
@@ -163,8 +160,6 @@ const RPC_API = {
     // store in the discovery listing, so the swarmer can find it
     // but not yet in the regular archives listing, because it's not fully loaded
     archivesByDKey[datEncoding.toStr(archive.discoveryKey)] = archive
-
-    console.log('load 3')
 
     // setup the archive based on current settings
     configureNetwork(archive, userSettings)
@@ -187,7 +182,6 @@ const RPC_API = {
     }
 
     archives[datEncoding.toStr(archive.key)] = archive
-    console.log('load done')
   },
 
   async unloadArchive (key) {
@@ -348,8 +342,7 @@ function configureLocalSync (archive, userSettings) {
 
   if (!archive.localSyncSettings || !archive.localSyncSettings.isUsingInternal) {
     // clear the internal directory if it's not in use
-    // DAEMON
-    // jetpack.removeAsync(archivesDb.getInternalLocalSyncPath(archive))
+    jetpack.removeAsync(getInternalLocalSyncPath(archive))
   }
 }
 
@@ -363,14 +356,13 @@ function getLocalSyncSettings (archive, userSettings) {
       autoPublish: !userSettings.previewMode
     }
   }
-  // DAEMON
-  // if (userSettings.previewMode) {
-  //   return {
-  //     path: archivesDb.getInternalLocalSyncPath(archive),
-  //     autoPublish: false,
-  //     isUsingInternal: true
-  //   }
-  // }
+  if (userSettings.previewMode) {
+    return {
+      path: getInternalLocalSyncPath(archive),
+      autoPublish: false,
+      isUsingInternal: true
+    }
+  }
   return false
 }
 
@@ -489,6 +481,11 @@ function getArchivePeerInfos (archive) {
   // archive.replicationStreams.map(s => ({host: s.peerInfo.host, port: s.peerInfo.port}))
 
   return archive.metadata.peers.map(peer => peer.stream.stream.peerInfo).filter(Boolean)
+}
+
+function getInternalLocalSyncPath (archiveOrKey) {
+  var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)
+  return join(datPath, 'Archives', 'LocalCopy', key.slice(0, 2), key.slice(2))
 }
 
 // helpers

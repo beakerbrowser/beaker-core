@@ -43,7 +43,7 @@ var daemon
 exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}) {
   // connect to the daemon
   daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
-  daemon.setup({disallowedSavePaths})
+  daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
 
   // wire up event handlers
   archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {
