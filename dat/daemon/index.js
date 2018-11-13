@@ -1,5 +1,6 @@
 const crypto = require('crypto')
 const EventEmitter = require('events')
+const emitStream = require('emit-stream')
 const CircularAppendFile = require('circular-append-file')
 const through = require('through2')
 const split = require('split2')
@@ -37,6 +38,7 @@ var networkId = crypto.randomBytes(32)
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archivesByDKey = {} // same, but discoveryKey -> archive
 var archiveLoadPromises = {} // key -> promise
+var daemonEvents = new EventEmitter()
 var debugEvents = new EventEmitter()
 var debugLogFile
 var archiveSwarm
@@ -57,6 +59,25 @@ exports.setup = async function ({rpcAPI, logfilePath}) {
 
   // setup extension messages
   datExtensions.setup()
+
+  // re-export events
+  folderSync.events.on('sync', (key, direction) => {
+    daemonEvents.emit('folder-synced', {
+      details: {
+        url: `dat://${datEncoding.toStr(key)}`,
+        direction
+      }
+    })
+  })
+  folderSync.events.on('error', (key, err) => {
+    daemonEvents.emit('folder-sync-error', {
+      details: {
+        url: `dat://${datEncoding.toStr(key)}`,
+        name: err.name,
+        message: err.message
+      }
+    })
+  })
 
   // setup the archive swarm
   archiveSwarm = discoverySwarm(swarmDefaults({
@@ -81,6 +102,10 @@ const RPC_API = {
   setup (opts) {
     datPath = opts.datPath
     folderSync.setup(opts)
+  },
+
+  createEventStream () {
+    return emitStream(daemonEvents)
   },
 
   configureArchive (key, userSettings) {
@@ -465,15 +490,15 @@ function onNetworkChanged (archive) {
   for (var k in archives) {
     totalPeerCount += archives[k].metadata.peers.length
   }
-  // DAEMON
-  // archivesEvents.emit('network-changed', {
-  //   details: {
-  //     url: `dat://${datEncoding.toStr(archive.key)}`,
-  //     peers: getArchivePeerInfos(archive),
-  //     connections: archive.metadata.peers.length,
-  //     totalPeerCount
-  //   }
-  // })
+
+  daemonEvents.emit('network-changed', {
+    details: {
+      url: `dat://${datEncoding.toStr(archive.key)}`,
+      peers: getArchivePeerInfos(archive),
+      connections: archive.metadata.peers.length,
+      totalPeerCount
+    }
+  })
 }
 
 function getArchivePeerInfos (archive) {

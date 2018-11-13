@@ -1,5 +1,6 @@
 module.exports = {
   setup: 'promise',
+  createEventStream: 'readable',
   configureArchive: 'promise',
   setBandwidthThrottle: 'promise',
   getDebugLog: 'promise',

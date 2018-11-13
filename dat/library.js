@@ -35,6 +35,7 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archiveLoadPromises = {} // key -> promise
 var archivesEvents = new EventEmitter()
+var daemonEvents
 var daemon
 
 // exported API
@@ -44,6 +45,7 @@ exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}
   // connect to the daemon
   daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
+  daemonEvents = emitStream(daemon.createEventStream())
 
   // wire up event handlers
   archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {
@@ -72,24 +74,10 @@ exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}
     daemon.configureArchive(key, userSettings)
   })
 
-  // DAEMON
-  // folderSync.events.on('sync', (key, direction) => {
-  //   archivesEvents.emit('folder-synced', {
-  //     details: {
-  //       url: `dat://${datEncoding.toStr(key)}`,
-  //       direction
-  //     }
-  //   })
-  // })
-  // folderSync.events.on('error', (key, err) => {
-  //   archivesEvents.emit('folder-sync-error', {
-  //     details: {
-  //       url: `dat://${datEncoding.toStr(key)}`,
-  //       name: err.name,
-  //       message: err.message
-  //     }
-  //   })
-  // })
+  // re-export events
+  daemonEvents.on('network-changed', evt => archivesEvents.emit('network-changed', evt))
+  daemonEvents.on('folder-synced', evt => archivesEvents.emit('folder-synced', evt))
+  daemonEvents.on('folder-sync-error', evt => archivesEvents.emit('folder-sync-error', evt))
 
   // configure the bandwidth throttle
   settingsDb.getAll().then(({dat_bandwidth_limit_up, dat_bandwidth_limit_down}) => {
