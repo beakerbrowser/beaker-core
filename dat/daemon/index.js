@@ -315,7 +315,18 @@ const RPC_API = {
   fs_diffListing: folderSync.diffListing,
   fs_diffFile: folderSync.diffFile,
   fs_syncFolderToArchive: folderSync.syncFolderToArchive,
-  fs_syncArchiveToFolder: folderSync.syncArchiveToFolder
+  fs_syncArchiveToFolder: folderSync.syncArchiveToFolder,
+
+  // dat extensions
+  // =
+
+  ext_listPeers: datExtensions.listPeers,
+  ext_getPeer: datExtensions.getPeer,
+  ext_broadcastEphemeralMessage: datExtensions.broadcastEphemeralMessage,
+  ext_sendEphemeralMessage: datExtensions.sendEphemeralMessage,
+  ext_getSessionData: datExtensions.getSessionData,
+  ext_setSessionData: datExtensions.setSessionData,
+  ext_createDatPeersStream: datExtensions.createDatPeersStream
 }
 
 // archive networking

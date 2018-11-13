@@ -32,5 +32,15 @@ module.exports = {
   fs_diffListing: 'promise',
   fs_diffFile: 'promise',
   fs_syncFolderToArchive: 'promise',
-  fs_syncArchiveToFolder: 'promise'
+  fs_syncArchiveToFolder: 'promise',
+
+  // dat extensions
+
+  ext_listPeers: 'promise',
+  ext_getPeer: 'promise',
+  ext_broadcastEphemeralMessage: 'promise',
+  ext_sendEphemeralMessage: 'promise',
+  ext_getSessionData: 'promise',
+  ext_setSessionData: 'promise',
+  ext_createDatPeersStream: 'readable'
 }
