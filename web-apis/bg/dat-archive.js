@@ -227,6 +227,7 @@ module.exports = {
       var reverse = opts.reverse === true
       var {start, end} = opts
       var {archive, checkoutFS, isPreview} = await lookupArchive(this.sender, url, opts)
+      var archiveInfo = await datLibrary.getDaemon().getArchiveInfo(archive.key)
 
       if (isPreview) {
         // dont use the checkout FS in previews, it has no history() api
@@ -237,15 +238,15 @@ module.exports = {
 
       // if reversing the output, modify start/end
       start = start || 0
-      end = end || archive.metadata.length
+      end = end || archiveInfo.version
       if (reverse) {
         // swap values
         let t = start
         start = end
         end = t
         // start from the end
-        start = archive.metadata.length - start
-        end = archive.metadata.length - end
+        start = archiveInfo.version - start
+        end = archiveInfo.version - end
       }
 
       return new Promise((resolve, reject) => {
@@ -640,16 +641,16 @@ async function assertQuotaPermission (archive, senderOrigin, byteLength) {
   }
 
   // fetch the archive settings
-  const userSettings = await archivesDb.getUserSettings(0, archive.key)
+  const userSettings = archivesDb.getUserSettings(0, archive.key)
 
   // fallback to default quota
   var bytesAllowed = userSettings.bytesAllowed || DAT_QUOTA_DEFAULT_BYTES_ALLOWED
 
   // update the archive size
-  await datLibrary.updateSizeTracking(archive)
+  var size = await datLibrary.updateSizeTracking(archive)
 
   // check the new size
-  var newSize = (archive.size + byteLength)
+  var newSize = (size + byteLength)
   if (newSize > bytesAllowed) {
     throw new QuotaExceededError()
   }
