@@ -236,6 +236,22 @@ const RPC_API = {
       archive.metadata.download({start: 0, end: -1})
     }
 
+    // watch for sync events
+    archive.fileActStream = pda.watch(archive)
+    archive.fileActStream.on('data', ([event, {path}]) => {
+      if (event === 'changed') {
+        if (!archive.localSyncSettings) return
+        // need to sync this change to the local folder
+        if (archive.localSyncSettings.autoPublish) {
+          // bidirectional sync: use the sync queue
+          folderSync.queueSyncEvent(archive, {toFolder: true})
+        } else {
+          // preview mode: just write this update to disk
+          folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
+        }
+      }
+    })
+
     // store in the archives list
     archives[datEncoding.toStr(archive.key)] = archive
 

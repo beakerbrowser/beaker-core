@@ -317,17 +317,6 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
-      let syncSettings = archive.localSyncSettings
-      if (syncSettings) {
-        // need to sync this change to the local folder
-        if (syncSettings.autoPublish) {
-          // bidirectional sync: use the sync queue
-          daemon.fe_queueSyncEvent(archive, {toFolder: true})
-        } else {
-          // preview mode: just write this update to disk
-          daemon.fe_syncArchiveToFolder(archive, {paths: [path], shallow: false})
-        }
-      }
     }
   })
 
@@ -378,7 +367,12 @@ const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArch
 
 exports.unloadArchive = async function unloadArchive (key) {
   key = fromURLToKey(key)
-  if (!archives[key]) return
+  var archive = archives[key]
+  if (archive) return
+  if (archive.fileActStream) {
+    archive.fileActStream.end()
+    archive.fileActStream = null
+  }
   delete archives[key]
   await daemon.unloadArchive(key)
 }
