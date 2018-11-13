@@ -23,6 +23,7 @@ module.exports = {
   callArchiveAsyncMethod: 'async',
   callArchiveReadStreamMethod: 'readable',
   callArchiveWriteStreamMethod: 'writable',
+  callWatch: 'readable',
   clearFileCache: 'promise',
 
   // folder sync

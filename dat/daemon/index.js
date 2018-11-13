@@ -288,6 +288,12 @@ const RPC_API = {
     return archive[method](...args)
   },
 
+  callWatch (key, ...args) {
+    var archive = archives[key]
+    if (!archive) throw new Error('Archive not loaded: ' + key)
+    return emitStream(pda.watch(archive, ...args))
+  },
+
   async clearFileCache (key, userSettings) {
     var archive = await getArchive(key)
     if (!archive || archive.writable) {

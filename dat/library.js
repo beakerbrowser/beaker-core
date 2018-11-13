@@ -43,7 +43,7 @@ var daemon
 
 exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}) {
   // connect to the daemon
-  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
+  daemon = createDaemonRPC(rpcAPI, datDaemonWc)
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
   daemonEvents = emitStream(daemon.createEventStream())
 
@@ -316,24 +316,23 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
 
   // wire up events
   archive.pullLatestArchiveMeta = debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
-  // DAEMON
-  // archive.fileActStream = pda.watch(archive)
-  // archive.fileActStream.on('data', ([event, {path}]) => {
-  //   if (event === 'changed') {
-  //     archive.pullLatestArchiveMeta({updateMTime: true})
-  //     let syncSettings = archive.localSyncSettings
-  //     if (syncSettings) {
-  //       // need to sync this change to the local folder
-  //       if (syncSettings.autoPublish) {
-  //         // bidirectional sync: use the sync queue
-  //         folderSync.queueSyncEvent(archive, {toFolder: true})
-  //       } else {
-  //         // preview mode: just write this update to disk
-  //         folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
-  //       }
-  //     }
-  //   }
-  // })
+  archive.fileActStream = daemon.callWatch(archive)
+  archive.fileActStream.on('data', ([event, {path}]) => {
+    if (event === 'changed') {
+      archive.pullLatestArchiveMeta({updateMTime: true})
+      let syncSettings = archive.localSyncSettings
+      if (syncSettings) {
+        // need to sync this change to the local folder
+        if (syncSettings.autoPublish) {
+          // bidirectional sync: use the sync queue
+          folderSync.queueSyncEvent(archive, {toFolder: true})
+        } else {
+          // preview mode: just write this update to disk
+          folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
+        }
+      }
+    }
+  })
 
   // now store in main archives listing, as loaded
   archives[datEncoding.toStr(archive.key)] = archive
@@ -480,6 +479,17 @@ exports.clearFileCache = async function clearFileCache (key) {
 
 // helpers
 // =
+
+function createDaemonRPC (rpcAPI, datDaemonWc) {
+  var api = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
+  // wrap some functions
+  var callWatch = api.callWatch.bind(api)
+  api.callWatch = (archive, ...args) => {
+    var key = datEncoding.toStr(archive.key ? archive.key : archive)
+    return emitStream(callWatch(key, ...args))
+  }
+  return api
+}
 
 const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
   if (Buffer.isBuffer(url)) {
