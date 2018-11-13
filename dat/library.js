@@ -16,7 +16,6 @@ const archivesDb = require('../dbs/archives')
 // dat modules
 const datGC = require('./garbage-collector')
 
-
 // constants
 // =
 
@@ -323,10 +322,10 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
         // need to sync this change to the local folder
         if (syncSettings.autoPublish) {
           // bidirectional sync: use the sync queue
-          folderSync.queueSyncEvent(archive, {toFolder: true})
+          daemon.fe_queueSyncEvent(archive, {toFolder: true})
         } else {
           // preview mode: just write this update to disk
-          folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
+          daemon.fe_syncArchiveToFolder(archive, {paths: [path], shallow: false})
         }
       }
     }
@@ -592,4 +591,3 @@ function createArchiveProxy (key, version, archiveInfo) {
     }
   }
 }
-

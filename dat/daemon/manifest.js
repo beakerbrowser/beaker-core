@@ -33,6 +33,7 @@ module.exports = {
   fs_ensureSyncFinished: 'promise',
   fs_diffListing: 'promise',
   fs_diffFile: 'promise',
+  fe_queueSyncEvent: 'promise',
   fs_syncFolderToArchive: 'promise',
   fs_syncArchiveToFolder: 'promise',
 

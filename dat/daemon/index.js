@@ -27,6 +27,7 @@ const datStorage = require('./storage')
 const folderSync = require('./folder-sync')
 const {addArchiveSwarmLogging} = require('./logging-utils')
 const datExtensions = require('./extensions')
+const scopedFSes = require('../../lib/scoped-fses')
 const {DAT_SWARM_PORT} = require('../../lib/const')
 const RPC_MANIFEST = require('./manifest')
 
@@ -285,11 +286,6 @@ const RPC_API = {
     return checkout[method](...args)
   },
 
-  callArchiveReadStreamMethod (key, version, method, ...args) {
-    var checkout = getArchiveCheckout(key, version)
-    return checkout[method](...args)
-  },
-
   callArchivePDAPromiseMethod (key, version, method, ...args) {
     var checkout = getArchiveCheckout(key, version)
     return pda[method](checkout, ...args)
@@ -326,6 +322,7 @@ const RPC_API = {
   fs_ensureSyncFinished: folderSync.ensureSyncFinished,
   fs_diffListing: folderSync.diffListing,
   fs_diffFile: folderSync.diffFile,
+  fe_queueSyncEvent: folderSync.queueSyncEvent,
   fs_syncFolderToArchive: folderSync.syncFolderToArchive,
   fs_syncArchiveToFolder: folderSync.syncArchiveToFolder,
 
