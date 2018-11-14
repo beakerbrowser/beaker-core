@@ -183,10 +183,10 @@ const RPC_API = {
     // create the archive instance
     var archive = hyperdrive(datStorage.create(metaPath), key, {
       sparse: true,
-      secretKey,
-      metadataStorageCacheSize: 0,
-      contentStorageCacheSize: 0,
-      treeCacheSize: 2048
+      secretKey
+      // metadataStorageCacheSize: 0,
+      // contentStorageCacheSize: 0,
+      // treeCacheSize: 2048
     })
     archive.on('error', err => {
       let k = key.toString('hex')
