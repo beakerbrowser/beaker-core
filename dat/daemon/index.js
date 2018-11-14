@@ -345,13 +345,13 @@ const RPC_API = {
   // dat extensions
   // =
 
-  ext_listPeers: datExtensions.listPeers,
-  ext_getPeer: datExtensions.getPeer,
-  ext_broadcastEphemeralMessage: datExtensions.broadcastEphemeralMessage,
-  ext_sendEphemeralMessage: datExtensions.sendEphemeralMessage,
-  ext_getSessionData: datExtensions.getSessionData,
-  ext_setSessionData: datExtensions.setSessionData,
-  ext_createDatPeersStream: datExtensions.createDatPeersStream
+  ext_listPeers: async (key, ...args) => datExtensions.listPeers(getArchive(key), ...args),
+  ext_getPeer: async (key, ...args) => datExtensions.getPeer(getArchive(key), ...args),
+  ext_broadcastEphemeralMessage: async (key, ...args) => datExtensions.broadcastEphemeralMessage(getArchive(key), ...args),
+  ext_sendEphemeralMessage: async (key, ...args) => datExtensions.sendEphemeralMessage(getArchive(key), ...args),
+  ext_getSessionData: async (key, ...args) => datExtensions.getSessionData(getArchive(key), ...args),
+  ext_setSessionData: async (key, ...args) => datExtensions.setSessionData(getArchive(key), ...args),
+  ext_createDatPeersStream: async (key, ...args) => datExtensions.createDatPeersStream(getArchive(key), ...args)
 }
 
 // archive networking
