@@ -238,7 +238,7 @@ module.exports = {
 
       // if reversing the output, modify start/end
       start = start || 0
-      end = (end || archiveInfo.version) + 1
+      end = end || (archiveInfo.version + 1)
       if (reverse) {
         // swap values
         let t = start
