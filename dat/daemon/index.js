@@ -336,11 +336,11 @@ const RPC_API = {
 
   fs_assertSafePath: folderSync.assertSafePath,
   fs_ensureSyncFinished: key => folderSync.ensureSyncFinished(getArchive(key)),
-  fs_diffListing: (key, opts) => folderSync.diffListing(getArchive(key), opts),
-  fs_diffFile: (key, filepath) => folderSync.diffFile(getArchive(key), filepath),
-  fe_queueSyncEvent: (key, opts) => folderSync.queueSyncEvent(getArchive(key), opts),
-  fs_syncFolderToArchive: (key, opts) => folderSync.syncFolderToArchive(getArchive(key), opts),
-  fs_syncArchiveToFolder: (key, opts) => folderSync.syncArchiveToFolder(getArchive(key), opts),
+  fs_diffListing: (key, ...args) => folderSync.diffListing(getArchive(key), ...args),
+  fs_diffFile: (key, ...args) => folderSync.diffFile(getArchive(key), ...args),
+  fe_queueSyncEvent: (key, ...args) => folderSync.queueSyncEvent(getArchive(key), ...args),
+  fs_syncFolderToArchive: (key, ...args) => folderSync.syncFolderToArchive(getArchive(key), ...args),
+  fs_syncArchiveToFolder: (key, ...args) => folderSync.syncArchiveToFolder(getArchive(key), ...args),
 
   // dat extensions
   // =
