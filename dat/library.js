@@ -370,7 +370,7 @@ exports.unloadArchive = async function unloadArchive (key) {
   var archive = archives[key]
   if (!archive) return
   if (archive.fileActStream) {
-    archive.fileActStream.end()
+    archive.fileActStream.close()
     archive.fileActStream = null
   }
   delete archives[key]
