@@ -3,7 +3,6 @@ const mkdirp = require('mkdirp')
 const jetpack = require('fs-jetpack')
 const templatesDb = require('../../dbs/templates')
 const datDns = require('../../dat/dns')
-const folderSync = require('../../dat/folder-sync')
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
 const archivesDb = require('../../dbs/archives')
@@ -97,7 +96,7 @@ module.exports = {
 
     // make sure the path is good
     try {
-      await folderSync.assertSafePath(localSyncPath)
+      await datLibrary.getDaemon().fs_assertSafePath(localSyncPath)
     } catch (e) {
       if (e.notFound) {
         return {doesNotExist: true}
@@ -107,7 +106,7 @@ module.exports = {
 
     // check for conflicts
     var archive = await datLibrary.getOrLoadArchive(key)
-    var diff = await folderSync.diffListing(archive, {localSyncPath})
+    var diff = await datLibrary.getDaemon().fs_diffListing(archive, {localSyncPath})
     diff = diff.filter(d => d.change === 'mod' && d.path !== '/dat.json')
     if (diff.length) {
       return {hasConflicts: true, conflicts: diff.map(d => d.path)}
@@ -127,7 +126,7 @@ module.exports = {
 
       if (opts.deleteSyncPath && oldSettings.localSyncPath) {
         try {
-          await folderSync.assertSafePath(oldSettings.localSyncPath)
+          await datLibrary.getDaemon().fs_assertSafePath(oldSettings.localSyncPath)
           await jetpack.removeAsync(oldSettings.localSyncPath)
         } catch (_) {}
       }
@@ -142,7 +141,7 @@ module.exports = {
 
     // make sure the path is good
     try {
-      await folderSync.assertSafePath(localSyncPath)
+      await datLibrary.getDaemon().fs_assertSafePath(localSyncPath)
     } catch (e) {
       if (e.notFound) {
         // just create the folder
@@ -171,7 +170,7 @@ module.exports = {
     })
 
     // ensure sync
-    await folderSync.ensureSyncFinished(archive)
+    await datLibrary.getDaemon().fs_ensureSyncFinished(archive)
   },
 
   // diff & publish
@@ -187,7 +186,7 @@ module.exports = {
       archive = await datLibrary.getOrLoadArchive(key)
     })
 
-    return folderSync.diffListing(archive, opts)
+    return datLibrary.getDaemon().fs_diffListing(archive, opts)
   },
 
   async diffLocalSyncPathFile (key, filepath) {
@@ -200,7 +199,7 @@ module.exports = {
       archive = await datLibrary.getOrLoadArchive(key)
     })
 
-    return folderSync.diffFile(archive, filepath)
+    return datLibrary.getDaemon().fs_diffFile(archive, filepath)
   },
 
   async publishLocalSyncPathListing (key, opts = {}) {
@@ -214,7 +213,7 @@ module.exports = {
     })
 
     opts.shallow = false
-    return folderSync.syncFolderToArchive(archive, opts)
+    return datLibrary.getDaemon().fs_syncFolderToArchive(archive, opts)
   },
 
   async revertLocalSyncPathListing (key, opts = {}) {
@@ -228,7 +227,7 @@ module.exports = {
     })
 
     opts.shallow = false
-    return folderSync.syncArchiveToFolder(archive, opts)
+    return datLibrary.getDaemon().fs_syncArchiveToFolder(archive, opts)
   },
 
   // drafts

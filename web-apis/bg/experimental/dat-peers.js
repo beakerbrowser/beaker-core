@@ -3,7 +3,6 @@ const {PermissionsError} = require('beaker-error-constants')
 const globals = require('../../../globals')
 const datLibrary = require('../../../dat/library')
 const datDns = require('../../../dat/dns')
-const datExtensions = require('../../../dat/extensions')
 const {DAT_HASH_REGEX} = require('../../../lib/const')
 
 // constants
@@ -21,43 +20,43 @@ module.exports = {
   async list () {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.listPeers(archive)
+    return datLibrary.getDaemon().ext_listPeers(archive.key.toString('hex'))
   },
 
   async get (peerId) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.getPeer(archive, peerId)
+    return datLibrary.getDaemon().ext_getPeer(archive.key.toString('hex'), peerId)
   },
 
   async broadcast (data) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.broadcastEphemeralMessage(archive, data)
+    return datLibrary.getDaemon().ext_broadcastEphemeralMessage(archive.key.toString('hex'), data)
   },
 
   async send (peerId, data) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.sendEphemeralMessage(archive, peerId, data)
+    return datLibrary.getDaemon().ext_sendEphemeralMessage(archive.key.toString('hex'), peerId, data)
   },
 
   async getSessionData () {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.getSessionData(archive)
+    return datLibrary.getDaemon().ext_getSessionData(archive.key.toString('hex'))
   },
 
   async setSessionData (sessionData) {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.setSessionData(archive, sessionData)
+    return datLibrary.getDaemon().ext_setSessionData(archive.key.toString('hex'), sessionData)
   },
 
   async createEventStream () {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
-    return datExtensions.createDatPeersStream(archive)
+    return datLibrary.getDaemon().ext_createDatPeersStream(archive.key.toString('hex'))
   }
 }
 

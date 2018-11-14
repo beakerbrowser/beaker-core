@@ -1,4 +1,3 @@
-const globals = require('../globals')
 const bytes = require('bytes')
 const dft = require('diff-file-tree')
 const diff = require('diff')
@@ -9,10 +8,9 @@ const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
 const mkdirp = require('mkdirp')
 const {toAnymatchRules} = require('@beaker/datignore')
-const settingsDb = require('../dbs/settings')
-const {isFileNameBinary, isFileContentBinary} = require('../lib/mime')
-const lock = require('../lib/lock')
-const scopedFSes = require('../lib/scoped-fses')
+const {isFileNameBinary, isFileContentBinary} = require('../../lib/mime')
+const lock = require('../../lib/lock')
+const scopedFSes = require('../../lib/scoped-fses')
 const {
   NotFoundError,
   NotAFolderError,
@@ -24,10 +22,19 @@ const {
 
 const MAX_DIFF_SIZE = bytes('100kb')
 
+// globals
+// =
+
+var disallowedSavePaths = []
+
 // exported api
 // =
 
 const events = exports.events = new EventEmitter()
+
+exports.setup = function (opts) {
+  disallowedSavePaths = opts.disallowedSavePaths
+}
 
 // sync dat to the folder
 // - opts
@@ -37,6 +44,7 @@ const events = exports.events = new EventEmitter()
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
 const syncArchiveToFolder = exports.syncArchiveToFolder = function (archive, opts = {}) {
+  opts = opts || {}
   return sync(archive, false, opts)
 }
 
@@ -48,6 +56,7 @@ const syncArchiveToFolder = exports.syncArchiveToFolder = function (archive, opt
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
 const syncFolderToArchive = exports.syncFolderToArchive = function (archive, opts = {}) {
+  opts = opts || {}
   if (!archive.writable) throw new ArchiveNotWritableError()
   return sync(archive, true, opts)
 }
@@ -222,6 +231,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
 //   - paths: Array<string>, a whitelist of files to compare
 //   - localSyncPath: string, override the archive localSyncPath
 exports.diffListing = async function (archive, opts = {}) {
+  opts = opts || {}
   var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
   if (!localSyncPath) return console.log(new Error('diffListing() aborting, no localSyncPath')) // sanity check
   var scopedFS = scopedFSes.get(localSyncPath)
@@ -280,7 +290,7 @@ exports.diffFile = async function (archive, filepath) {
 // validate a path to be used for sync
 exports.assertSafePath = async function (p) {
   // check whether this is an OS path
-  for (let disallowedSavePath of globals.disallowedSavePaths) {
+  for (let disallowedSavePath of disallowedSavePaths) {
     if (path.normalize(p) === path.normalize(disallowedSavePath)) {
       throw new ProtectedFileNotWritableError(`This is a protected folder. Please pick another folder or subfolder.`)
     }
@@ -303,10 +313,6 @@ exports.assertSafePath = async function (p) {
 // read a datignore from a fs space and turn it into anymatch rules
 const readDatIgnore = exports.readDatIgnore = async function (fs) {
   var rulesRaw = await readFile(fs, '.datignore')
-  if (!rulesRaw) {
-    // TODO remove this? we're supposed to only use .datignore but many archives wont have one at first -prf
-    rulesRaw = await settingsDb.get('default_dat_ignore')
-  }
   return toAnymatchRules(rulesRaw)
 }
 
@@ -347,6 +353,7 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
 //   - localSyncPath: string, override the archive localSyncPath
 //   - addOnly: bool, dont modify or remove any files (default false)
 async function sync (archive, toArchive, opts = {}) {
+  opts = opts || {}
   var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
   if (!localSyncPath) return console.log(new Error('sync() aborting, no localSyncPath')) // sanity check
 

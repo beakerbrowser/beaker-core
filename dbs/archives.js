@@ -27,6 +27,10 @@ exports.setup = function (opts) {
   mkdirp.sync(path.join(datPath, 'Archives'))
 }
 
+exports.getDatPath = function () {
+  return datPath
+}
+
 // get the path to an archive's files
 const getArchiveMetaPath = exports.getArchiveMetaPath = function (archiveOrKey) {
   var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)

@@ -24,6 +24,7 @@ module.exports = {
     assert(typeof opts.userDataPath === 'string', 'userDataPath must be a string')
     assert(typeof opts.homePath === 'string', 'homePath must be a string')
     assert(typeof opts.templatesPath === 'string', 'templatesPath must be a string')
+    assert(!!opts.datDaemonWc, 'must provide datDaemonWc')
     assert(!!opts.permsAPI, 'must provide permsAPI')
     assert(!!opts.uiAPI, 'must provide uiAPI')
     assert(!!opts.rpcAPI, 'must provide rpcAPI')
@@ -45,7 +46,7 @@ module.exports = {
     }
 
     // setup dat
-    await dat.library.setup({logfilePath: join(globals.userDataPath, 'dat.log')})
+    await dat.library.setup(opts)
 
     // setup watchlist
     await dat.watchlist.setup()

@@ -3,7 +3,6 @@ const fs = require('fs')
 const detectSparseFiles = require('supports-sparse-files')
 const raf = require('random-access-file')
 const raif = require('random-access-indexed-file')
-const debug = require('../lib/debug-logger').debugLogger('dat')
 
 // globals
 // =
@@ -23,7 +22,6 @@ exports.setup = async function () {
     detectSparseFiles(function (err, yes) {
       supportsSparseFiles = yes
       if (!yes) {
-        debug('Sparse-file support not detected. Falling back to indexed data files.')
         console.log('Sparse-file support not detected. Falling back to indexed data files.')
       }
       resolve()

@@ -215,7 +215,7 @@ module.exports = {
       resume()
 
       checkin('updating archive')
-      await pda.updateManifest(checkoutFS, manifestUpdates)
+      await checkoutFS.pda.updateManifest(manifestUpdates)
       await datLibrary.pullLatestArchiveMeta(archive)
     })
   },
@@ -227,6 +227,7 @@ module.exports = {
       var reverse = opts.reverse === true
       var {start, end} = opts
       var {archive, checkoutFS, isPreview} = await lookupArchive(this.sender, url, opts)
+      var archiveInfo = await datLibrary.getDaemon().getArchiveInfo(archive.key)
 
       if (isPreview) {
         // dont use the checkout FS in previews, it has no history() api
@@ -237,15 +238,15 @@ module.exports = {
 
       // if reversing the output, modify start/end
       start = start || 0
-      end = end || archive.metadata.length
+      end = end || (archiveInfo.version + 1)
       if (reverse) {
         // swap values
         let t = start
         start = end
         end = t
         // start from the end
-        start = archive.metadata.length - start
-        end = archive.metadata.length - end
+        start = (archiveInfo.version + 1) - start
+        end = (archiveInfo.version + 1) - end
       }
 
       return new Promise((resolve, reject) => {
@@ -266,7 +267,7 @@ module.exports = {
       checkin('looking up archive')
       const {checkoutFS} = await lookupArchive(this.sender, url, opts)
       checkin('stating file')
-      return pda.stat(checkoutFS, filepath)
+      return checkoutFS.pda.stat(filepath)
     })
   },
 
@@ -276,7 +277,7 @@ module.exports = {
       checkin('looking up archive')
       const {checkoutFS} = await lookupArchive(this.sender, url, opts)
       checkin('reading file')
-      return pda.readFile(checkoutFS, filepath, opts)
+      return checkoutFS.pda.readFile(filepath, opts)
     })
   },
 
@@ -297,7 +298,7 @@ module.exports = {
       resume()
 
       checkin('writing file')
-      return pda.writeFile(checkoutFS, filepath, data, opts)
+      return checkoutFS.pda.writeFile(filepath, data, opts)
     })
   },
 
@@ -314,7 +315,7 @@ module.exports = {
       resume()
 
       checkin('deleting file')
-      return pda.unlink(checkoutFS, filepath)
+      return checkoutFS.pda.unlink(filepath)
     })
   },
 
@@ -328,12 +329,12 @@ module.exports = {
       const senderOrigin = archivesDb.extractOrigin(this.sender.getURL())
       await assertWritePermission(archive, this.sender)
       assertUnprotectedFilePath(dstpath, this.sender)
-      const sourceSize = await pda.readSize(archive, filepath)
+      const sourceSize = await archive.pda.readSize(filepath)
       await assertQuotaPermission(archive, senderOrigin, sourceSize)
       resume()
 
       checkin('copying file')
-      return pda.copy(checkoutFS, filepath, dstpath)
+      return checkoutFS.pda.copy(filepath, dstpath)
     })
   },
 
@@ -351,7 +352,7 @@ module.exports = {
       resume()
 
       checkin('renaming file')
-      return pda.rename(checkoutFS, filepath, dstpath)
+      return checkoutFS.pda.rename(filepath, dstpath)
     })
   },
 
@@ -366,7 +367,7 @@ module.exports = {
       }
 
       checkin('downloading file')
-      await pda.download(archive, filepath)
+      await archive.pda.download(filepath)
     })
   },
 
@@ -377,12 +378,12 @@ module.exports = {
       const {checkoutFS} = await lookupArchive(this.sender, url, opts)
 
       checkin('reading directory')
-      var names = await pda.readdir(checkoutFS, filepath, opts)
+      var names = await checkoutFS.pda.readdir(filepath, opts)
       if (opts.stat) {
         for (let i = 0; i < names.length; i++) {
           names[i] = {
             name: names[i],
-            stat: await pda.stat(checkoutFS, path.join(filepath, names[i]))
+            stat: await checkoutFS.pda.stat(path.join(filepath, names[i]))
           }
         }
       }
@@ -404,7 +405,7 @@ module.exports = {
       resume()
 
       checkin('making directory')
-      return pda.mkdir(checkoutFS, filepath)
+      return checkoutFS.pda.mkdir(filepath)
     })
   },
 
@@ -421,7 +422,7 @@ module.exports = {
       resume()
 
       checkin('removing directory')
-      return pda.rmdir(checkoutFS, filepath, opts)
+      return checkoutFS.pda.rmdir(filepath, opts)
     })
   },
 
@@ -429,14 +430,14 @@ module.exports = {
     var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
     if (version === 'preview') {
       // staging area
-      return pda.watch(checkoutFS, pathPattern)
+      return checkoutFS.pda.watch(pathPattern)
     }
-    return pda.watch(archive, pathPattern)
+    return archive.pda.watch(pathPattern)
   },
 
   async createNetworkActivityStream (url) {
     var {archive} = await lookupArchive(this.sender, url)
-    return pda.createNetworkActivityStream(archive)
+    return archive.pda.createNetworkActivityStream()
   },
 
   async resolveName (name) {
@@ -640,16 +641,16 @@ async function assertQuotaPermission (archive, senderOrigin, byteLength) {
   }
 
   // fetch the archive settings
-  const userSettings = await archivesDb.getUserSettings(0, archive.key)
+  const userSettings = archivesDb.getUserSettings(0, archive.key)
 
   // fallback to default quota
   var bytesAllowed = userSettings.bytesAllowed || DAT_QUOTA_DEFAULT_BYTES_ALLOWED
 
   // update the archive size
-  await datLibrary.updateSizeTracking(archive)
+  var size = await datLibrary.updateSizeTracking(archive)
 
   // check the new size
-  var newSize = (archive.size + byteLength)
+  var newSize = (size + byteLength)
   if (newSize > bytesAllowed) {
     throw new QuotaExceededError()
   }
