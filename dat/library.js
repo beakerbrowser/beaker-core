@@ -368,7 +368,7 @@ const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArch
 exports.unloadArchive = async function unloadArchive (key) {
   key = fromURLToKey(key)
   var archive = archives[key]
-  if (archive) return
+  if (!archive) return
   if (archive.fileActStream) {
     archive.fileActStream.end()
     archive.fileActStream = null
