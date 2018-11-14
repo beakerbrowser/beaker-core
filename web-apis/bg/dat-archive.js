@@ -238,15 +238,15 @@ module.exports = {
 
       // if reversing the output, modify start/end
       start = start || 0
-      end = end || archiveInfo.version
+      end = (end || archiveInfo.version) + 1
       if (reverse) {
         // swap values
         let t = start
         start = end
         end = t
         // start from the end
-        start = archiveInfo.version - start
-        end = archiveInfo.version - end
+        start = (archiveInfo.version + 1) - start
+        end = (archiveInfo.version + 1) - end
       }
 
       return new Promise((resolve, reject) => {
