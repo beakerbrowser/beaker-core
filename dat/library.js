@@ -40,7 +40,7 @@ var daemon
 
 exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}) {
   // connect to the daemon
-  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc})
+  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc, timeout: false})
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
   daemonEvents = emitStream(daemon.createEventStream())
 
@@ -268,7 +268,7 @@ const loadArchive = exports.loadArchive = async function loadArchive (key, userS
   var p = loadArchiveInner(key, secretKey, userSettings)
   archiveLoadPromises[keyStr] = p
   p.catch(err => {
-    console.error('Failed to load archive', err)
+    console.error('Failed to load archive', keyStr, err.toString())
   })
 
   // when done, clear the promise
