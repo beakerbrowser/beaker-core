@@ -337,7 +337,7 @@ const RPC_API = {
   fs_assertSafePath: folderSync.assertSafePath,
   fs_ensureSyncFinished: key => folderSync.ensureSyncFinished(getArchive(key)),
   fs_diffListing: (key, opts) => folderSync.diffListing(getArchive(key), opts),
-  fs_diffFile: (key, filepath) => folderSync.diffFile(getArchive(key), opts),
+  fs_diffFile: (key, filepath) => folderSync.diffFile(getArchive(key), filepath),
   fe_queueSyncEvent: (key, opts) => folderSync.queueSyncEvent(getArchive(key), opts),
   fs_syncFolderToArchive: (key, opts) => folderSync.syncFolderToArchive(getArchive(key), opts),
   fs_syncArchiveToFolder: (key, opts) => folderSync.syncArchiveToFolder(getArchive(key), opts),
