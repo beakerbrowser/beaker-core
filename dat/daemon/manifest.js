@@ -26,6 +26,7 @@ module.exports = {
   callArchivePDAPromiseMethod: 'promise',
   callArchivePDAReadStreamMethod: 'readable',
   clearFileCache: 'promise',
+  exportArchiveToArchive: 'async',
 
   // folder sync
 
