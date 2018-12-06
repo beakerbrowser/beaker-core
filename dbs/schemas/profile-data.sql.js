@@ -46,18 +46,6 @@ CREATE TABLE archives_meta_type (
   type TEXT
 );
 
--- a list of the draft-dats for a master-dat
-CREATE TABLE archive_drafts (
-  profileId INTEGER,
-  masterKey TEXT, -- key of the master dat
-  draftKey TEXT, -- key of the draft dat
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-
-  isActive INTEGER, -- is this the active draft? (deprecated)
-
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
 CREATE TABLE bookmarks (
   profileId INTEGER,
   url TEXT NOT NULL,
@@ -67,17 +55,6 @@ CREATE TABLE bookmarks (
   createdAt INTEGER DEFAULT (strftime('%s', 'now')),
   tags TEXT,
   notes TEXT,
-
-  PRIMARY KEY (profileId, url),
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
-CREATE TABLE templates (
-  profileId INTEGER,
-  url TEXT NOT NULL,
-  title TEXT,
-  screenshot,
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 
   PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
@@ -102,8 +79,48 @@ CREATE TABLE visit_stats (
 CREATE VIRTUAL TABLE visit_fts USING fts4 (url, title);
 CREATE UNIQUE INDEX visits_stats_url ON visit_stats (url);
 
--- list of the user's installed apps
+-- list of dats being looked for
+CREATE TABLE watchlist (
+  profileId INTEGER NOT NULL,
+  url TEXT NOT NULL,
+  description TEXT NOT NULL,
+  seedWhenResolved BOOLEAN NOT NULL,
+  resolved BOOLEAN NOT NULL DEFAULT (0),
+  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+ 
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of the users current templates
+-- deprecated (may return)
+CREATE TABLE templates (
+  profileId INTEGER,
+  url TEXT NOT NULL,
+  title TEXT,
+  screenshot,
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- a list of the draft-dats for a master-dat
 -- deprecated
+CREATE TABLE archive_drafts (
+  profileId INTEGER,
+  masterKey TEXT, -- key of the master dat
+  draftKey TEXT, -- key of the draft dat
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  isActive INTEGER, -- is this the active draft? (deprecated)
+
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of the users installed apps
+-- deprecated (may return)
 CREATE TABLE apps (
   profileId INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -115,28 +132,14 @@ CREATE TABLE apps (
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
--- log of the user's app installations
--- deprecated
+-- log of the users app installations
+-- deprecated (may return)
 CREATE TABLE apps_log (
   profileId INTEGER NOT NULL,
   name TEXT NOT NULL,
   url TEXT,
   ts INTEGER DEFAULT (strftime('%s', 'now')),
  
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
--- add a database for watchlist feature
-CREATE TABLE watchlist (
-  profileId INTEGER NOT NULL,
-  url TEXT NOT NULL,
-  description TEXT NOT NULL,
-  seedWhenResolved BOOLEAN NOT NULL,
-  resolved BOOLEAN NOT NULL DEFAULT (0),
-  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
- 
-  PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
