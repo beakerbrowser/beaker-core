@@ -10,6 +10,8 @@ const downloadsManifest = require('./manifests/internal/downloads')
 const historyManifest = require('./manifests/internal/history')
 const sitedataManifest = require('./manifests/internal/sitedata')
 const watchlistManifest = require('./manifests/internal/watchlist')
+const postsManifest = require('./manifests/internal/posts')
+const followgraphManifest = require('./manifests/internal/followgraph')
 
 // internal apis
 const archivesAPI = require('./bg/archives')
@@ -17,6 +19,8 @@ const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const watchlistAPI = require('./bg/watchlist')
+const postsAPI = require('../crawler/posts')
+const followgraphAPI = require('../crawler/followgraph')
 
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')
@@ -50,6 +54,8 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('history', historyManifest, historyAPI, internalOnly)
   globals.rpcAPI.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
+  globals.rpcAPI.exportAPI('posts', postsManifest, postsAPI, internalOnly)
+  globals.rpcAPI.exportAPI('followgraph', followgraphManifest, followgraphAPI, internalOnly)
 
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)

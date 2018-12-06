@@ -8,6 +8,8 @@ const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
 const watchlistManifest = require('../manifests/internal/watchlist')
+const postsManifest = require('../manifests/internal/posts')
+const followgraphManifest = require('../manifests/internal/followgraph')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -22,6 +24,8 @@ exports.setup = function (rpc) {
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
+    const postsRPC = rpc.importAPI('posts', postsManifest, opts)
+    const followgraphRPC = rpc.importAPI('followgraph', followgraphManifest, opts)
 
     // beaker.archives
     beaker.archives = new EventTarget()
@@ -148,6 +152,19 @@ exports.setup = function (rpc) {
     beaker.watchlist.update = watchlistRPC.update
     beaker.watchlist.remove = watchlistRPC.remove
     beaker.watchlist.createEventsStream = () => fromEventStream(watchlistRPC.createEventsStream())
+
+    // beaker.posts
+    beaker.posts.list = postsRPC.list
+    beaker.posts.get = postsRPC.get
+    beaker.posts.create = postsRPC.create
+    beaker.posts.edit = postsRPC.edit
+    beaker.posts.delete = postsRPC.delete
+
+    // beaker.followgraph
+    beaker.followgraph.queryall = followgraphRPC.queryall
+    beaker.followgraph.query = followgraphRPC.query
+    beaker.followgraph.follow = followgraphRPC.follow
+    beaker.followgraph.unfollow = followgraphRPC.unfollow
   }
 
   return beaker
