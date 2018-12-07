@@ -5,7 +5,7 @@ const pify = require('pify')
 const pda = require('pauls-dat-api')
 const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
-const debounce = require('lodash.debounce')
+const _debounce = require('lodash.debounce')
 const mkdirp = require('mkdirp')
 
 // dbs
@@ -312,7 +312,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   await pullLatestArchiveMeta(archive)
 
   // wire up events
-  archive.pullLatestArchiveMeta = debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
+  archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
   archive.fileActStream = archive.pda.watch()
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
@@ -535,6 +535,7 @@ function createArchiveProxy (key, version, archiveInfo) {
   const pdaStat = makeArchiveProxyPDAPromiseFn(key, version, 'stat')
   return {
     key: datEncoding.toBuf(key),
+    url: `dat://${key}`,
     discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
     writable: archiveInfo.writable,
 

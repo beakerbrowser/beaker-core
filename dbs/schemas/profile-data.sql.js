@@ -5,6 +5,13 @@ CREATE TABLE profiles (
   createdAt INTEGER DEFAULT (strftime('%s', 'now'))
 );
 
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY NOT NULL,
+  url TEXT,
+  isDefault INTEGER DEFAULT 0,
+  createdAt INTEGER
+);
+
 CREATE TABLE archives (
   profileId INTEGER NOT NULL,
   key TEXT NOT NULL, -- dat key
@@ -91,6 +98,50 @@ CREATE TABLE watchlist (
  
   PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of sites being crawled
+CREATE TABLE crawl_sources (
+  id INTEGER PRIMARY KEY NOT NULL,
+  url TEXT NOT NULL
+);
+
+-- tracking information on the crawl-state of the sources
+CREATE TABLE crawl_sources_meta (
+  crawlSourceId INTEGER NOT NULL,
+  crawlSourceVersion INTEGER NOT NULL,
+  crawlDataset TEXT NOT NULL,
+  crawlDatasetVersion INTEGER NOT NULL,
+  updatedAt INTEGER DEFAULT,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
+-- crawled posts
+CREATE TABLE crawl_posts (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+
+  type TEXT NOT NULL,
+  content TEXT,
+
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
+  crawledAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
+-- crawled follows
+CREATE TABLE crawl_followgraph (
+  crawlSourceId INTEGER NOT NULL,
+  
+  destUrl TEXT NOT NULL,
+
+  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
+  crawledAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
 -- list of the users current templates

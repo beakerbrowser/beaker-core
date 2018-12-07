@@ -5,6 +5,8 @@ const globals = require('./globals')
 const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
 const dbs = require('./dbs')
+const users = require('./users')
+const crawler = require('./crawler')
 const webapis = require('./web-apis/bg')
 const spellChecker = require('./web-apis/bg/spell-checker')
 const spellCheckerLib = require('./lib/spell-checker')
@@ -45,16 +47,13 @@ module.exports = {
       }
     }
 
-    // setup dat
+    // start subsystems
+    // (order is important)
     await dat.library.setup(opts)
-
-    // setup watchlist
     await dat.watchlist.setup()
-
-    // setup web apis
+    await crawler.setup(opts)
+    await users.setup(opts)
     webapis.setup(opts)
-
-    // setup spellchecker
     spellCheckerLib.setup()
   }
 }
