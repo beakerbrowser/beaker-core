@@ -8,6 +8,8 @@ const {doCrawl} = require('./util')
 // =
 
 const TABLE_VERSION = 1
+const JSON_TYPE = 'unwalled.garden/post'
+const JSON_PATH_REGEX = /^\/data\/posts\/([^\/]+)\.json$/i
 
 // globals
 // =
@@ -21,21 +23,82 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
-exports.crawlSite = async function (archive) {
+exports.crawlSite = async function (archive, crawlSourceId) {
   return doCrawl(archive, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
+    const supressEvents = resetRequired === true // dont emit when replaying old info
     if (resetRequired) {
       // reset all data
-      // TODO
+      await db.run(`
+        DELETE FROM crawl_posts WHERE crawlSourceId = ?
+      `, [crawlSourceId])
+      await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSourceId, 0)
     }
 
-    // find files that need to be processed
-    // TODO
+    // collect changed posts
+    var changedPosts = [] // order matters, must be oldest to newest
+    changes.forEach(c => {
+      if (JSON_PATH_REGEX.test(c.path)) {
+        let i = changedPosts.findIndex(c2 => c2.path === c.path)
+        if (i) {
+          changedPosts.splice(i, 1) // remove from old position
+        }
+        changedPosts.push(c)
+      }
+    })
 
-    // process the files
-    // TODO
-    // events.emit('post-added', sourceUrl)
-    // events.emit('post-updated', sourceUrl)
-    // events.emit('post-removed', sourceUrl)
+    // read and apply each post in order
+    for (let changedPost of changedPosts) {
+      // TODO Currently the crawler will abort reading the feed if any post fails to load
+      //      this means that a single bad or unreachable file can stop the forward progress of post indexing
+      //      to solve this, we need to find a way to tolerate bad post-files without losing our ability to efficiently detect new posts
+      //      -prf
+      if (changedPost.type === 'del') {
+        // delete
+        await db.run(`
+          DELETE FROM crawl_posts WHERE crawlSourceId = ? AND pathname = ?
+        `, [crawlSourceId, changedPost.path])
+        events.emit('post-removed', archive.url)
+      } else {
+        // read and validate
+        let post
+        try {
+          post = JSON.parse(await archive.pda.readFile(changedPost.path, 'utf8'))
+          assert(typeof post === 'object', 'File be an object')
+          assert(post.type === 'unwalled.garden/post', 'JSON type must be unwalled.garden/post')
+          assert(typeof post.content === 'string', 'JSON content must be a string')
+          assert(typeof post.createdAt === 'string', 'JSON createdAt must be a date-time')
+          assert(!isNaN(Number(new Date(post.createdAt))), 'JSON createdAt must be a date-time')
+        } catch (err) {
+          debug('Failed to read post file', {url: archive.url, path: c.path, err})
+          return // abort indexing
+        }
+
+        // massage the post
+        post.createdAt = Number(new Date(post.createdAt))
+        post.updatedAt = Number(new Date(post.updatedAt))
+        if (isNaN(post.updatedAt)) post.updatedAt = 0 // value is optional
+
+        // upsert
+        let existingPost = await get(archive.url, c.path)
+        if (existingPost) {
+          await db.run(`
+            UPDATE crawl_posts
+              SET crawledAt = ?, content = ?, createdAt = ?, updatedAt = ?
+              WHERE crawlSourceId = ? AND pathname = ?
+          `, [Date.now(), post.content, post.createdAt, post.updatedAt, crawlSourceId, changedPost.path])
+          events.emit('post-updated', archive.url)
+        } else {
+          await db.run(`
+            INSERT INTO crawl_posts (crawlSourceId, pathname, crawledAt, content, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?)
+          `, [crawlSourceId, changedPost.path, Date.now(), post.content, post.createdAt, post.updatedAt])
+          events.emit('post-added', archive.url)
+        }
+
+        // checkpoint our progress
+        await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSourceId, changedPost.version)
+      }
+    }
   })
 }
 
@@ -74,7 +137,7 @@ exports.list = async function ({offset, limit, reverse, author} = {}) {
   return db.all(query, values)
 }
 
-exports.get = async function (url, pathname = undefined) {
+const get = exports.get = async function (url, pathname = undefined) {
   // validate & parse params
   if (url) {
     try { url = new URL(url) }

@@ -52,9 +52,14 @@ exports.unwatchSite = async function (url) {
 async function crawlSite (archive) {
   var release = await lock('crawl:' + archive.url)
   try {
+    // insert crawl source
+    // TODO
+    var crawlSourceId = // TODO
+
+    // crawl individual sources
     await Promise.all([
-      posts.crawlSite(archive),
-      followgraph.crawlSite(archive)
+      posts.crawlSite(archive, crawlSourceId),
+      followgraph.crawlSite(archive, crawlSourceId)
     ])
   } finally {
     release()

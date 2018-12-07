@@ -121,13 +121,11 @@ CREATE TABLE crawl_sources_meta (
 CREATE TABLE crawl_posts (
   crawlSourceId INTEGER NOT NULL,
   pathname TEXT NOT NULL,
+  crawledAt INTEGER,
 
-  type TEXT NOT NULL,
   content TEXT,
-
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
-  crawledAt INTEGER DEFAULT (strftime('%s', 'now')),
+  createdAt INTEGER,
+  updatedAt INTEGER,
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
@@ -135,12 +133,11 @@ CREATE TABLE crawl_posts (
 -- crawled follows
 CREATE TABLE crawl_followgraph (
   crawlSourceId INTEGER NOT NULL,
+  crawledAt INTEGER,
   
   destUrl TEXT NOT NULL,
 
-  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
-  crawledAt INTEGER DEFAULT (strftime('%s', 'now')),
-
+  PRIMARY KEY (crawlSourceId, destUrl),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 

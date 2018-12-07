@@ -43,3 +43,7 @@ exports.doCrawl = async function (archive, crawlDataset, crawlDatasetVersion, ha
   state.updatedAt = Date.now()
   // TODO
 }
+
+exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSourceId, crawlSourceVersion) {
+  // TODO
+}

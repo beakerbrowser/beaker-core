@@ -5,6 +5,11 @@ const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const debug = require('../lib/debug-logger').debugLogger('users')
 
+// constants
+// =
+
+const SITE_TYPE = 'unwalled.garden/user'
+
 // globals
 // =
 
@@ -173,6 +178,9 @@ async function validateUserUrl (url) {
   ])
   if (!meta.isOwner) {
     throw new Error('User dat is not owned by this device')
+  }
+  if (!meta.type.includes(SITE_TYPE)) {
+    throw new Error('User dat is not the correct type')
   }
   if (!userSettings.isSaved) {
     throw new Error('User dat has been deleted')

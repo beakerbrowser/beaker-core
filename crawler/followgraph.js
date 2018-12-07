@@ -1,11 +1,15 @@
+const assert = require('assert')
+const _difference = require('lodash.difference')
 const Events = require('events')
 const db = require('../dbs/profile-data-db')
-const {doCrawl} = require('./util')
+const {doCrawl, doCheckpoint} = require('./util')
 
 // constants
 // =
 
 const TABLE_VERSION = 1
+const JSON_TYPE = 'unwalled.garden/follows'
+const JSON_PATH = '/data/follows.json'
 
 // globals
 // =
@@ -19,20 +23,61 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
-exports.crawlSite = async function (archive) {
+exports.crawlSite = async function (archive, crawlSourceId) {
   return doCrawl(archive, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
+    const supressEvents = resetRequired === true // dont emit when replaying old info
     if (resetRequired) {
       // reset all data
-      // TODO
+      await db.run(`
+        DELETE FROM crawl_followgraph WHERE crawlSourceId = ?
+      `, [crawlSourceId])
+      await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSourceId, 0)
     }
 
-    // find files that need to be processed
-    // TODO
+    // did follows.json change?
+    var change = changes.find(c => c.path === JSON_PATH)
+    if (!change) {
+      return
+    }
 
-    // process the files
-    // TODO
-    // events.emit('follow-added', sourceUrl, subjectUrl)
-    // events.emit('follow-removed', sourceUrl, subjectUrl)
+    // read and validate
+    try {
+      var followsJson = JSON.parse(await archive.pda.readFile(JSON_PATH, 'utf8'))
+      assert(typeof followsJson === 'object', 'File be an object')
+      assert(followsJson.type === 'unwalled.garden/follows', 'JSON type must be unwalled.garden/follows')
+      assert(Array.isArray(followsJson.follows), 'JSON follows must be an array of strings')
+      followsJson.follows = followsJson.follows.filter(v => typeof v === 'string')
+    } catch (err) {
+      debug('Failed to read follows file', {url: archive.url, err})
+      return
+    }
+
+    // diff against the current follows
+    var currentFollows = await listFollows(archive)
+    var newFollows = followsJson.urls
+    var adds = _difference(newFollows, currentFollows)
+    var removes = _difference(currentFollows, newFollows)
+
+    // write updates
+    for (let add of adds) {
+      await db.run(`
+        INSERT INTO crawl_followgraph (crawlSourceId, destUrl, crawledAt) VALUES (?, ?, ?)
+      `, [crawlSourceId, add, Date.now()])
+      if (!supressEvents) {
+        events.emit('follow-added', archive.url, add)
+      }
+    }
+    for (let remove of removes) {
+      await db.run(`
+        DELETE FROM crawl_followgraph WHERE crawlSourceId = ? AND destUrl = ?
+      `, [crawlSourceId, remove])
+      if (supressEvents) {
+        events.emit('follow-removed', archive.url, add)
+      }
+    }
+
+    // write checkpoint as success
+    await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSourceId, changes[changes.length - 1].version)
   })
 }
 
@@ -53,7 +98,7 @@ exports.listFollowers = async function (subject) {
 // List urls of sites that subject follows
 // - subject. String (URL).
 // - returns Array<String>
-exports.listFollows = async function (subject) {
+const listFollows = exports.listFollows = async function (subject) {
   var rows = await db.all(`
     SELECT crawl_followgraph.destUrl
       FROM crawl_followgraph
