@@ -10,5 +10,6 @@ module.exports = {
   uiAPI: null,
   rpcAPI: null,
   downloadsWebAPI: null,
-  browserWebAPI: null
+  browserWebAPI: null,
+  userSessionAPI: null
 }

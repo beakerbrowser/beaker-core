@@ -33,7 +33,7 @@ module.exports = {
   async follow (url) {
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
-    var userSession = globals.getUserSessionFor(this.sender)
+    var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
     return followgraphCrawler.follow(userArchive, url)
@@ -42,7 +42,7 @@ module.exports = {
   async unfollow (url) {
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
-    var userSession = globals.getUserSessionFor(this.sender)
+    var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
     return followgraphCrawler.follow(userArchive, url)

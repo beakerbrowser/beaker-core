@@ -16,6 +16,8 @@ module.exports = {
   globals,
   dat,
   dbs,
+  crawler,
+  users,
   spellChecker,
 
   debugLogger: debugLogger.debugLogger,
@@ -32,6 +34,7 @@ module.exports = {
     assert(!!opts.rpcAPI, 'must provide rpcAPI')
     assert(!!opts.downloadsWebAPI, 'must provide downloadsWebAPI')
     assert(!!opts.browserWebAPI, 'must provide browserWebAPI')
+    assert(!!opts.userSessionAPI, 'must provide userSessionAPI')
 
     for (let k in opts) {
       globals[k] = opts[k]
