@@ -4,6 +4,9 @@ module.exports = {
   checkForUpdates: 'promise',
   restartBrowser: 'sync',
 
+  getUserSession: 'promise',
+  setUserSession: 'promise',
+
   getSettings: 'promise',
   getSetting: 'promise',
   setSetting: 'promise',
