@@ -1,8 +1,10 @@
 const assert = require('assert')
 const _difference = require('lodash.difference')
 const Events = require('events')
+const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const {doCrawl, doCheckpoint} = require('./util')
+const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
 // =
@@ -42,11 +44,7 @@ exports.crawlSite = async function (archive, crawlSourceId) {
 
     // read and validate
     try {
-      var followsJson = JSON.parse(await archive.pda.readFile(JSON_PATH, 'utf8'))
-      assert(typeof followsJson === 'object', 'File be an object')
-      assert(followsJson.type === 'unwalled.garden/follows', 'JSON type must be unwalled.garden/follows')
-      assert(Array.isArray(followsJson.follows), 'JSON follows must be an array of strings')
-      followsJson.follows = followsJson.follows.filter(v => typeof v === 'string')
+      var followsJson = await readFollowsFile(archive)
     } catch (err) {
       debug('Failed to read follows file', {url: archive.url, err})
       return
@@ -72,7 +70,7 @@ exports.crawlSite = async function (archive, crawlSourceId) {
         DELETE FROM crawl_followgraph WHERE crawlSourceId = ? AND destUrl = ?
       `, [crawlSourceId, remove])
       if (supressEvents) {
-        events.emit('follow-removed', archive.url, add)
+        events.emit('follow-removed', archive.url, remove)
       }
     }
 
@@ -125,16 +123,68 @@ exports.isAFollowingB = async function (a, b) {
   return !!res
 }
 
-exports.follow = function () {
-  throw new Error('Not yet implemented')
-
-  // update the user dat
+exports.follow = function (archive, followUrl) {
+  // normalize followUrl
   // TODO
+  assert(typeof followUrl === 'string', 'Follow() must be given a valid URL')
+
+  return updateFollowsFile(archive, followsJson => {
+    if (!followsJson.urls.find(v => v === followUrl)) {
+      followsJson.urls.push(followUrl)
+    }
+  })
 }
 
-exports.unfollow = function () {
-  throw new Error('Not yet implemented')
-
-  // update the user dat
+exports.unfollow = function (archive, followUrl) {
+  // normalize followUrl
   // TODO
+  assert(typeof followUrl === 'string', 'Unollow() must be given a valid URL')
+
+  return updateFollowsFile(archive, followsJson => {
+    var i = followsJson.urls.findIndex(v => v === followUrl)
+    if (i !== -1) {
+      followsJson.urls.splice(i, 1)
+    }
+  })
+}
+
+// internal methods
+// =
+
+async function readFollowsFile (archive) {
+  var followsJson = JSON.parse(await archive.pda.readFile(JSON_PATH, 'utf8'))
+  assert(typeof followsJson === 'object', 'File be an object')
+  assert(followsJson.type === JSON_TYPE, 'JSON type must be unwalled.garden/follows')
+  assert(Array.isArray(followsJson.follows), 'JSON follows must be an array of strings')
+  followsJson.follows = followsJson.follows.filter(v => typeof v === 'string')
+  return followsJson
+}
+
+async function updateFollowsFile (archive, updateFn) {
+  var release = await lock('crawler:followgraph:' + archive.url)
+  try {
+    // read the follows file
+    try {
+      var followsJson = await readFollowsFile(archive)
+    } catch (err) {
+      if (err.notFound) {
+        // create new
+        followsJson = {
+          type: JSON_TYPE,
+          urls: []
+        }
+      } else {
+        debug('Failed to read follows file', {url: archive.url, err})
+        throw err
+      }
+    }
+
+    // apply update
+    updateFn(followsJson)
+
+    // write the follows file
+    await archive.pda.readFile(JSON_PATH, JSON.stringify(followsJson), 'utf8')
+  } finally {
+    release()
+  }
 }

@@ -2,7 +2,8 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const db = require('../dbs/profile-data-db')
-const {doCrawl} = require('./util')
+const {doCrawl, doCheckpoint, generateTimeFilename} = require('./util')
+const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
 // =
@@ -69,7 +70,7 @@ exports.crawlSite = async function (archive, crawlSourceId) {
           assert(typeof post.createdAt === 'string', 'JSON createdAt must be a date-time')
           assert(!isNaN(Number(new Date(post.createdAt))), 'JSON createdAt must be a date-time')
         } catch (err) {
-          debug('Failed to read post file', {url: archive.url, path: c.path, err})
+          debug('Failed to read post file', {url: archive.url, path: changedPost.path, err})
           return // abort indexing
         }
 
@@ -79,7 +80,7 @@ exports.crawlSite = async function (archive, crawlSourceId) {
         if (isNaN(post.updatedAt)) post.updatedAt = 0 // value is optional
 
         // upsert
-        let existingPost = await get(archive.url, c.path)
+        let existingPost = await get(archive.url, changedPost.path)
         if (existingPost) {
           await db.run(`
             UPDATE crawl_posts
@@ -158,23 +159,29 @@ const get = exports.get = async function (url, pathname = undefined) {
   `, [url.origin, pathname])
 }
 
-exports.create = async function () {
-  throw new Error('Not yet implemented')
-
-  // update the user dat
-  // TODO
+exports.create = async function (archive, {content} = {}) {
+  assert(typeof content === 'string', 'Create() must be provided a `content` string')
+  var filename = generateTimeFilename()
+  await archive.writeFile(`/posts/${filename}.json`, JSON.stringify({
+    type: JSON_TYPE,
+    content,
+    createdAt: (new Date()).toISOString()
+  }))
 }
 
-exports.edit = async function () {
-  throw new Error('Not yet implemented')
-
-  // update the user dat
-  // TODO
+exports.edit = async function (archive, pathname, {content} = {}) {
+  assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
+  assert(typeof content === 'string', 'Edit() must be provided a `content` string')
+  var oldJson = JSON.parse(await archive.readFile(pathname))
+  await archive.writeFile(pathname, JSON.stringify({
+    type: JSON_TYPE,
+    content,
+    createdAt: oldJson.createdAt,
+    updatedAt: (new Date()).toISOString()
+  }))
 }
 
-exports.delete = async function () {
-  throw new Error('Not yet implemented')
-
-  // update the user dat
-  // TODO
+exports.delete = async function (archive, pathname) {
+  assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
+  await archive.unlink(pathname)
 }

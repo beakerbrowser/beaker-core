@@ -47,3 +47,13 @@ exports.doCrawl = async function (archive, crawlDataset, crawlDatasetVersion, ha
 exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSourceId, crawlSourceVersion) {
   // TODO
 }
+
+var _lastGeneratedTimeFilename
+exports.generateTimeFilename = function () {
+  var d = Date.now()
+  if (d === _lastGeneratedTimeFilename) {
+    d++
+  }
+  _lastGeneratedTimeFilename = d
+  return (new Date(d)).toISOString()
+}
