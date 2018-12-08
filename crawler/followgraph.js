@@ -1,6 +1,7 @@
 const assert = require('assert')
 const _difference = require('lodash.difference')
 const Events = require('events')
+const {Url} = require('url')
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const {doCrawl, doCheckpoint} = require('./util')
@@ -26,7 +27,7 @@ exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
 exports.crawlSite = async function (archive, crawlSourceId) {
-  return doCrawl(archive, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
+  return doCrawl(archive, crawlSourceId, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
     if (resetRequired) {
       // reset all data
@@ -125,7 +126,7 @@ exports.isAFollowingB = async function (a, b) {
 
 exports.follow = function (archive, followUrl) {
   // normalize followUrl
-  // TODO
+  followUrl = normalizeFollowUrl(followUrl)
   assert(typeof followUrl === 'string', 'Follow() must be given a valid URL')
 
   return updateFollowsFile(archive, followsJson => {
@@ -137,8 +138,8 @@ exports.follow = function (archive, followUrl) {
 
 exports.unfollow = function (archive, followUrl) {
   // normalize followUrl
-  // TODO
-  assert(typeof followUrl === 'string', 'Unollow() must be given a valid URL')
+  followUrl = normalizeFollowUrl(followUrl)
+  assert(typeof followUrl === 'string', 'Unfollow() must be given a valid URL')
 
   return updateFollowsFile(archive, followsJson => {
     var i = followsJson.urls.findIndex(v => v === followUrl)
@@ -150,6 +151,15 @@ exports.unfollow = function (archive, followUrl) {
 
 // internal methods
 // =
+
+function normalizeFollowUrl (url) {
+  try {
+    url = new URL(url)
+    return url.origin
+  } catch (e) {
+    return null
+  }
+}
 
 async function readFollowsFile (archive) {
   var followsJson = JSON.parse(await archive.pda.readFile(JSON_PATH, 'utf8'))

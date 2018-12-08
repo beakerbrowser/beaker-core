@@ -1,5 +1,6 @@
 const _throttle = require('lodash.throttle')
 const lock = require('../lib/lock')
+const db = require('../dbs/profile-data-db')
 const users = require('../users')
 const dat = require('../dat')
 
@@ -52,9 +53,12 @@ exports.unwatchSite = async function (url) {
 async function crawlSite (archive) {
   var release = await lock('crawl:' + archive.url)
   try {
-    // insert crawl source
-    // TODO
-    var crawlSourceId = // TODO
+    // get/create crawl source
+    var crawlSourceId = await db.run(`SELECT id FROM crawl_sources WHERE url = ?`, [archive.url])
+    if (!crawlSourceId) {
+      await db.run(`INSERT INTO crawl_sources (url) VALUES (?)`, [archive.url])
+      crawlSourceId = db.getSqliteInstance().lastID
+    }
 
     // crawl individual sources
     await Promise.all([

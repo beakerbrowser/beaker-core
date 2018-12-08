@@ -10,7 +10,7 @@ const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/post'
-const JSON_PATH_REGEX = /^\/data\/posts\/([^\/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 
 // globals
 // =
@@ -25,7 +25,7 @@ exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
 exports.crawlSite = async function (archive, crawlSourceId) {
-  return doCrawl(archive, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
+  return doCrawl(archive, crawlSourceId, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
     if (resetRequired) {
       // reset all data

@@ -44,6 +44,8 @@ exports.parallelize = function () {
   return db.parallelize()
 }
 
+exports.getSqliteInstance = () => db
+
 // internal methods
 // =
 
