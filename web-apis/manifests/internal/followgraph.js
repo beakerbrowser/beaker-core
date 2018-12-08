@@ -1,6 +1,7 @@
 module.exports = {
-  queryAll: 'promise',
-  query: 'promise',
+  listFollowers: 'promise',
+  listFollows: 'promise',
+  isAFollowingB: 'promise',
   follow: 'promise',
   unfollow: 'promise'
 }

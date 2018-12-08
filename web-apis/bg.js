@@ -19,8 +19,8 @@ const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const watchlistAPI = require('./bg/watchlist')
-const postsAPI = require('../crawler/posts')
-const followgraphAPI = require('../crawler/followgraph')
+const postsAPI = require('./bg/posts')
+const followgraphAPI = require('./bg/followgraph')
 
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')

@@ -161,8 +161,9 @@ exports.setup = function (rpc) {
     beaker.posts.delete = postsRPC.delete
 
     // beaker.followgraph
-    beaker.followgraph.queryall = followgraphRPC.queryall
-    beaker.followgraph.query = followgraphRPC.query
+    beaker.followgraph.listFollowers = followgraphRPC.listFollowers
+    beaker.followgraph.listFollows = followgraphRPC.listFollows
+    beaker.followgraph.isAFollowingB = followgraphRPC.isAFollowingB
     beaker.followgraph.follow = followgraphRPC.follow
     beaker.followgraph.unfollow = followgraphRPC.unfollow
   }
