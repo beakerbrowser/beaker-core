@@ -278,7 +278,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         autoDownload: ('autoDownload' in newValues) ? newValues.autoDownload : newValues.isSaved,
         autoUpload: ('autoUpload' in newValues) ? newValues.autoUpload : newValues.isSaved,
         expiresAt: newValues.expiresAt,
-        localSyncPath: ('localSyncPath' in newValues) ? newValues.localSyncPath : '',
+        localSyncPath: (newValues.localSyncPath) ? newValues.localSyncPath : '',
         previewMode: ('previewMode' in newValues) ? newValues.previewMode : ''
       }
       let valueArray = [

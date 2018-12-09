@@ -13,7 +13,7 @@ exports.doCrawl = async function (archive, crawlSourceId, crawlDataset, crawlDat
       INNER JOIN crawl_sources ON crawl_sources.url = ?
       WHERE crawl_sources_meta.crawlDataset = ?
   `, [url, crawlDataset])
-  if (state.crawlDatasetVersion !== crawlDatasetVersion) {
+  if (state && state.crawlDatasetVersion !== crawlDatasetVersion) {
     resetRequired = true
     state = null
   }

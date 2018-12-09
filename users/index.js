@@ -85,6 +85,7 @@ exports.add = async function (url) {
     `INSERT INTO users (url, isDefault, createdAt) VALUES (?, ?, ?)`,
     [user.url, Number(user.isDefault), user.createdAt]
   )
+  users.push(user)
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
