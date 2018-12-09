@@ -156,6 +156,7 @@ exports.setup = function (rpc) {
     beaker.watchlist.createEventsStream = () => fromEventStream(watchlistRPC.createEventsStream())
 
     // beaker.posts
+    beaker.posts = {}
     beaker.posts.list = postsRPC.list
     beaker.posts.get = postsRPC.get
     beaker.posts.create = postsRPC.create
@@ -163,6 +164,7 @@ exports.setup = function (rpc) {
     beaker.posts.delete = postsRPC.delete
 
     // beaker.followgraph
+    beaker.followgraph = {}
     beaker.followgraph.listFollowers = followgraphRPC.listFollowers
     beaker.followgraph.listFollows = followgraphRPC.listFollows
     beaker.followgraph.isAFollowingB = followgraphRPC.isAFollowingB

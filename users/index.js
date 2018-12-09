@@ -48,7 +48,7 @@ exports.setup = async function () {
   })
 }
 
-exports.getAll = async function () {
+exports.list = async function () {
   return Promise.all(users.map(fetchUserInfo))
 }
 
@@ -174,7 +174,7 @@ async function validateUserUrl (url) {
   var urlp = new URL(url)
   var [meta, userSettings] = await Promise.all([
     archivesDb.getMeta(urlp.hostname),
-    archivesDb.getUserSettings(urlp.hostname)
+    archivesDb.getUserSettings(0, urlp.hostname)
   ])
   if (!meta.isOwner) {
     throw new Error('User dat is not owned by this device')

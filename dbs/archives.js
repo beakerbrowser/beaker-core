@@ -228,7 +228,7 @@ exports.touch = async function (key, timeVar = 'lastAccessTime', value = -1) {
 // - supresses a not-found with an empty object
 const getUserSettings = exports.getUserSettings = async function (profileId, key) {
   // massage inputs
-  key = datEncoding.toStr(key)
+  key = typeof key !== 'string' ? datEncoding.toStr(key) : key
 
   // validate inputs
   if (!DAT_HASH_REGEX.test(key)) {
@@ -362,7 +362,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
 // - supresses a not-found with an empty object
 const getMeta = exports.getMeta = async function (key) {
   // massage inputs
-  key = datEncoding.toStr(key)
+  key = typeof key !== 'string' ? datEncoding.toStr(key) : key
 
   // validate inputs
   if (!DAT_HASH_REGEX.test(key)) {

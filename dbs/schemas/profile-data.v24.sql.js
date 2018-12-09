@@ -19,7 +19,7 @@ CREATE TABLE crawl_sources_meta (
   crawlSourceVersion INTEGER NOT NULL,
   crawlDataset TEXT NOT NULL,
   crawlDatasetVersion INTEGER NOT NULL,
-  updatedAt INTEGER DEFAULT,
+  updatedAt INTEGER,
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );

@@ -358,6 +358,7 @@ exports.getActiveArchives = function getActiveArchives () {
 }
 
 const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArchive (key, opts) {
+  key = fromURLToKey(key)
   var archive = getArchive(key)
   if (archive) {
     return archive
