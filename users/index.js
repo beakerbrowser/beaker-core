@@ -30,6 +30,7 @@ exports.setup = async function () {
 
   // load the current users
   users = await db.all(`SELECT * FROM users`)
+  console.log('users loaded', users)
   users.forEach(async (user) => {
     // massage data
     user.archive = null
@@ -81,6 +82,7 @@ exports.add = async function (url) {
     isDefault: users.length === 0,
     createdAt: Date.now()
   }
+  console.log('adding new user', user)
   await db.run(
     `INSERT INTO users (url, isDefault, createdAt) VALUES (?, ?, ?)`,
     [user.url, Number(user.isDefault), user.createdAt]

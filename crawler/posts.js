@@ -24,28 +24,31 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
-exports.crawlSite = async function (archive, crawlSourceId) {
-  return doCrawl(archive, crawlSourceId, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
+exports.crawlSite = async function (archive, crawlSource) {
+  return doCrawl(archive, crawlSource, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
+    console.log('Crawling posts for', archive.url, {changes, resetRequired})
     if (resetRequired) {
       // reset all data
+      console.log('resetting data')
       await db.run(`
         DELETE FROM crawl_posts WHERE crawlSourceId = ?
-      `, [crawlSourceId])
-      await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSourceId, 0)
+      `, [crawlSource.id])
+      await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, 0)
     }
 
     // collect changed posts
     var changedPosts = [] // order matters, must be oldest to newest
     changes.forEach(c => {
-      if (JSON_PATH_REGEX.test(c.path)) {
-        let i = changedPosts.findIndex(c2 => c2.path === c.path)
-        if (i) {
+      if (JSON_PATH_REGEX.test(c.name)) {
+        let i = changedPosts.findIndex(c2 => c2.name === c.name)
+        if (i !== -1) {
           changedPosts.splice(i, 1) // remove from old position
         }
         changedPosts.push(c)
       }
     })
+    console.log('collected changed posts', changedPosts)
 
     // read and apply each post in order
     for (let changedPost of changedPosts) {
@@ -55,22 +58,24 @@ exports.crawlSite = async function (archive, crawlSourceId) {
       //      -prf
       if (changedPost.type === 'del') {
         // delete
+        console.log('deleting', changedPost)
         await db.run(`
           DELETE FROM crawl_posts WHERE crawlSourceId = ? AND pathname = ?
-        `, [crawlSourceId, changedPost.path])
+        `, [crawlSource.id, changedPost.name])
         events.emit('post-removed', archive.url)
       } else {
         // read and validate
+        console.log('adding', changedPost)
         let post
         try {
-          post = JSON.parse(await archive.pda.readFile(changedPost.path, 'utf8'))
+          post = JSON.parse(await archive.pda.readFile(changedPost.name, 'utf8'))
           assert(typeof post === 'object', 'File be an object')
           assert(post.type === 'unwalled.garden/post', 'JSON type must be unwalled.garden/post')
           assert(typeof post.content === 'string', 'JSON content must be a string')
           assert(typeof post.createdAt === 'string', 'JSON createdAt must be a date-time')
           assert(!isNaN(Number(new Date(post.createdAt))), 'JSON createdAt must be a date-time')
         } catch (err) {
-          debug('Failed to read post file', {url: archive.url, path: changedPost.path, err})
+          debug('Failed to read post file', {url: archive.url, name: changedPost.name, err})
           return // abort indexing
         }
 
@@ -80,25 +85,26 @@ exports.crawlSite = async function (archive, crawlSourceId) {
         if (isNaN(post.updatedAt)) post.updatedAt = 0 // value is optional
 
         // upsert
-        let existingPost = await get(archive.url, changedPost.path)
+        let existingPost = await get(archive.url, changedPost.name)
         if (existingPost) {
           await db.run(`
             UPDATE crawl_posts
               SET crawledAt = ?, content = ?, createdAt = ?, updatedAt = ?
               WHERE crawlSourceId = ? AND pathname = ?
-          `, [Date.now(), post.content, post.createdAt, post.updatedAt, crawlSourceId, changedPost.path])
+          `, [Date.now(), post.content, post.createdAt, post.updatedAt, crawlSource.id, changedPost.name])
           events.emit('post-updated', archive.url)
         } else {
           await db.run(`
             INSERT INTO crawl_posts (crawlSourceId, pathname, crawledAt, content, createdAt, updatedAt)
               VALUES (?, ?, ?, ?, ?, ?)
-          `, [crawlSourceId, changedPost.path, Date.now(), post.content, post.createdAt, post.updatedAt])
+          `, [crawlSource.id, changedPost.name, Date.now(), post.content, post.createdAt, post.updatedAt])
           events.emit('post-added', archive.url)
         }
 
         // checkpoint our progress
-        await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSourceId, changedPost.version)
+        await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
       }
+      console.log('success', changedPost)
     }
   })
 }
@@ -115,10 +121,13 @@ exports.list = async function ({offset, limit, reverse, author} = {}) {
   }
 
   // build query
-  var query = `SELECT crawl_posts.*, src.url AS crawlSourceUrl FROM crawl_posts`
+  var query = `
+    SELECT crawl_posts.*, src.url AS crawlSourceUrl FROM crawl_posts
+      INNER JOIN crawl_sources src ON src.id = crawl_posts.crawlSourceId
+  `
   var values = []
   if (author) {
-    query += ` INNER JOIN crawl_sources src ON src.url = ?`
+    query += ` WHERE src.url = ?`
     values.push(author.origin)
   }
   if (offset) {
@@ -162,7 +171,7 @@ const get = exports.get = async function (url, pathname = undefined) {
 exports.create = async function (archive, {content} = {}) {
   assert(typeof content === 'string', 'Create() must be provided a `content` string')
   var filename = generateTimeFilename()
-  await archive.writeFile(`/posts/${filename}.json`, JSON.stringify({
+  await archive.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
     type: JSON_TYPE,
     content,
     createdAt: (new Date()).toISOString()

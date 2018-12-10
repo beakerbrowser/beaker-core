@@ -26,15 +26,15 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
-exports.crawlSite = async function (archive, crawlSourceId) {
-  return doCrawl(archive, crawlSourceId, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
+exports.crawlSite = async function (archive, crawlSource) {
+  return doCrawl(archive, crawlSource, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
     if (resetRequired) {
       // reset all data
       await db.run(`
         DELETE FROM crawl_followgraph WHERE crawlSourceId = ?
-      `, [crawlSourceId])
-      await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSourceId, 0)
+      `, [crawlSource.id])
+      await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, 0)
     }
 
     // did follows.json change?
@@ -61,7 +61,7 @@ exports.crawlSite = async function (archive, crawlSourceId) {
     for (let add of adds) {
       await db.run(`
         INSERT INTO crawl_followgraph (crawlSourceId, destUrl, crawledAt) VALUES (?, ?, ?)
-      `, [crawlSourceId, add, Date.now()])
+      `, [crawlSource.id, add, Date.now()])
       if (!supressEvents) {
         events.emit('follow-added', archive.url, add)
       }
@@ -69,14 +69,14 @@ exports.crawlSite = async function (archive, crawlSourceId) {
     for (let remove of removes) {
       await db.run(`
         DELETE FROM crawl_followgraph WHERE crawlSourceId = ? AND destUrl = ?
-      `, [crawlSourceId, remove])
+      `, [crawlSource.id, remove])
       if (supressEvents) {
         events.emit('follow-removed', archive.url, remove)
       }
     }
 
     // write checkpoint as success
-    await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSourceId, changes[changes.length - 1].version)
+    await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
   })
 }
 
