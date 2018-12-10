@@ -45,7 +45,7 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    return followgraphCrawler.follow(userArchive, url)
+    return followgraphCrawler.unfollow(userArchive, url)
   }
 }
 
@@ -55,10 +55,9 @@ module.exports = {
 function normalizeFollowUrl (url) {
   try {
     url = new URL(url)
-    return url.origin
-  } catch (e) {
-    return null
-  }
+    return url.protocol + '//' + url.hostname
+  } catch (e) {}
+  return null
 }
 
 function assertString (v, msg) {

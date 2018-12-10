@@ -156,7 +156,7 @@ exports.unfollow = function (archive, followUrl) {
 function normalizeFollowUrl (url) {
   try {
     url = new URL(url)
-    return url.origin
+    return url.protocol + '//' + url.hostname
   } catch (e) {
     return null
   }
