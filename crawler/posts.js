@@ -2,6 +2,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const db = require('../dbs/profile-data-db')
+const crawler = require('./index')
 const {doCrawl, doCheckpoint, generateTimeFilename} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
@@ -30,7 +31,6 @@ exports.crawlSite = async function (archive, crawlSource) {
     console.log('Crawling posts for', archive.url, {changes, resetRequired})
     if (resetRequired) {
       // reset all data
-      console.log('resetting data')
       await db.run(`
         DELETE FROM crawl_posts WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -58,14 +58,12 @@ exports.crawlSite = async function (archive, crawlSource) {
       //      -prf
       if (changedPost.type === 'del') {
         // delete
-        console.log('deleting', changedPost)
         await db.run(`
           DELETE FROM crawl_posts WHERE crawlSourceId = ? AND pathname = ?
         `, [crawlSource.id, changedPost.name])
         events.emit('post-removed', archive.url)
       } else {
         // read and validate
-        console.log('adding', changedPost)
         let post
         try {
           post = JSON.parse(await archive.pda.readFile(changedPost.name, 'utf8'))
@@ -104,7 +102,6 @@ exports.crawlSite = async function (archive, crawlSource) {
         // checkpoint our progress
         await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
       }
-      console.log('success', changedPost)
     }
   })
 }
@@ -171,26 +168,31 @@ const get = exports.get = async function (url, pathname = undefined) {
 exports.create = async function (archive, {content} = {}) {
   assert(typeof content === 'string', 'Create() must be provided a `content` string')
   var filename = generateTimeFilename()
-  await archive.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
+  console.log('writing file')
+  await archive.pda.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
     type: JSON_TYPE,
     content,
     createdAt: (new Date()).toISOString()
   }))
+  console.log('file written')
+  await crawler.crawlSite(archive)
 }
 
 exports.edit = async function (archive, pathname, {content} = {}) {
   assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
   assert(typeof content === 'string', 'Edit() must be provided a `content` string')
-  var oldJson = JSON.parse(await archive.readFile(pathname))
-  await archive.writeFile(pathname, JSON.stringify({
+  var oldJson = JSON.parse(await archive.pda.readFile(pathname))
+  await archive.pda.writeFile(pathname, JSON.stringify({
     type: JSON_TYPE,
     content,
     createdAt: oldJson.createdAt,
     updatedAt: (new Date()).toISOString()
   }))
+  await crawler.crawlSite(archive)
 }
 
 exports.delete = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
-  await archive.unlink(pathname)
+  await archive.pda.unlink(pathname)
+  await crawler.crawlSite(archive)
 }

@@ -4,6 +4,7 @@ const Events = require('events')
 const {Url} = require('url')
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
+const crawler = require('./index')
 const {doCrawl, doCheckpoint} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
@@ -193,7 +194,10 @@ async function updateFollowsFile (archive, updateFn) {
     updateFn(followsJson)
 
     // write the follows file
-    await archive.pda.readFile(JSON_PATH, JSON.stringify(followsJson), 'utf8')
+    await archive.pda.writeFile(JSON_PATH, JSON.stringify(followsJson), 'utf8')
+
+    // trigger crawl now
+    await crawler.crawlSite(archive)
   } finally {
     release()
   }

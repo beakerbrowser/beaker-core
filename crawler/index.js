@@ -7,6 +7,8 @@ const dat = require('../dat')
 const posts = require('./posts')
 const followgraph = require('./followgraph')
 
+const CRAWL_POLL_INTERVAL = 30e3
+
 // globals
 // =
 
@@ -31,15 +33,19 @@ exports.watchSite = async function (archive) {
     const queueCrawl = _throttle(() => crawlSite(archive), 5e3)
 
     // watch for file changes
-    watches[archive.url] = await archive.pda.watch()
-    watches[archive.url].on('error', console.error)
-    watches[archive.url].on('close', console.log.bind(console, 'close'))
+    watches[archive.url] = archive.pda.watch()
     watches[archive.url].on('data', ([event, args]) => {
-      console.log('change event', archive.url, event, args)
+      console.log('MIRACLE ALERT! The crawler watch stream emitted a change event', archive.url, event, args)
       if (event === 'invalidated') {
         queueCrawl()
       }
     })
+
+    // HACK
+    // for reasons that currently surpass me
+    // the `archive.pda.watch()` call is not currently working all the time
+    // so we need to poll sites for now
+    setInterval(queueCrawl, CRAWL_POLL_INTERVAL)
 
     // run the first crawl
     crawlSite(archive)
@@ -54,7 +60,8 @@ exports.unwatchSite = async function (url) {
   }
 }
 
-async function crawlSite (archive) {
+const crawlSite =
+exports.crawlSite = async function (archive) {
   console.log('crawling', archive.url)
   var release = await lock('crawl:' + archive.url)
   try {
