@@ -164,7 +164,7 @@ async function fetchUserInfo (user) {
   var urlp = new URL(user.url)
   var meta = await archivesDb.getMeta(urlp.hostname)
   return {
-    url: user.url,
+    url: user.url.replace(/(\/)$/, ''),
     isDefault: user.isDefault,
     title: meta.title,
     description: meta.description,
