@@ -11,10 +11,9 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   // fetch current crawl state
   var resetRequired = false
   var state = await db.get(`
-    SELECT meta.crawlSourceVersion, meta.crawlDatasetVersion FROM crawl_sources_meta meta
-      INNER JOIN crawl_sources ON crawl_sources.url = ?
-      WHERE meta.crawlDataset = ?
-  `, [url, crawlDataset])
+    SELECT crawlSourceVersion, crawlDatasetVersion FROM crawl_sources_meta
+      WHERE crawlSourceId = ? AND crawlDataset = ?
+  `, [crawlSource.id, crawlDataset])
   if (state && state.crawlDatasetVersion !== crawlDatasetVersion) {
     resetRequired = true
     state = null

@@ -66,7 +66,7 @@ exports.crawlSite = async function (archive) {
   var release = await lock('crawl:' + archive.url)
   try {
     // get/create crawl source
-    var crawlSource = await db.get(`SELECT id FROM crawl_sources WHERE url = ?`, [archive.url])
+    var crawlSource = await db.get(`SELECT id, url FROM crawl_sources WHERE url = ?`, [archive.url])
     if (!crawlSource) {
       await db.run(`INSERT INTO crawl_sources (url) VALUES (?)`, [archive.url])
       crawlSource = {id: db.getSqliteInstance().lastID, url: archive.url}
