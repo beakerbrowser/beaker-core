@@ -11,17 +11,14 @@ const postsCrawler = require('../../crawler/posts')
 
 module.exports = {
 
-  async list ({offset, limit, reverse, author} = {}) {
+  async list ({offset, limit, reverse, author, authors} = {}) {
     // validate & parse params
     assert(!offset || typeof offset === 'number', 'Offset must be a number')
     assert(!limit || typeof limit === 'number', 'Limit must be a number')
     assert(!reverse || typeof reverse === 'boolean', 'Reverse must be a boolean')
     assert(!author || typeof author === 'string', 'Author must be a string')
-    if (author) {
-      try { author = new URL(author) }
-      catch (e) { throw new Error('Failed to parse author URL: ' + author) }
-    }
-    var posts = await postsCrawler.list({offset, limit, reverse, author})
+    assert(!authors || !Array.isArray(author), 'Authors must be an array of strings')
+    var posts = await postsCrawler.list({offset, limit, reverse, author, authors})
     await Promise.all(posts.map(async (post) => {
       post.author.title = await getUserTitle(post.author)
     }))
