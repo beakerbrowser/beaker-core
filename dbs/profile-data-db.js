@@ -33,7 +33,10 @@ exports.all = async function (...args) {
 
 exports.run = async function (...args) {
   await setupPromise
-  return cbPromise(cb => db.run(...args, cb))
+  return cbPromise(cb => db.run(...args, function (err) {
+    if (err) cb(err)
+    else cb(null, {lastID: this.lastID})
+  }))
 }
 
 exports.serialize = function () {

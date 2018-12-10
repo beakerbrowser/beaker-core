@@ -68,8 +68,8 @@ exports.crawlSite = async function (archive) {
     // get/create crawl source
     var crawlSource = await db.get(`SELECT id, url FROM crawl_sources WHERE url = ?`, [archive.url])
     if (!crawlSource) {
-      await db.run(`INSERT INTO crawl_sources (url) VALUES (?)`, [archive.url])
-      crawlSource = {id: db.getSqliteInstance().lastID, url: archive.url}
+      let res = await db.run(`INSERT INTO crawl_sources (url) VALUES (?)`, [archive.url])
+      crawlSource = {id: res.lastID, url: archive.url}
     }
 
     // crawl individual sources
