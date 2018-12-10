@@ -94,7 +94,7 @@ exports.listFollowers = async function (subject) {
         ON crawl_followgraph.crawlSourceId = crawl_sources.id
         AND crawl_followgraph.destUrl = ?
   `, [subject])
-  return rows.map(row => row.url)
+  return rows.map(row => toOrigin(row.url))
 }
 
 // List urls of sites that subject follows
@@ -108,7 +108,7 @@ const listFollows = exports.listFollows = async function (subject) {
         ON crawl_followgraph.crawlSourceId = crawl_sources.id
         AND crawl_sources.url = ?
   `, [subject])
-  return rows.map(row => row.destUrl)
+  return rows.map(row => toOrigin(row.destUrl))
 }
 
 // Check for the existence of an individual follow
@@ -116,6 +116,8 @@ const listFollows = exports.listFollows = async function (subject) {
 // - b. String (URL), does a follow this site?
 // - returns bool
 exports.isAFollowingB = async function (a, b) {
+  a = toOrigin(a)
+  b = toOrigin(b)
   var res = await db.get(`
     SELECT crawl_sources.id
       FROM crawl_sources
@@ -129,7 +131,7 @@ exports.isAFollowingB = async function (a, b) {
 
 exports.follow = function (archive, followUrl) {
   // normalize followUrl
-  followUrl = normalizeFollowUrl(followUrl)
+  followUrl = toOrigin(followUrl)
   assert(typeof followUrl === 'string', 'Follow() must be given a valid URL')
 
   return updateFollowsFile(archive, followsJson => {
@@ -141,7 +143,7 @@ exports.follow = function (archive, followUrl) {
 
 exports.unfollow = function (archive, followUrl) {
   // normalize followUrl
-  followUrl = normalizeFollowUrl(followUrl)
+  followUrl = toOrigin(followUrl)
   assert(typeof followUrl === 'string', 'Unfollow() must be given a valid URL')
 
   return updateFollowsFile(archive, followsJson => {
@@ -155,7 +157,7 @@ exports.unfollow = function (archive, followUrl) {
 // internal methods
 // =
 
-function normalizeFollowUrl (url) {
+function toOrigin (url) {
   try {
     url = new URL(url)
     return url.protocol + '//' + url.hostname
@@ -175,7 +177,7 @@ async function readFollowsFile (archive) {
   assert(typeof followsJson === 'object', 'File be an object')
   assert(followsJson.type === JSON_TYPE, 'JSON type must be unwalled.garden/follows')
   assert(Array.isArray(followsJson.urls), 'JSON .urls must be an array of strings')
-  followsJson.urls = followsJson.urls.filter(v => typeof v === 'string')
+  followsJson.urls = followsJson.urls.filter(v => typeof v === 'string').map(toOrigin)
   return followsJson
 }
 
