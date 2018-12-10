@@ -30,6 +30,7 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
+    console.log('Crawling follows for', archive.url, {changes, resetRequired})
     if (resetRequired) {
       // reset all data
       await db.run(`
@@ -39,7 +40,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
 
     // did follows.json change?
-    var change = changes.find(c => c.path === JSON_PATH)
+    var change = changes.find(c => c.name === JSON_PATH)
     if (!change) {
       return
     }
@@ -48,12 +49,13 @@ exports.crawlSite = async function (archive, crawlSource) {
     try {
       var followsJson = await readFollowsFile(archive)
     } catch (err) {
+      console.error('Failed to read follows file', {url: archive.url, err})
       debug('Failed to read follows file', {url: archive.url, err})
       return
     }
 
     // diff against the current follows
-    var currentFollows = await listFollows(archive)
+    var currentFollows = await listFollows(archive.url)
     var newFollows = followsJson.urls
     var adds = _difference(newFollows, currentFollows)
     var removes = _difference(currentFollows, newFollows)
@@ -163,11 +165,17 @@ function normalizeFollowUrl (url) {
 }
 
 async function readFollowsFile (archive) {
-  var followsJson = JSON.parse(await archive.pda.readFile(JSON_PATH, 'utf8'))
+  try {
+    var followsJson = await archive.pda.readFile(JSON_PATH, 'utf8')
+  } catch (e) {
+    if (e.notFound) return {urls: []} // empty default when not found
+    throw e
+  }
+  followsJson = JSON.parse(followsJson)
   assert(typeof followsJson === 'object', 'File be an object')
   assert(followsJson.type === JSON_TYPE, 'JSON type must be unwalled.garden/follows')
-  assert(Array.isArray(followsJson.follows), 'JSON follows must be an array of strings')
-  followsJson.follows = followsJson.follows.filter(v => typeof v === 'string')
+  assert(Array.isArray(followsJson.urls), 'JSON .urls must be an array of strings')
+  followsJson.urls = followsJson.urls.filter(v => typeof v === 'string')
   return followsJson
 }
 
