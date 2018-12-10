@@ -33,6 +33,7 @@ exports.setup = async function () {
   console.log('users loaded', users)
   users.forEach(async (user) => {
     // massage data
+    user.url = normalizeUrl(user.url)
     user.archive = null
     user.isDefault = Boolean(user.isDefault)
     user.createdAt = new Date(user.createdAt)
@@ -55,13 +56,15 @@ exports.list = async function () {
 
 const get =
 exports.get = async function (url) {
+  url = normalizeUrl(url)
+  console.log('getting user', url, users)
   var user = users.find(user => user.url === url)
   if (!user) return null
   return await fetchUserInfo(user)
 }
 
 const getDefault =
-exports.getDefault = async function (url = undefined) {
+exports.getDefault = async function () {
   var user = users.find(user => user.isDefault === true)
   if (!user) return null
   return await fetchUserInfo(user)
@@ -69,6 +72,7 @@ exports.getDefault = async function (url = undefined) {
 
 exports.add = async function (url) {
   // make sure the user doesnt already exist
+  url = normalizeUrl(url)
   var existingUser = await get(url)
   if (existingUser) return
 
@@ -96,6 +100,7 @@ exports.add = async function (url) {
 }
 
 exports.remove = async function (url) {
+  url = normalizeUrl(url)
   // get the user
   var user = await get(url)
   if (!user) return
@@ -164,12 +169,16 @@ async function fetchUserInfo (user) {
   var urlp = new URL(user.url)
   var meta = await archivesDb.getMeta(urlp.hostname)
   return {
-    url: user.url.replace(/(\/)$/, ''),
+    url: normalizeUrl(user.url),
     isDefault: user.isDefault,
     title: meta.title,
     description: meta.description,
     createdAt: user.createdAt
   }
+}
+
+function normalizeUrl (url) {
+  return url ? url.replace(/(\/)$/, '') : url
 }
 
 async function validateUserUrl (url) {
