@@ -6,6 +6,7 @@ module.exports = {
 
   getUserSession: 'promise',
   setUserSession: 'promise',
+  showEditProfileModal: 'promise',
 
   getSettings: 'promise',
   getSetting: 'promise',
@@ -25,6 +26,7 @@ module.exports = {
 
   fetchBody: 'promise',
   downloadURL: 'promise',
+  readFile: 'promise',
 
   getResourceContentType: 'sync',
 
