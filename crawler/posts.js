@@ -141,7 +141,7 @@ exports.list = async function ({offset, limit, reverse, author} = {}) {
   }
 
   // execute query
-  return db.all(query, values)
+  return (await db.all(query, values)).map(massagePostRow)
 }
 
 const get = exports.get = async function (url, pathname = undefined) {
@@ -153,7 +153,7 @@ const get = exports.get = async function (url, pathname = undefined) {
   pathname = pathname || url.pathname
 
   // execute query
-  return db.get(`
+  return massagePostRow(await db.get(`
     SELECT
         crawl_posts.*, src.url AS crawlSourceUrl
       FROM crawl_posts
@@ -162,19 +162,17 @@ const get = exports.get = async function (url, pathname = undefined) {
         AND src.url = ?
       WHERE
         crawl_posts.pathname = ?
-  `, [url.origin, pathname])
+  `, [url.origin, pathname]))
 }
 
 exports.create = async function (archive, {content} = {}) {
   assert(typeof content === 'string', 'Create() must be provided a `content` string')
   var filename = generateTimeFilename()
-  console.log('writing file')
   await archive.pda.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
     type: JSON_TYPE,
     content,
     createdAt: (new Date()).toISOString()
   }))
-  console.log('file written')
   await crawler.crawlSite(archive)
 }
 
@@ -195,4 +193,14 @@ exports.delete = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
   await crawler.crawlSite(archive)
+}
+
+// internal methods
+// =
+
+function massagePostRow (row) {
+  row.author = {url: row.crawlSourceUrl}
+  delete row.crawlSourceUrl
+  delete row.crawlSourceId
+  return row
 }

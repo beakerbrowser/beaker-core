@@ -3,6 +3,7 @@ const assert = require('assert')
 const {Url} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
+const archivesDb = require('../../dbs/archives')
 const postsCrawler = require('../../crawler/posts')
 
 // exported api
@@ -20,11 +21,17 @@ module.exports = {
       try { author = new URL(author) }
       catch (e) { throw new Error('Failed to parse author URL: ' + author) }
     }
-    return postsCrawler.list({offset, limit, reverse, author})
+    var posts = await postsCrawler.list({offset, limit, reverse, author})
+    await Promise.all(posts.map(async (post) => {
+      post.author.title = await getUserTitle(post.author)
+    }))
+    return posts
   },
 
   async get (origin, pathname = undefined) {
-    return postsCrawler.get(origin, pathname)
+    var post = await postsCrawler.get(origin, pathname)
+    post.author.title = await getUserTitle(post.author)
+    return post
   },
 
   async create ({content} = {}) {
@@ -51,4 +58,12 @@ module.exports = {
     var userArchive = dat.library.getArchive(userSession.url)
     return postsCrawler.delete(userArchive, pathname)
   }
+}
+
+// internal methods
+// =
+
+async function getUserTitle (author) {
+  var meta = await archivesDb.getMeta(author.url.slice('dat://'.length))
+  return meta ? meta.title : false
 }
