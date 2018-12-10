@@ -199,6 +199,7 @@ exports.delete = async function (archive, pathname) {
 // =
 
 function massagePostRow (row) {
+  if (!row) return null
   row.author = {url: row.crawlSourceUrl}
   delete row.crawlSourceUrl
   delete row.crawlSourceId
