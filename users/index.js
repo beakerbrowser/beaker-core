@@ -57,7 +57,6 @@ exports.list = async function () {
 const get =
 exports.get = async function (url) {
   url = normalizeUrl(url)
-  console.log('getting user', url, users)
   var user = users.find(user => user.url === url)
   if (!user) return null
   return await fetchUserInfo(user)

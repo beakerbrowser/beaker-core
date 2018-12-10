@@ -168,6 +168,8 @@ const get = exports.get = async function (url, pathname = undefined) {
 exports.create = async function (archive, {content} = {}) {
   assert(typeof content === 'string', 'Create() must be provided a `content` string')
   var filename = generateTimeFilename()
+  await ensureDirectory(archive, '/data')
+  await ensureDirectory(archive, '/data/posts')
   await archive.pda.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
     type: JSON_TYPE,
     content,
@@ -197,6 +199,11 @@ exports.delete = async function (archive, pathname) {
 
 // internal methods
 // =
+
+async function ensureDirectory (archive, pathname) {
+  try { await archive.pda.mkdir(pathname) }
+  catch (e) { /* ignore */ }
+}
 
 function massagePostRow (row) {
   if (!row) return null
