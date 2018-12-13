@@ -24,6 +24,22 @@ CREATE TABLE crawl_sources_meta (
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
+-- crawled descriptions of other sites
+CREATE TABLE crawl_site_descriptions (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+
+  subject TEXT,
+  title TEXT,
+  description TEXT,
+  type TEXT, -- comma separated strings
+  createdAt INTEGER,
+
+  PRIMARY KEY (crawlSourceId, pathname),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
 -- crawled posts
 CREATE TABLE crawl_posts (
   crawlSourceId INTEGER NOT NULL,

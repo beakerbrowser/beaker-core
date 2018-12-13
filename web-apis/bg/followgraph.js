@@ -10,16 +10,22 @@ const followgraphCrawler = require('../../crawler/followgraph')
 
 module.exports = {
 
-  async listFollowers (url) {
+  async listFollowers (url, opts) {
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
-    return followgraphCrawler.listFollowers(url)
+    return followgraphCrawler.listFollowers(url, opts)
   },
 
-  async listFollows (url) {
+  async listFollows (url, opts) {
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
-    return followgraphCrawler.listFollows(url)
+    return followgraphCrawler.listFollows(url, opts)
+  },
+
+  async listFoaFs (url, opts) {
+    url = normalizeFollowUrl(url)
+    assertString(url, 'Parameter one must be a URL')
+    return followgraphCrawler.listFoaFs(url, opts)
   },
 
   async isAFollowingB (a, b) {

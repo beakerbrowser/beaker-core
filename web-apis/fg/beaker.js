@@ -169,6 +169,7 @@ exports.setup = function (rpc) {
     beaker.followgraph = {}
     beaker.followgraph.listFollowers = followgraphRPC.listFollowers
     beaker.followgraph.listFollows = followgraphRPC.listFollows
+    beaker.followgraph.listFoaFs = followgraphRPC.listFoaFs
     beaker.followgraph.isAFollowingB = followgraphRPC.isAFollowingB
     beaker.followgraph.follow = followgraphRPC.follow
     beaker.followgraph.unfollow = followgraphRPC.unfollow

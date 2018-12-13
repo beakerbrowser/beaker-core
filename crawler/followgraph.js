@@ -5,6 +5,7 @@ const {Url} = require('url')
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
+const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
@@ -83,10 +84,11 @@ exports.crawlSite = async function (archive, crawlSource) {
   })
 }
 
-// List urls of sites that follow subject
+// List sites that follow subject
 // - subject. String (URL).
-// - returns Array<String>
-exports.listFollowers = async function (subject) {
+// - opts.includeDesc. Boolean.
+// - returns Array<String | Object>
+exports.listFollowers = async function (subject, {includeDesc} = {}) {
   var rows = await db.all(`
     SELECT crawl_sources.url
       FROM crawl_sources
@@ -94,13 +96,22 @@ exports.listFollowers = async function (subject) {
         ON crawl_followgraph.crawlSourceId = crawl_sources.id
         AND crawl_followgraph.destUrl = ?
   `, [subject])
-  return rows.map(row => toOrigin(row.url))
+  if (!includeDesc) {
+    return rows.map(row => toOrigin(row.url))
+  }
+  return Promise.all(rows.map(async (row) => {
+    var url = toOrigin(row.url)
+    var desc = await siteDescriptions.getBest({subject: url})
+    desc.url = url
+    return desc
+  }))
 }
 
-// List urls of sites that subject follows
+// List sites that subject follows
 // - subject. String (URL).
-// - returns Array<String>
-const listFollows = exports.listFollows = async function (subject) {
+// - opts.includeDesc. Boolean.
+// - returns Array<String | Object>
+const listFollows = exports.listFollows = async function (subject, {includeDesc} = {}) {
   var rows = await db.all(`
     SELECT crawl_followgraph.destUrl
       FROM crawl_followgraph
@@ -108,7 +119,29 @@ const listFollows = exports.listFollows = async function (subject) {
         ON crawl_followgraph.crawlSourceId = crawl_sources.id
         AND crawl_sources.url = ?
   `, [subject])
-  return rows.map(row => toOrigin(row.destUrl))
+  if (!includeDesc) {
+    return rows.map(row => toOrigin(row.destUrl))
+  }
+  return Promise.all(rows.map(async (row) => {
+    var url = toOrigin(row.destUrl)
+    var desc = await siteDescriptions.getBest({subject: url, author: subject})
+    desc.url = url
+    return desc
+  }))
+}
+
+// List sites that are followed by sites that the subject follows
+// - subject. String (URL).
+// - opts.includeDesc. Boolean.
+// - returns Array<String | Object>
+const listFoaFs = exports.listFoaFs = async function (subject, {includeDesc} = {}) {
+  var foafs = []
+  var follows = await listFollows(subject)
+  for (let url of follows) {
+    foafs = foafs.concat(await listFollows(url, {includeDesc}))
+  }
+  // TODO remove duplicates
+  return foafs
 }
 
 // Check for the existence of an individual follow
@@ -129,24 +162,29 @@ exports.isAFollowingB = async function (a, b) {
   return !!res
 }
 
-exports.follow = function (archive, followUrl) {
+exports.follow = async function (archive, followUrl) {
   // normalize followUrl
   followUrl = toOrigin(followUrl)
   assert(typeof followUrl === 'string', 'Follow() must be given a valid URL')
 
-  return updateFollowsFile(archive, followsJson => {
+  // write new follows.json
+  await updateFollowsFile(archive, followsJson => {
     if (!followsJson.urls.find(v => v === followUrl)) {
       followsJson.urls.push(followUrl)
     }
   })
+
+  // capture site description
+  /* dont await */siteDescriptions.capture(archive, followUrl)
 }
 
-exports.unfollow = function (archive, followUrl) {
+exports.unfollow = async function (archive, followUrl) {
   // normalize followUrl
   followUrl = toOrigin(followUrl)
   assert(typeof followUrl === 'string', 'Unfollow() must be given a valid URL')
 
-  return updateFollowsFile(archive, followsJson => {
+  // write new follows.json
+  await updateFollowsFile(archive, followsJson => {
     var i = followsJson.urls.findIndex(v => v === followUrl)
     if (i !== -1) {
       followsJson.urls.splice(i, 1)

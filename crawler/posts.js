@@ -3,7 +3,7 @@ const {URL} = require('url')
 const Events = require('events')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
-const {doCrawl, doCheckpoint, generateTimeFilename} = require('./util')
+const {doCrawl, doCheckpoint, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
@@ -38,16 +38,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
 
     // collect changed posts
-    var changedPosts = [] // order matters, must be oldest to newest
-    changes.forEach(c => {
-      if (JSON_PATH_REGEX.test(c.name)) {
-        let i = changedPosts.findIndex(c2 => c2.name === c.name)
-        if (i !== -1) {
-          changedPosts.splice(i, 1) // remove from old position
-        }
-        changedPosts.push(c)
-      }
-    })
+    var changedPosts = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
     console.log('collected changed posts', changedPosts)
 
     // read and apply each post in order
@@ -106,21 +97,17 @@ exports.crawlSite = async function (archive, crawlSource) {
   })
 }
 
-exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
+exports.list = async function ({offset, limit, reverse, author} = {}) {
   // validate & parse params
   assert(!offset || typeof offset === 'number', 'Offset must be a number')
   assert(!limit || typeof limit === 'number', 'Limit must be a number')
   assert(!reverse || typeof reverse === 'boolean', 'Reverse must be a boolean')
-  assert(!author || typeof author === 'string', 'Author must be a string')
-  assert(!authors || !Array.isArray(author), 'Authors must be an array of strings')
+  assert(!author || typeof author === 'string' || (Array.isArray(author) && author.every(isString)), 'Author must be a string or an array of strings')
 
   if (author) {
-    try { author = toOrigin(author) }
-    catch (e) { throw new Error('Author must be a valid URL') }
-  }
-  if (authors) {
-    try { authors = authors.map(toOrigin) }
-    catch (e) { throw new Error('Authors array must contain valid URLs') }
+    author = Array.isArray(author) ? author : [author]
+    try { author = author.map(toOrigin) }
+    catch (e) { throw new Error('Author must contain valid URLs') }
   }
 
   // build query
@@ -130,14 +117,11 @@ exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
   `
   var values = []
   if (author) {
-    query += ` WHERE src.url = ?`
-    values.push(author)
-  } else if (authors) {
     let op = 'WHERE'
-    for (let author of authors) {
+    for (let a of author) {
       query += ` ${op} src.url = ?`
       op = 'OR'
-      values.push(author)
+      values.push(a)
     }
   }
   if (offset) {
@@ -212,6 +196,10 @@ exports.delete = async function (archive, pathname) {
 
 // internal methods
 // =
+
+function isString (v) {
+  return typeof v === 'string'
+}
 
 function toOrigin (url) {
   url = new URL(url)

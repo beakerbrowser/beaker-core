@@ -40,15 +40,30 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
 
   // handle changes
   await handlerFn({changes, resetRequired})
+
+  // final checkpoint
+  await doCheckpoint(crawlDataset, crawlDatasetVersion, crawlSource, version)
 }
 
-exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
+const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
   await db.run(`DELETE FROM crawl_sources_meta WHERE crawlDataset = ? AND crawlSourceId = ?`, [crawlDataset, crawlSource.id])
   await db.run(`
     INSERT
       INTO crawl_sources_meta (crawlDataset, crawlDatasetVersion, crawlSourceId, crawlSourceVersion, updatedAt)
       VALUES (?, ?, ?, ?, ?)
   `, [crawlDataset, crawlDatasetVersion, crawlSource.id, crawlSourceVersion, Date.now()])
+}
+
+exports.getMatchingChangesInOrder = function (changes, regex) {
+  var list = [] // order matters, must be oldest to newest
+  changes.forEach(c => {
+    if (regex.test(c.name)) {
+      let i = list.findIndex(c2 => c2.name === c.name)
+      if (i !== -1) list.splice(i, 1) // remove from old position
+      list.push(c)
+    }
+  })
+  return list
 }
 
 var _lastGeneratedTimeFilename

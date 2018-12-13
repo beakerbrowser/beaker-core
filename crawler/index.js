@@ -6,6 +6,7 @@ const dat = require('../dat')
 
 const posts = require('./posts')
 const followgraph = require('./followgraph')
+const siteDescriptions = require('./site-descriptions')
 
 const CRAWL_POLL_INTERVAL = 30e3
 
@@ -19,6 +20,7 @@ const watches = {}
 
 exports.posts = posts
 exports.followgraph = followgraph
+exports.siteDescriptions = siteDescriptions
 
 exports.setup = async function () {
 }
@@ -75,10 +77,10 @@ exports.crawlSite = async function (archive) {
     // crawl individual sources
     await Promise.all([
       posts.crawlSite(archive, crawlSource),
-      followgraph.crawlSite(archive, crawlSource)
+      followgraph.crawlSite(archive, crawlSource),
+      siteDescriptions.crawlSite(archive, crawlSource)
     ])
   } finally {
     release()
   }
 }
-exports.crawlSite = crawlSite
