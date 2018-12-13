@@ -170,7 +170,7 @@ async function readFollowsFile (archive) {
   try {
     var followsJson = await archive.pda.readFile(JSON_PATH, 'utf8')
   } catch (e) {
-    if (e.notFound) return {urls: []} // empty default when not found
+    if (e.notFound) return {type: JSON_TYPE, urls: []} // empty default when not found
     throw e
   }
   followsJson = JSON.parse(followsJson)
