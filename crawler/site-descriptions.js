@@ -128,21 +128,33 @@ const list = exports.list = async function ({offset, limit, reverse, author, sub
       INNER JOIN crawl_sources src ON src.id = crawl_site_descriptions.crawlSourceId
   `
   var values = []
+
+  if (author || subject) {
+    query += ` WHERE `
+  }
+
   if (author) {
-    let op = 'WHERE'
+    query += `(`
+    let op = ``
     for (let a of author) {
-      query += ` ${op} src.url = ?`
-      op = 'OR'
+      query += `${op} src.url = ?`
+      op = ` OR`
       values.push(a)
     }
+    query += `) `
   }
   if (subject) {
-    let op = 'WHERE'
+    if (author) {
+      query += ` AND `
+    }
+    query += `(`
+    let op = ``
     for (let s of subject) {
-      query += ` ${op} subject = ?`
-      op = 'OR'
+      query += `${op} subject = ?`
+      op = ` OR`
       values.push(s)
     }
+    query += `) `
   }
   if (offset) {
     query += ` OFFSET ?`
@@ -172,7 +184,6 @@ exports.getBest = async function ({subject, author} = {}) {
   // }
 
   // check for descriptions
-  console.log('getting best', subject, author)
   var descriptions = await list({subject, author})
   return _pick(descriptions[0] || {}, ['title', 'description', 'type', 'author'])
 }

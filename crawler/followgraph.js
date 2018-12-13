@@ -136,11 +136,23 @@ const listFollows = exports.listFollows = async function (subject, {includeDesc}
 // - returns Array<String | Object>
 const listFoaFs = exports.listFoaFs = async function (subject, {includeDesc} = {}) {
   var foafs = []
+  // list URLs followed by subject
   var follows = await listFollows(subject)
   for (let url of follows) {
-    foafs = foafs.concat(await listFollows(url, {includeDesc}))
+    // list follows of this follow
+    for (let foaf of await listFollows(url, {includeDesc})) {
+      // ignore if followed by subject
+      if (follows.indexOf(foaf.url) !== -1) continue
+      // merge into list
+      let existingFoaF = foafs.find(v => v.url === foaf.url)
+      if (existingFoaF) {
+        existingFoaF.followedBy.push(url)
+      } else {
+        foaf.followedBy = [url]
+        foafs.push(foaf)
+      }
+    }
   }
-  // TODO remove duplicates
   return foafs
 }
 
