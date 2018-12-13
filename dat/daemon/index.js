@@ -331,6 +331,16 @@ const RPC_API = {
     configureAutoDownload(archive, userSettings)
   },
 
+  async exportFilesystemToArchive (opts) {
+    opts.dstArchive = getArchive(opts.dstArchive)
+    return pda.exportFilesystemToArchive(opts)
+  },
+
+  async exportArchiveToFilesystem (opts) {
+    opts.srcArchive = getArchive(opts.srcArchive)
+    return pda.exportFilesystemToArchive(opts)
+  },
+
   async exportArchiveToArchive (opts) {
     opts.srcArchive = getArchive(opts.srcArchive)
     opts.dstArchive = getArchive(opts.dstArchive)
