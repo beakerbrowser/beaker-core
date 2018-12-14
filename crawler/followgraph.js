@@ -128,13 +128,16 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
     var url = toOrigin(row.url)
     var desc = await siteDescriptions.getBest({subject: url})
     desc.url = url
+    if (followedBy) {
+      desc.followsUser = await isAFollowingB(url, followedBy)
+    }
     return desc
   }))
 }
 
 // List sites that subject follows
 // - subject. String (URL).
-// - opts.followedBy. String (URL).
+// - opts.followedBy. String (URL). Filters to users who are followed by the URL specified. Causes .followsUser boolean to be set.
 // - opts.includeDesc. Boolean.
 // - opts.includeFollowers. Boolean. Requires includeDesc to be true.
 // - returns Array<String | Object>
@@ -153,6 +156,9 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
     var url = toOrigin(row.destUrl)
     var desc = await siteDescriptions.getBest({subject: url, author: subject})
     desc.url = url
+    if (followedBy) {
+      desc.followsUser = await isAFollowingB(url, followedBy)
+    }
     if (includeFollowers) {
       desc.followedBy = await listFollowers(url, {followedBy, includeDesc: true})
     }
@@ -190,7 +196,7 @@ const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}
 // - a. String (URL), the site being queried.
 // - b. String (URL), does a follow this site?
 // - returns bool
-exports.isAFollowingB = async function (a, b) {
+const isAFollowingB = exports.isAFollowingB = async function (a, b) {
   a = toOrigin(a)
   b = toOrigin(b)
   var res = await db.get(`
