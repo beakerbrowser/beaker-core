@@ -11,20 +11,32 @@ const followgraphCrawler = require('../../crawler/followgraph')
 module.exports = {
 
   async listFollowers (url, opts) {
+    opts = opts || {}
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    if (!userSession) throw new Error('No active user session')
+    opts.followedBy = userSession.url
     return followgraphCrawler.listFollowers(url, opts)
   },
 
   async listFollows (url, opts) {
+    opts = opts || {}
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    if (!userSession) throw new Error('No active user session')
+    opts.followedBy = userSession.url
     return followgraphCrawler.listFollows(url, opts)
   },
 
   async listFoaFs (url, opts) {
+    opts = opts || {}
     url = normalizeFollowUrl(url)
     assertString(url, 'Parameter one must be a URL')
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    if (!userSession) throw new Error('No active user session')
+    opts.followedBy = userSession.url
     return followgraphCrawler.listFoaFs(url, opts)
   },
 

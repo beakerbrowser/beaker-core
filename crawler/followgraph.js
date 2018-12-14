@@ -63,9 +63,19 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // write updates
     for (let add of adds) {
-      await db.run(`
-        INSERT INTO crawl_followgraph (crawlSourceId, destUrl, crawledAt) VALUES (?, ?, ?)
-      `, [crawlSource.id, add, Date.now()])
+      try {
+        await db.run(`
+          INSERT INTO crawl_followgraph (crawlSourceId, destUrl, crawledAt) VALUES (?, ?, ?)
+        `, [crawlSource.id, add, Date.now()])
+      } catch (e) {
+        if (e.code === 'SQLITE_CONSTRAINT') {
+          // uniqueness constraint probably failed, which means we got a duplicate somehow
+          // dont worry about it
+          debug('Attempted to insert duplicate followgraph record', {crawlSource, url: add})
+        } else {
+          throw e
+        }
+      }
       if (!supressEvents) {
         events.emit('follow-added', archive.url, add)
       }
@@ -86,16 +96,31 @@ exports.crawlSite = async function (archive, crawlSource) {
 
 // List sites that follow subject
 // - subject. String (URL).
+// - opts.followedBy. String (URL).
 // - opts.includeDesc. Boolean.
 // - returns Array<String | Object>
-const listFollowers = exports.listFollowers = async function (subject, {includeDesc} = {}) {
-  var rows = await db.all(`
-    SELECT crawl_sources.url
-      FROM crawl_sources
-      INNER JOIN crawl_followgraph
-        ON crawl_followgraph.crawlSourceId = crawl_sources.id
-        AND crawl_followgraph.destUrl = ?
-  `, [subject])
+const listFollowers = exports.listFollowers = async function (subject, {followedBy, includeDesc} = {}) {
+  var rows
+  if (followedBy) {
+    rows = await db.all(`
+      SELECT cs.url FROM crawl_followgraph fg
+        INNER JOIN crawl_sources cs ON cs.id = fg.crawlSourceId
+        WHERE fg.destUrl = ?
+          AND (cs.url = ? OR cs.url IN (
+            SELECT destUrl as url FROM crawl_followgraph
+              INNER JOIN crawl_sources ON crawl_sources.id = crawl_followgraph.crawlSourceId
+              WHERE crawl_sources.url = ?
+          ))
+    `, [subject, followedBy, followedBy])
+  } else {
+    rows = await db.all(`
+      SELECT f.url
+        FROM crawl_sources f
+        INNER JOIN crawl_followgraph
+          ON crawl_followgraph.crawlSourceId = f.id
+          AND crawl_followgraph.destUrl = ?
+    `, [subject])
+  }
   if (!includeDesc) {
     return rows.map(row => toOrigin(row.url))
   }
@@ -109,10 +134,11 @@ const listFollowers = exports.listFollowers = async function (subject, {includeD
 
 // List sites that subject follows
 // - subject. String (URL).
+// - opts.followedBy. String (URL).
 // - opts.includeDesc. Boolean.
 // - opts.includeFollowers. Boolean. Requires includeDesc to be true.
 // - returns Array<String | Object>
-const listFollows = exports.listFollows = async function (subject, {includeDesc, includeFollowers} = {}) {
+const listFollows = exports.listFollows = async function (subject, {followedBy, includeDesc, includeFollowers} = {}) {
   var rows = await db.all(`
     SELECT crawl_followgraph.destUrl
       FROM crawl_followgraph
@@ -128,7 +154,7 @@ const listFollows = exports.listFollows = async function (subject, {includeDesc,
     var desc = await siteDescriptions.getBest({subject: url, author: subject})
     desc.url = url
     if (includeFollowers) {
-      desc.followedBy = await listFollowers(url, {includeDesc: true})
+      desc.followedBy = await listFollowers(url, {followedBy, includeDesc: true})
     }
     return desc
   }))
@@ -136,14 +162,15 @@ const listFollows = exports.listFollows = async function (subject, {includeDesc,
 
 // List sites that are followed by sites that the subject follows
 // - subject. String (URL).
+// - opts.followedBy. String (URL).
 // - returns Array<Object>
-const listFoaFs = exports.listFoaFs = async function (subject) {
+const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}) {
   var foafs = []
   // list URLs followed by subject
-  var follows = await listFollows(subject, {includeDesc: true})
+  var follows = await listFollows(subject, {followedBy, includeDesc: true})
   for (let follow of follows) {
     // list follows of this follow
-    for (let foaf of await listFollows(follow.url, {includeDesc: true})) {
+    for (let foaf of await listFollows(follow.url, {followedBy, includeDesc: true})) {
       // ignore if followed by subject
       if (follows.find(v => v.url === foaf.url)) continue
       // merge into list
