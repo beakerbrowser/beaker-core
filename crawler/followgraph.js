@@ -168,7 +168,7 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
 
 // List sites that are followed by sites that the subject follows
 // - subject. String (URL).
-// - opts.followedBy. String (URL).
+// - opts.followedBy. String (URL). Filters to users who are followed by the URL specified. Causes .followsUser boolean to be set.
 // - returns Array<Object>
 const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}) {
   var foafs = []
@@ -177,7 +177,8 @@ const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}
   for (let follow of follows) {
     // list follows of this follow
     for (let foaf of await listFollows(follow.url, {followedBy, includeDesc: true})) {
-      // ignore if followed by subject
+      // ignore if followed by subject or is subject
+      if (foaf.url === subject) continue
       if (follows.find(v => v.url === foaf.url)) continue
       // merge into list
       let existingFoaF = foafs.find(v => v.url === foaf.url)
