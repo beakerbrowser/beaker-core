@@ -33,6 +33,7 @@ module.exports = {
   setWindowDimensions: 'promise',
   showOpenDialog: 'promise',
   showContextMenu: 'promise',
+  showShellModal: 'promise',
   openUrl: 'promise',
   openFolder: 'promise',
   doWebcontentsCmd: 'promise',

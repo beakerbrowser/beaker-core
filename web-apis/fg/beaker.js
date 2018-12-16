@@ -95,6 +95,7 @@ exports.setup = function (rpc) {
     beaker.browser.setWindowDimensions = beakerBrowserRPC.setWindowDimensions
     beaker.browser.showOpenDialog = beakerBrowserRPC.showOpenDialog
     beaker.browser.showContextMenu = beakerBrowserRPC.showContextMenu
+    beaker.browser.showShellModal = beakerBrowserRPC.showShellModal
     beaker.browser.openUrl = beakerBrowserRPC.openUrl
     beaker.browser.openFolder = beakerBrowserRPC.openFolder
     beaker.browser.doWebcontentsCmd = beakerBrowserRPC.doWebcontentsCmd
