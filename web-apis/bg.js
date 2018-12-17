@@ -10,6 +10,7 @@ const downloadsManifest = require('./manifests/internal/downloads')
 const historyManifest = require('./manifests/internal/history')
 const sitedataManifest = require('./manifests/internal/sitedata')
 const watchlistManifest = require('./manifests/internal/watchlist')
+const crawlerManifest = require('./manifests/internal/crawler')
 const postsManifest = require('./manifests/internal/posts')
 const followgraphManifest = require('./manifests/internal/followgraph')
 
@@ -19,6 +20,7 @@ const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const watchlistAPI = require('./bg/watchlist')
+const crawlerAPI = require('../crawler').WEBAPI
 const postsAPI = require('./bg/posts')
 const followgraphAPI = require('./bg/followgraph')
 
@@ -54,6 +56,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('history', historyManifest, historyAPI, internalOnly)
   globals.rpcAPI.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
+  globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
   globals.rpcAPI.exportAPI('posts', postsManifest, postsAPI, internalOnly)
   globals.rpcAPI.exportAPI('followgraph', followgraphManifest, followgraphAPI, internalOnly)
 

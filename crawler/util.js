@@ -1,9 +1,13 @@
+const EventEmitter = require('events')
 const pump = require('pump')
 const concat = require('concat-stream')
 const db = require('../dbs/profile-data-db')
 const dat = require('../dat')
 
 const READ_TIMEOUT = 30e3
+
+const crawlerEvents = new EventEmitter()
+exports.crawlerEvents = crawlerEvents
 
 exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatasetVersion, handlerFn) {
   const url = archive.url
@@ -38,14 +42,19 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
     )
   })
 
+  crawlerEvents.emit('crawl-dataset-start', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
+
   // handle changes
   await handlerFn({changes, resetRequired})
 
   // final checkpoint
   await doCheckpoint(crawlDataset, crawlDatasetVersion, crawlSource, version)
+
+  crawlerEvents.emit('crawl-dataset-finish', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 }
 
 const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
+  crawlerEvents.emit('crawl-dataset-progress', {sourceUrl: crawlSource.url, crawlDataset, crawledVersion: crawlSourceVersion})
   await db.run(`DELETE FROM crawl_sources_meta WHERE crawlDataset = ? AND crawlSourceId = ?`, [crawlDataset, crawlSource.id])
   await db.run(`
     INSERT

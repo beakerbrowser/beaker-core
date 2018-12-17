@@ -1,9 +1,13 @@
+const emitStream = require('emit-stream')
+const {URL} = require('url')
 const _throttle = require('lodash.throttle')
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
+const archivesDb = require('../dbs/archives')
 const users = require('../users')
 const dat = require('../dat')
 
+const {crawlerEvents} = require('./util')
 const posts = require('./posts')
 const followgraph = require('./followgraph')
 const siteDescriptions = require('./site-descriptions')
@@ -21,6 +25,7 @@ const watches = {}
 exports.posts = posts
 exports.followgraph = followgraph
 exports.siteDescriptions = siteDescriptions
+const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
 
 exports.setup = async function () {
 }
@@ -32,6 +37,7 @@ exports.watchSite = async function (archive) {
   console.log('watchSite', archive.url)
 
   if (!(archive.url in watches)) {
+    crawlerEvents.emit('watch', {sourceUrl: archive.url})
     const queueCrawl = _throttle(() => crawlSite(archive), 5e3)
 
     // watch for file changes
@@ -57,6 +63,7 @@ exports.watchSite = async function (archive) {
 exports.unwatchSite = async function (url) {
   // stop watching for file changes
   if (url in watches) {
+    crawlerEvents.emit('unwatch', {sourceUrl: url})
     watches[url].close()
     watches[url] = null
   }
@@ -65,6 +72,7 @@ exports.unwatchSite = async function (url) {
 const crawlSite =
 exports.crawlSite = async function (archive) {
   console.log('crawling', archive.url)
+  crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
   try {
     // get/create crawl source
@@ -80,7 +88,49 @@ exports.crawlSite = async function (archive) {
       followgraph.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource)
     ])
+  } catch (err) {
+    crawlerEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
   } finally {
+    crawlerEvents.emit('crawl-finish', {sourceUrl: archive.url})
     release()
   }
+}
+
+const getCrawlStates =
+exports.getCrawlStates = async function () {
+  var rows = await db.all(`
+    SELECT
+        crawl_sources.url AS url,
+        GROUP_CONCAT(crawl_sources_meta.crawlSourceVersion) AS versions,
+        GROUP_CONCAT(crawl_sources_meta.crawlDataset) AS datasets,
+        MAX(crawl_sources_meta.updatedAt) AS updatedAt
+      FROM crawl_sources
+      INNER JOIN crawl_sources_meta ON crawl_sources_meta.crawlSourceId = crawl_sources.id
+      GROUP BY crawl_sources.id
+  `)
+  return Promise.all(rows.map(async ({url, versions, datasets, updatedAt}) => {
+    var datasetVersions = {}
+    versions = versions.split(',')
+    datasets = datasets.split(',')
+    for (let i = 0; i < datasets.length; i++) {
+      datasetVersions[datasets[i]] = Number(versions[i])
+    }
+    var meta = await archivesDb.getMeta(toHostname(url))
+    return {url, title: meta.title, datasetVersions, updatedAt}
+  }))
+}
+
+const resetSite =
+exports.resetSite = async function (url) {
+  await db.run(`DELETE FROM crawl_sources WHERE url = ?`, [url])
+}
+
+exports.WEBAPI = {createEventsStream, getCrawlStates, resetSite}
+
+// internal methods
+// =
+
+function toHostname (url) {
+  url = new URL(url)
+  return url.hostname
 }
