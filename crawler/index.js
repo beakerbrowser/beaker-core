@@ -125,7 +125,15 @@ exports.resetSite = async function (url) {
   await db.run(`DELETE FROM crawl_sources WHERE url = ?`, [url])
 }
 
-exports.WEBAPI = {createEventsStream, getCrawlStates, resetSite}
+exports.WEBAPI = {
+  createEventsStream,
+  getCrawlStates,
+  crawlSite: async (url) => {
+    var archive = await dat.library.getOrLoadArchive(url)
+    return crawlSite(archive)
+  },
+  resetSite
+}
 
 // internal methods
 // =

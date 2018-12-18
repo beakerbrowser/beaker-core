@@ -163,6 +163,7 @@ exports.setup = function (rpc) {
     // beaker.crawler
     beaker.crawler = {}
     beaker.crawler.getCrawlStates = crawlerRPC.getCrawlStates
+    beaker.crawler.crawlSite = crawlerRPC.crawlSite
     beaker.crawler.resetSite = crawlerRPC.resetSite
     beaker.crawler.createEventsStream = () => fromEventStream(crawlerRPC.createEventsStream())
 
