@@ -6,7 +6,7 @@ const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
@@ -45,6 +45,8 @@ exports.crawlSite = async function (archive, crawlSource) {
     if (!change) {
       return
     }
+
+    emitProgressEvent(archive.url, 'crawl_followgraph', 0, 1)
 
     // read and validate
     try {
@@ -91,6 +93,7 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // write checkpoint as success
     await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
+    emitProgressEvent(archive.url, 'crawl_followgraph', 1, 1)
   })
 }
 

@@ -6,7 +6,7 @@ const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
 const crawler = require('./index')
-const {doCrawl, doCheckpoint, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
@@ -43,8 +43,10 @@ exports.crawlSite = async function (archive, crawlSource) {
     // collect changed site descriptions
     var changedSiteDescriptions = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
     console.log('collected changed site descriptions', changedSiteDescriptions)
+    emitProgressEvent(archive.url, 'crawl_site_descriptions', 0, changedSiteDescriptions.length)
 
     // read and apply each post in order
+    var progress = 0
     for (let changedSiteDescription of changedSiteDescriptions) {
       // TODO Currently the crawler will abort reading the feed if any description fails to load
       //      this means that a single bad or unreachable file can stop the forward progress of description indexing
@@ -95,10 +97,11 @@ exports.crawlSite = async function (archive, crawlSource) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [crawlSource.id, changedSiteDescription.name, Date.now(), desc.subject, desc.metadata.title, desc.metadata.description, desc.metadata.type.join(','), desc.createdAt])
         events.emit('description-added', archive.url)
-
-        // checkpoint our progress
-        await doCheckpoint('crawl_site_descriptions', TABLE_VERSION, crawlSource, changedSiteDescription.version)
       }
+
+      // checkpoint our progress
+      await doCheckpoint('crawl_site_descriptions', TABLE_VERSION, crawlSource, changedSiteDescription.version)
+      emitProgressEvent(archive.url, 'crawl_site_descriptions', ++progress, changedSiteDescription.length)
     }
   })
 }

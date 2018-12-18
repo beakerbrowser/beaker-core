@@ -54,13 +54,17 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
 }
 
 const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
-  crawlerEvents.emit('crawl-dataset-progress', {sourceUrl: crawlSource.url, crawlDataset, crawledVersion: crawlSourceVersion})
+  
   await db.run(`DELETE FROM crawl_sources_meta WHERE crawlDataset = ? AND crawlSourceId = ?`, [crawlDataset, crawlSource.id])
   await db.run(`
     INSERT
       INTO crawl_sources_meta (crawlDataset, crawlDatasetVersion, crawlSourceId, crawlSourceVersion, updatedAt)
       VALUES (?, ?, ?, ?, ?)
   `, [crawlDataset, crawlDatasetVersion, crawlSource.id, crawlSourceVersion, Date.now()])
+}
+
+exports.emitProgressEvent = function (sourceUrl, crawlDataset, progress, numUpdates) {
+  crawlerEvents.emit('crawl-dataset-progress', {sourceUrl, crawlDataset, progress, numUpdates})
 }
 
 exports.getMatchingChangesInOrder = function (changes, regex) {

@@ -3,7 +3,7 @@ const {URL} = require('url')
 const Events = require('events')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
-const {doCrawl, doCheckpoint, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
@@ -40,8 +40,10 @@ exports.crawlSite = async function (archive, crawlSource) {
     // collect changed posts
     var changedPosts = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
     console.log('collected changed posts', changedPosts)
+    emitProgressEvent(archive.url, 'crawl_posts', 0, changedPosts.length)
 
     // read and apply each post in order
+    var progress = 0
     for (let changedPost of changedPosts) {
       // TODO Currently the crawler will abort reading the feed if any post fails to load
       //      this means that a single bad or unreachable file can stop the forward progress of post indexing
@@ -89,10 +91,11 @@ exports.crawlSite = async function (archive, crawlSource) {
           `, [crawlSource.id, changedPost.name, Date.now(), post.content, post.createdAt, post.updatedAt])
           events.emit('post-added', archive.url)
         }
-
-        // checkpoint our progress
-        await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
       }
+
+      // checkpoint our progress
+      await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
+      emitProgressEvent(archive.url, 'crawl_posts', ++progress, changedPosts.length)
     }
   })
 }
