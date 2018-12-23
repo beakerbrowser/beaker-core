@@ -100,6 +100,18 @@ CREATE TABLE watchlist (
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
+-- list of the users current templates
+CREATE TABLE templates (
+  profileId INTEGER,
+  url TEXT NOT NULL,
+  title TEXT,
+  screenshot,
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
 -- list of sites being crawled
 CREATE TABLE crawl_sources (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -155,19 +167,6 @@ CREATE TABLE crawl_followgraph (
 
   PRIMARY KEY (crawlSourceId, destUrl),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
-);
-
--- list of the users current templates
--- deprecated (may return)
-CREATE TABLE templates (
-  profileId INTEGER,
-  url TEXT NOT NULL,
-  title TEXT,
-  screenshot,
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-
-  PRIMARY KEY (profileId, url),
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
 -- a list of the draft-dats for a master-dat

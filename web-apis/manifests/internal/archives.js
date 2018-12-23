@@ -27,12 +27,6 @@ module.exports = {
   addDraft: 'promise',
   removeDraft: 'promise',
 
-  // templates
-  getTemplate: 'promise',
-  listTemplates: 'promise',
-  putTemplate: 'promise',
-  removeTemplate: 'promise',
-
   // internal management
   touch: 'promise',
   clearFileCache: 'promise',

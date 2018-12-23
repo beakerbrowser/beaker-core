@@ -54,7 +54,6 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
 }
 
 const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
-  
   await db.run(`DELETE FROM crawl_sources_meta WHERE crawlDataset = ? AND crawlSourceId = ?`, [crawlDataset, crawlSource.id])
   await db.run(`
     INSERT

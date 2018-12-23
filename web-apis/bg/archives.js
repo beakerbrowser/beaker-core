@@ -1,7 +1,6 @@
 const path = require('path')
 const mkdirp = require('mkdirp')
 const jetpack = require('fs-jetpack')
-const templatesDb = require('../../dbs/templates')
 const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
@@ -264,25 +263,6 @@ module.exports = {
     masterKey = await archiveDraftsDb.getMaster(0, masterKey)
 
     return archiveDraftsDb.remove(0, masterKey, draftKey)
-  },
-
-  // templates
-  // =
-
-  async getTemplate (url) {
-    return templatesDb.get(0, url)
-  },
-
-  async listTemplates () {
-    return templatesDb.list(0)
-  },
-
-  async putTemplate (url, {title, screenshot}) {
-    return templatesDb.put(0, url, {title, screenshot})
-  },
-
-  async removeTemplate (url) {
-    return templatesDb.remove(0, url)
   },
 
   // internal management

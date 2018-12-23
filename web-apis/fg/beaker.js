@@ -8,6 +8,7 @@ const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
 const watchlistManifest = require('../manifests/internal/watchlist')
+const templatesManifest = require('../manifests/internal/templates')
 const crawlerManifest = require('../manifests/internal/crawler')
 const postsManifest = require('../manifests/internal/posts')
 const followgraphManifest = require('../manifests/internal/followgraph')
@@ -25,6 +26,7 @@ exports.setup = function (rpc) {
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
+    const templatesRPC = rpc.importAPI('templates', templatesManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
     const postsRPC = rpc.importAPI('posts', postsManifest, opts)
     const followgraphRPC = rpc.importAPI('followgraph', followgraphManifest, opts)
@@ -49,10 +51,6 @@ exports.setup = function (rpc) {
     beaker.archives.listDrafts = archivesRPC.listDrafts
     beaker.archives.addDraft = archivesRPC.addDraft
     beaker.archives.removeDraft = archivesRPC.removeDraft
-    beaker.archives.getTemplate = archivesRPC.getTemplate
-    beaker.archives.listTemplates = archivesRPC.listTemplates
-    beaker.archives.putTemplate = archivesRPC.putTemplate
-    beaker.archives.removeTemplate = archivesRPC.removeTemplate
     beaker.archives.touch = archivesRPC.touch
     beaker.archives.clearFileCache = archivesRPC.clearFileCache
     beaker.archives.clearGarbage = archivesRPC.clearGarbage
@@ -159,6 +157,13 @@ exports.setup = function (rpc) {
     beaker.watchlist.update = watchlistRPC.update
     beaker.watchlist.remove = watchlistRPC.remove
     beaker.watchlist.createEventsStream = () => fromEventStream(watchlistRPC.createEventsStream())
+
+    // beaker.templates
+    beaker.templates = {}
+    beaker.templates.get = templatesRPC.get
+    beaker.templates.list = templatesRPC.list
+    beaker.templates.put = templatesRPC.put
+    beaker.templates.remove = templatesRPC.remove
 
     // beaker.crawler
     beaker.crawler = {}
