@@ -100,17 +100,21 @@ exports.crawlSite = async function (archive, crawlSource) {
   })
 }
 
-exports.list = async function ({offset, limit, reverse, author} = {}) {
+exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
   // validate & parse params
   assert(!offset || typeof offset === 'number', 'Offset must be a number')
   assert(!limit || typeof limit === 'number', 'Limit must be a number')
   assert(!reverse || typeof reverse === 'boolean', 'Reverse must be a boolean')
-  assert(!author || typeof author === 'string' || (Array.isArray(author) && author.every(isString)), 'Author must be a string or an array of strings')
+  assert(!author || typeof author === 'string', 'Author must be a string')
+  assert(!authors || (Array.isArray(authors) && authors.every(isString)), 'Authors must be an array of strings')
 
   if (author) {
-    author = Array.isArray(author) ? author : [author]
-    try { author = author.map(toOrigin) }
-    catch (e) { throw new Error('Author must contain valid URLs') }
+    authors = authors || []
+    authors.push(author)
+  }
+  if (authors) {
+    try { authors = authors.map(toOrigin) }
+    catch (e) { throw new Error('Author/authors must contain valid URLs') }
   }
 
   // build query
@@ -119,9 +123,9 @@ exports.list = async function ({offset, limit, reverse, author} = {}) {
       INNER JOIN crawl_sources src ON src.id = crawl_posts.crawlSourceId
   `
   var values = []
-  if (author) {
+  if (authors) {
     let op = 'WHERE'
-    for (let a of author) {
+    for (let a of authors) {
       query += ` ${op} src.url = ?`
       op = 'OR'
       values.push(a)
