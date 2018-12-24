@@ -262,7 +262,7 @@ exports.electronHandler = async function (request, respond) {
     debug('Entry not found:', urlp.path)
 
     // check for a fallback page
-    if (manifest && manifest.fallback_page) {
+    if (manifest && manifest.fallback_page && !urlp.query.disable_fallback_page) {
       await tryStat(manifest.fallback_page)
     }
 
