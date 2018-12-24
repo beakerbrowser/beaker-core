@@ -127,17 +127,17 @@ exports.list = async function ({offset, limit, reverse, author} = {}) {
       values.push(a)
     }
   }
-  if (offset) {
-    query += ` OFFSET ?`
-    values.push(offset)
+  query += ` ORDER BY createdAt`
+  if (reverse) {
+    query += ` DESC`
   }
   if (limit) {
     query += ` LIMIT ?`
     values.push(limit)
   }
-  query += ` ORDER BY createdAt`
-  if (reverse) {
-    query += ` DESC`
+  if (offset) {
+    query += ` OFFSET ?`
+    values.push(offset)
   }
 
   // execute query
