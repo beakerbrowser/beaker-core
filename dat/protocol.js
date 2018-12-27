@@ -213,7 +213,10 @@ exports.electronHandler = async function (request, respond) {
     await tryStat(filepath)
   } else {
     await tryStat(filepath)
-    await tryStat(filepath + '.html') // fallback to .html
+    for (let ext of mime.acceptHeaderExtensions(request.headers.Accept)) {
+      // fallback to different requested headers
+      await tryStat(filepath + ext)
+    }
     if (entry && entry.isDirectory()) {
       // unexpected directory, give the .html fallback a chance
       let dirEntry = entry
