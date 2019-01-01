@@ -4,7 +4,7 @@ const parseRange = require('range-parser')
 const once = require('once')
 const debug = require('../lib/debug-logger').debugLogger('dat-serve')
 const intoStream = require('into-stream')
-const toZipStream = require('hyperdrive-to-zip-stream')
+const {toZipStream} = require('../lib/zip')
 const slugify = require('slugify')
 
 const datDns = require('./dns')
@@ -173,7 +173,7 @@ exports.electronHandler = async function (request, respond) {
       })
     } else {
       // serve the zip
-      var zs = toZipStream(archive, filepath)
+      var zs = toZipStream(checkoutFS, filepath)
       zs.on('error', err => console.log('Error while producing .zip file', err))
       return respond({
         statusCode: 200,
