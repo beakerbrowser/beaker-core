@@ -3,7 +3,7 @@ const historyDb = require('../dbs/history')
 const datLibrary = require('../dat/library')
 
 const BUILTIN_PAGES = [
-  {title: 'Feed', url: 'beaker://feed'},
+  {title: 'Timeline', url: 'beaker://timeline'},
   {title: 'Library', url: 'beaker://library'},
   {title: 'Search', url: 'beaker://search'},
   {title: 'Bookmarks', url: 'beaker://bookmarks'},
