@@ -353,6 +353,7 @@ const RPC_API = {
 
   ext_listPeers: async (key, ...args) => datExtensions.listPeers(getArchive(key), ...args),
   ext_getPeer: async (key, ...args) => datExtensions.getPeer(getArchive(key), ...args),
+  ext_getOwnPeerId: () => datEncoding.toStr(networkId),
   ext_broadcastEphemeralMessage: async (key, ...args) => datExtensions.broadcastEphemeralMessage(getArchive(key), ...args),
   ext_sendEphemeralMessage: async (key, ...args) => datExtensions.sendEphemeralMessage(getArchive(key), ...args),
   ext_getSessionData: async (key, ...args) => datExtensions.getSessionData(getArchive(key), ...args),

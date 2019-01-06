@@ -57,6 +57,11 @@ module.exports = {
     await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
     var archive = await getSenderArchive(this.sender)
     return datLibrary.getDaemon().ext_createDatPeersStream(archive.key.toString('hex'))
+  },
+
+  async getOwnPeerId () {
+    await globals.permsAPI.checkLabsPerm(Object.assign({sender: this.sender}, LAB_PERMS_OBJ))
+    return datLibrary.getDaemon().ext_getOwnPeerId()
   }
 }
 
