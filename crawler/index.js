@@ -127,6 +127,7 @@ exports.resetSite = async function (url) {
 
 exports.WEBAPI = {
   listSuggestions: require('./search').listSuggestions,
+  listSearchResults: require('./search').listSearchResults,
   createEventsStream,
   getCrawlStates,
   crawlSite: async (url) => {
