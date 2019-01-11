@@ -6,9 +6,29 @@ const dat = require('../dat')
 
 const READ_TIMEOUT = 30e3
 
+// typedefs
+// =
+
+/**
+ * @typedef {Object} CrawlSourceRecord
+ * @prop {string} id
+ * @prop {string} url
+ */
+
+// exported api
+// =
+
 const crawlerEvents = new EventEmitter()
 exports.crawlerEvents = crawlerEvents
 
+/**
+ * @param {InternalDatArchive} archive
+ * @param {CrawlSourceRecord} crawlSource
+ * @param {string} crawlDataset
+ * @param {number} crawlDatasetVersion
+ * @param {(Object) => undefined} handlerFn
+ * @returns {Promise}
+ */
 exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatasetVersion, handlerFn) {
   const url = archive.url
 
@@ -53,6 +73,13 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   crawlerEvents.emit('crawl-dataset-finish', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 }
 
+/**
+ * @param {string} crawlDataset
+ * @param {number} crawlDatasetVersion
+ * @param {CrawlSourceRecord} crawlSource
+ * @param {number} crawlSourceVersion
+ * @returns {Promise}
+ */
 const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
   await db.run(`DELETE FROM crawl_sources_meta WHERE crawlDataset = ? AND crawlSourceId = ?`, [crawlDataset, crawlSource.id])
   await db.run(`
@@ -62,10 +89,21 @@ const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlD
   `, [crawlDataset, crawlDatasetVersion, crawlSource.id, crawlSourceVersion, Date.now()])
 }
 
+/**
+ * @param {string} sourceUrl
+ * @param {string} crawlDataset
+ * @param {number} progress
+ * @param {number} numUpdates
+ */
 exports.emitProgressEvent = function (sourceUrl, crawlDataset, progress, numUpdates) {
   crawlerEvents.emit('crawl-dataset-progress', {sourceUrl, crawlDataset, progress, numUpdates})
 }
 
+/**
+ * @param {Array<Object>} changes
+ * @param {RegExp} regex
+ * @returns {Array<Object>}
+ */
 exports.getMatchingChangesInOrder = function (changes, regex) {
   var list = [] // order matters, must be oldest to newest
   changes.forEach(c => {
@@ -78,6 +116,9 @@ exports.getMatchingChangesInOrder = function (changes, regex) {
   return list
 }
 
+/**
+ * @returns {string}
+ */
 var _lastGeneratedTimeFilename
 exports.generateTimeFilename = function () {
   var d = Date.now()
@@ -86,4 +127,26 @@ exports.generateTimeFilename = function () {
   }
   _lastGeneratedTimeFilename = d
   return (new Date(d)).toISOString()
+}
+
+/**
+ * @param {string} url
+ * @returns {string}
+ */
+const toHostname =
+exports.toHostname = function (url) {
+  url = new URL(url)
+  return url.hostname
+}
+
+/**
+ * @description Helper to determine the thumbUrl for a site description.
+ * @param {string} author - (URL) the author of the site description.
+ * @param {string} subject - (URL) the site being described.
+ * @returns {string} - the URL of the thumbnail.
+ */
+exports.getSiteDescriptionThumbnailUrl = function (author, subject) {
+  return author === subject
+    ? `${subject}/thumb` // self-description, use their own thumb
+    : `${author}/data/known_sites/${toHostname(subject)}/thumb` // use captured thumb
 }

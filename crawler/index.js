@@ -89,6 +89,7 @@ exports.crawlSite = async function (archive) {
       siteDescriptions.crawlSite(archive, crawlSource)
     ])
   } catch (err) {
+    console.error('Crawler error', {sourceUrl: archive.url, err: err.toString()})
     crawlerEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
   } finally {
     crawlerEvents.emit('crawl-finish', {sourceUrl: archive.url})

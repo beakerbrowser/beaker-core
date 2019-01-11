@@ -16,6 +16,19 @@ const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/follows'
 const JSON_PATH = '/data/follows.json'
 
+// typedefs
+// =
+
+/**
+ * @typedef CrawlSourceRecord {import('./util').CrawlSourceRecord}
+ * @typedef SiteDescription {import('./site-descriptions').SiteDescription}
+ *
+ * @typedef {Object} SiteDescriptionWithFollowData
+ * @extends {SiteDescription}
+ * @prop {boolean} [followsUser] - does this site follow the specified user site?
+ * @prop {Array<SiteDescription>} [followedBy] - list of sites following this site.
+ */
+
 // globals
 // =
 
@@ -28,6 +41,14 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
+/**
+ * @description
+ * Crawl the given site for follows.
+ *
+ * @param {InternalDatArchive} archive - site to crawl.
+ * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
+ * @returns {Promise}
+ */
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
@@ -97,11 +118,16 @@ exports.crawlSite = async function (archive, crawlSource) {
   })
 }
 
-// List sites that follow subject
-// - subject. String (URL).
-// - opts.followedBy. String (URL).
-// - opts.includeDesc. Boolean.
-// - returns Array<String | Object>
+/**
+ * @description
+ * List sites that follow subject.
+ *
+ * @param {string} subject - (URL)
+ * @param {Object} [opts]
+ * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
+ * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
+ * @returns {(Promise<Array<string>>|Promise<Array<SiteDescriptionWithFollowData>>)}
+ */
 const listFollowers = exports.listFollowers = async function (subject, {followedBy, includeDesc} = {}) {
   var rows
   if (followedBy) {
@@ -138,12 +164,17 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
   }))
 }
 
-// List sites that subject follows
-// - subject. String (URL).
-// - opts.followedBy. String (URL). Filters to users who are followed by the URL specified. Causes .followsUser boolean to be set.
-// - opts.includeDesc. Boolean.
-// - opts.includeFollowers. Boolean. Requires includeDesc to be true.
-// - returns Array<String | Object>
+/**
+ * @description
+ * List sites that subject follows.
+ *
+ * @param {string} subject - (URL)
+ * @param {Object} [opts]
+ * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
+ * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
+ * @param {boolean} [opts.includeFollowers] - include .followedBy in the result. Requires includeDesc to be true.
+ * @returns {(Promise<Array<string>>|Promise<Array<SiteDescriptionWithFollowData>>)}
+ */
 const listFollows = exports.listFollows = async function (subject, {followedBy, includeDesc, includeFollowers} = {}) {
   var rows = await db.all(`
     SELECT crawl_followgraph.destUrl
@@ -169,10 +200,15 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
   }))
 }
 
-// List sites that are followed by sites that the subject follows
-// - subject. String (URL).
-// - opts.followedBy. String (URL). Filters to users who are followed by the URL specified. Causes .followsUser boolean to be set.
-// - returns Array<Object>
+/**
+ * @description
+ * List sites that are followed by sites that the subject follows.
+ *
+ * @param {string} subject - (URL)
+ * @param {Object} [opts]
+ * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
+ * @returns {Promise<Array<SiteDescriptionWithFollowData>>}
+ */
 const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}) {
   var foafs = []
   // list URLs followed by subject
@@ -196,10 +232,14 @@ const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}
   return foafs
 }
 
-// Check for the existence of an individual follow
-// - a. String (URL), the site being queried.
-// - b. String (URL), does a follow this site?
-// - returns bool
+/**
+ * @description
+ * Check for the existence of an individual follow.
+ *
+ * @param {string} a - (URL) the site being queried.
+ * @param {string} b - (URL) does a follow this site?
+ * @returns {Promise<boolean>}
+ */
 const isAFollowingB = exports.isAFollowingB = async function (a, b) {
   a = toOrigin(a)
   b = toOrigin(b)
@@ -214,6 +254,14 @@ const isAFollowingB = exports.isAFollowingB = async function (a, b) {
   return !!res
 }
 
+/**
+ * @description
+ * Add a follow to the given archive.
+ *
+ * @param {InternalDatArchive} archive
+ * @param {string} followUrl
+ * @returns {Promise}
+ */
 exports.follow = async function (archive, followUrl) {
   // normalize followUrl
   followUrl = toOrigin(followUrl)
@@ -230,6 +278,14 @@ exports.follow = async function (archive, followUrl) {
   /* dont await */siteDescriptions.capture(archive, followUrl)
 }
 
+/**
+ * @description
+ * Remove a follow from the given archive.
+ *
+ * @param {InternalDatArchive} archive
+ * @param {string} followUrl
+ * @returns {Promise}
+ */
 exports.unfollow = async function (archive, followUrl) {
   // normalize followUrl
   followUrl = toOrigin(followUrl)
@@ -247,6 +303,10 @@ exports.unfollow = async function (archive, followUrl) {
 // internal methods
 // =
 
+/**
+ * @param {string} url
+ * @returns {string}
+ */
 function toOrigin (url) {
   try {
     url = new URL(url)
@@ -256,6 +316,10 @@ function toOrigin (url) {
   }
 }
 
+/**
+ * @param {InternalDatArchive} archive
+ * @returns {Promise<Object>}
+ */
 async function readFollowsFile (archive) {
   try {
     var followsJson = await archive.pda.readFile(JSON_PATH, 'utf8')
@@ -271,6 +335,11 @@ async function readFollowsFile (archive) {
   return followsJson
 }
 
+/**
+ * @param {InternalDatArchive} archive
+ * @param {(Object) => undefined} updateFn
+ * @returns {Promise}
+ */
 async function updateFollowsFile (archive, updateFn) {
   var release = await lock('crawler:followgraph:' + archive.url)
   try {

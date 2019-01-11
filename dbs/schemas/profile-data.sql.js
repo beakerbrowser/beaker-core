@@ -132,16 +132,13 @@ CREATE TABLE crawl_sources_meta (
 -- crawled descriptions of other sites
 CREATE TABLE crawl_site_descriptions (
   crawlSourceId INTEGER NOT NULL,
-  pathname TEXT NOT NULL,
   crawledAt INTEGER,
 
-  subject TEXT,
+  url TEXT,
   title TEXT,
   description TEXT,
   type TEXT, -- comma separated strings
-  createdAt INTEGER,
 
-  PRIMARY KEY (crawlSourceId, pathname),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 CREATE VIRTUAL TABLE crawl_site_descriptions_fts_index USING fts5(title, description, content='crawl_site_descriptions');
@@ -258,5 +255,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issu
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Explore the p2p Web', 'dat://taravancil.com/explore-the-p2p-web.md', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
 
-PRAGMA user_version = 25;
+PRAGMA user_version = 24;
 `

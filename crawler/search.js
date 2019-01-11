@@ -7,6 +7,7 @@ const datLibrary = require('../dat/library')
 const followgraph = require('./followgraph')
 const siteDescriptions = require('./site-descriptions')
 const {getBasicType} = require('../lib/dat')
+const {getSiteDescriptionThumbnailUrl} = require('./util')
 
 /** @type {Array<Object>} */
 const BUILTIN_PAGES = [
@@ -23,17 +24,8 @@ const BUILTIN_PAGES = [
 // typedefs
 // =
 
-// exported api
-// =
-
 /**
- * @description
- * Get suggested content of various types.
- *
- * @param {string} [query=''] - The search query.
- * @param {Object} [opts={}]
- * @param {boolean} [opts.filterPins] - If true, will filter out pinned bookmarks.
- * @returns {Promise<SuggestionResults>}
+ * @typedef SiteDescription { import("./site-descriptions").SiteDescription }
  *
  * @typedef {Object} SuggestionResults
  * @prop {Array<Object>} apps
@@ -45,7 +37,42 @@ const BUILTIN_PAGES = [
  * @prop {(undefined|Array<Object>)} bookmarks
  * @prop {(undefined|Array<Object>)} history
  *
- * TODO: make the return values much more concrete
+ * TODO: define the SuggestionResults values
+ *
+ * @typedef {Object} SearchResults
+ * @prop {number} highlightNonce - A number used to create perimeters around text that should be highlighted.
+ * @prop {(null|Array<PeopleSearchResult>)} people
+ * @prop {(null|Array<PostSearchResult>)} posts
+ *
+ * @typedef {Object} PeopleSearchResult
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {Array<SiteDescription>} followedBy
+ * @prop {bool} followsUser
+ * @prop {string} thumbUrl
+ * @prop {Object} author
+ * @prop {string} author.url
+ *
+ * @typedef {Object} PostSearchResult
+ * @prop {string} url
+ * @prop {SiteDescription} author
+ * @prop {string} content
+ * @prop {number} createdAt
+ * @prop {number} updatedAt
+ */
+
+// exported api
+// =
+
+/**
+ * @description
+ * Get suggested content of various types.
+ *
+ * @param {string} [query=''] - The search query.
+ * @param {Object} [opts={}]
+ * @param {boolean} [opts.filterPins] - If true, will filter out pinned bookmarks.
+ * @returns {Promise<SuggestionResults>}
  */
 exports.listSuggestions = async function (query = '', opts = {}) {
   var suggestions = {}
@@ -99,39 +126,6 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {number} [opts.offset]
  * @param {number} [opts.limit = 20]
  * @returns {Promise<SearchResults>}
- *
- * Search results:
- * @typedef {Object} SearchResults
- * @prop {number} highlightNonce - A number used to create perimeters around text that should be highlighted.
- * @prop {(null|Array<PeopleSearchResult>)} people
- * @prop {(null|Array<PostSearchResult>)} posts
- *
- * People search results:
- * @typedef {Object} PeopleSearchResult
- * @prop {string} url
- * @prop {string} title
- * @prop {string} description
- * @prop {Array<SiteDescription>} followedBy
- * @prop {bool} followsUser
- * @prop {Object} author
- * @prop {string} author.url
- *
- * Post search results:
- * @typedef {Object} PostSearchResult
- * @prop {string} url
- * @prop {SiteDescription} author
- * @prop {string} content
- * @prop {string} createdAt
- * @prop {string} [updatedAt]
- *
- * Site description objects:
- * @typedef {Object} SiteDescription
- * @prop {string} url
- * @prop {string} [title]
- * @prop {string} [description]
- * @prop {Array<string>} [type]
- * @prop {Object} [author]
- * @prop {string} [author.url]
  */
 exports.listSearchResults = async function (opts) {
   const highlightNonce =  (Math.random() * 1e3)|0
@@ -186,29 +180,38 @@ exports.listSearchResults = async function (opts) {
     if (query) {
       searchResults.people = await db.all(`
         SELECT
-            desc.subject AS url,
+            desc.url AS url,
             descSrc.url AS authorUrl,
             SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
             SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description
           FROM crawl_site_descriptions_fts_index desc_fts
           INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
-          INNER JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.subject AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')})
+          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.url
           INNER JOIN crawl_sources descSrc ON desc.crawlSourceId = descSrc.id
-          WHERE crawl_site_descriptions_fts_index MATCH ?
+          WHERE
+            crawl_site_descriptions_fts_index MATCH ?
+            AND (
+              fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
+              OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
+            )
           ORDER BY rank
           LIMIT ?
           OFFSET ?;
-      `, [query, limit, offset])
+      `, [query, user, userCrawlSourceId, limit, offset])
     } else {
       searchResults.people = await db.all(`
-        SELECT desc.subject AS url, desc.title, desc.description, descSrc.url AS authorUrl
+        SELECT desc.url AS url, desc.title, desc.description, descSrc.url AS authorUrl
           FROM crawl_site_descriptions desc
-          INNER JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.subject AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')})
+          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.url
           INNER JOIN crawl_sources descSrc ON desc.crawlSourceId = descSrc.id
-          ORDER BY desc.createdAt
+          WHERE (
+            fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
+            OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
+          )
+          ORDER BY desc.title
           LIMIT ?
           OFFSET ?;
-      `, [limit, offset])      
+      `, [user, userCrawlSourceId, limit, offset])      
     }
     searchResults.people = _uniqWith(searchResults.people, (a, b) => a.url === b.url)
     await Promise.all(searchResults.people.map(async (p) => {
@@ -217,6 +220,7 @@ exports.listSearchResults = async function (opts) {
       p.followsUser = await followgraph.isAFollowingB(p.url, user)
 
       // massage attrs
+      p.thumbUrl = getSiteDescriptionThumbnailUrl(p.authorUrl, p.url)
       p.author = {url: p.authorUrl}
       delete p.authorUrl
     }))
@@ -265,17 +269,6 @@ exports.listSearchResults = async function (opts) {
       delete p.authorUrl
       delete p.pathname
     }))
-    // TODO hops == 2
-    /*searchResults.posts = await db.all(`
-      SELECT post.content, post.pathname, postSrc.url
-        FROM crawl_posts post
-        INNER JOIN crawl_sources postSrc ON post.crawlSourceId = postSrc.id
-        INNER JOIN crawl_followgraph fgraph ON fgraph.destUrl = postSrc.url AND fgraph.crawlSourceId = ?
-        WHERE (post.content MATCH ?) AND (post.createdAt >= ?)
-        ORDER BY rank
-        LIMIT ?
-        OFFSET ?;
-    `, [userCrawlSourceId, query, since, offset, limit])*/
   }
   
   return searchResults

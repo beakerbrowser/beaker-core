@@ -3,6 +3,7 @@ const {URL} = require('url')
 const Events = require('events')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
+const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
 const debug = require('../lib/debug-logger').debugLogger('crawler')
 
@@ -12,6 +13,22 @@ const debug = require('../lib/debug-logger').debugLogger('crawler')
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/post'
 const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
+
+// typedefs
+// =
+
+/**
+ * @typedef CrawlSourceRecord {import('./util').CrawlSourceRecord}
+ * @typedef SiteDescription { import("./site-descriptions").SiteDescription }
+ *
+ * @typedef {Object} Post
+ * @prop {string} pathname
+ * @prop {string} content
+ * @prop {number} crawledAt
+ * @prop {number} createdAt
+ * @prop {number} updatedAt
+ * @prop {SiteDescription} author
+ */
 
 // globals
 // =
@@ -25,6 +42,14 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
+/**
+ * @description
+ * Crawl the given site for posts.
+ *
+ * @param {InternalDatArchive} archive - site to crawl.
+ * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
+ * @returns {Promise}
+ */
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
@@ -100,6 +125,18 @@ exports.crawlSite = async function (archive, crawlSource) {
   })
 }
 
+/**
+ * @description
+ * List crawled posts.
+ *
+ * @param {Object} [opts]
+ * @param {string} [opts.author] - (URL) filter descriptions to those created by this author.
+ * @param {Array<string>} [opts.authors] - (URL) filter descriptions to those created by these authors.
+ * @param {number} [opts.offset]
+ * @param {number} [opts.limit]
+ * @param {boolean} [opts.reverse]
+ * @returns {Promise<Array<Post>>}
+ */
 exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
   // validate & parse params
   assert(!offset || typeof offset === 'number', 'Offset must be a number')
@@ -145,9 +182,18 @@ exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
   }
 
   // execute query
-  return (await db.all(query, values)).map(massagePostRow)
+  var rows = await db.all(query, values)
+  return Promise.all(rows.map(massagePostRow))
 }
 
+/**
+ * @description
+ * Get crawled post.
+ *
+ * @param {string} url - The URL of the post or of the author (if pathname is provided).
+ * @param {string} [pathname] - The pathname of the post.
+ * @returns {Promise<Post>}
+ */
 const get = exports.get = async function (url, pathname = undefined) {
   // validate & parse params
   if (url) {
@@ -157,7 +203,7 @@ const get = exports.get = async function (url, pathname = undefined) {
   pathname = pathname || url.pathname
 
   // execute query
-  return massagePostRow(await db.get(`
+  return await massagePostRow(await db.get(`
     SELECT
         crawl_posts.*, src.url AS crawlSourceUrl
       FROM crawl_posts
@@ -169,6 +215,15 @@ const get = exports.get = async function (url, pathname = undefined) {
   `, [url.origin, pathname]))
 }
 
+/**
+ * @description
+ * Create a new post.
+ *
+ * @param {InternalDatArchive} archive - where to write the post to.
+ * @param {Object} post
+ * @param {string} post.content
+ * @returns {Promise}
+ */
 exports.create = async function (archive, {content} = {}) {
   assert(typeof content === 'string', 'Create() must be provided a `content` string')
   var filename = generateTimeFilename()
@@ -182,6 +237,16 @@ exports.create = async function (archive, {content} = {}) {
   await crawler.crawlSite(archive)
 }
 
+/**
+ * @description
+ * Update the content of an existing post.
+ *
+ * @param {InternalDatArchive} archive - where to write the post to.
+ * @param {string} pathname - the pathname of the post.
+ * @param {Object} post
+ * @param {string} post.content
+ * @returns {Promise}
+ */
 exports.edit = async function (archive, pathname, {content} = {}) {
   assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
   assert(typeof content === 'string', 'Edit() must be provided a `content` string')
@@ -195,6 +260,14 @@ exports.edit = async function (archive, pathname, {content} = {}) {
   await crawler.crawlSite(archive)
 }
 
+/**
+ * @description
+ * Delete an existing post
+ *
+ * @param {InternalDatArchive} archive - where to write the post to.
+ * @param {string} pathname - the pathname of the post.
+ * @returns {Promise}
+ */
 exports.delete = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
@@ -204,23 +277,42 @@ exports.delete = async function (archive, pathname) {
 // internal methods
 // =
 
+/**
+ * @param {string} v
+ * @returns {boolean}
+ */
 function isString (v) {
   return typeof v === 'string'
 }
 
+/**
+ * @param {string} url
+ * @returns {string}
+ */
 function toOrigin (url) {
   url = new URL(url)
   return url.protocol + '//' + url.hostname
 }
 
+/**
+ * @param {InternalDatArchive} archive
+ * @param {string} pathname
+ * @returns {Promise}
+ */
 async function ensureDirectory (archive, pathname) {
   try { await archive.pda.mkdir(pathname) }
   catch (e) { /* ignore */ }
 }
 
-function massagePostRow (row) {
+/**
+ * @param {Object} row
+ * @returns {Post}
+ */
+async function massagePostRow (row) {
   if (!row) return null
-  row.author = {url: row.crawlSourceUrl}
+  row.author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
+console.log('author for', row.author, row)
+  if (!row.author) row.author = {url: row.crawlSourceUrl}
   delete row.crawlSourceUrl
   delete row.crawlSourceId
   return row
