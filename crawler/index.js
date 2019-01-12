@@ -7,17 +7,15 @@ const archivesDb = require('../dbs/archives')
 const users = require('../users')
 const dat = require('../dat')
 
-const {crawlerEvents} = require('./util')
+const {crawlerEvents, toHostname} = require('./util')
 const posts = require('./posts')
 const followgraph = require('./followgraph')
 const siteDescriptions = require('./site-descriptions')
 
-const CRAWL_POLL_INTERVAL = 30e3
-
 // globals
 // =
 
-const watches = {}
+var watches = {}
 
 // exported api
 // =
@@ -43,17 +41,12 @@ exports.watchSite = async function (archive) {
     // watch for file changes
     watches[archive.url] = archive.pda.watch()
     watches[archive.url].on('data', ([event, args]) => {
+      // BUG watch is really inconsistent -prf
       console.log('MIRACLE ALERT! The crawler watch stream emitted a change event', archive.url, event, args)
       if (event === 'invalidated') {
         queueCrawl()
       }
     })
-
-    // HACK
-    // for reasons that currently surpass me
-    // the `archive.pda.watch()` call is not currently working all the time
-    // so we need to poll sites for now
-    setInterval(queueCrawl, CRAWL_POLL_INTERVAL)
 
     // run the first crawl
     crawlSite(archive)
@@ -136,12 +129,4 @@ exports.WEBAPI = {
     return crawlSite(archive)
   },
   resetSite
-}
-
-// internal methods
-// =
-
-function toHostname (url) {
-  url = new URL(url)
-  return url.hostname
 }

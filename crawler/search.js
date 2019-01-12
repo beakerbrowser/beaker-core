@@ -150,7 +150,7 @@ exports.listSearchResults = async function (opts) {
   if (query && typeof query === 'string') {
     query = query
       .toLowerCase() // all lowercase. (uppercase is interpretted as a directive by sqlite.)
-      .replace(/[:^*\.]/g, ' ') // strip symbols that sqlite interprets.
+      .replace(/[:^*.]/g, ' ') // strip symbols that sqlite interprets.
     query += '*' // match prefixes
   }
 
@@ -211,7 +211,7 @@ exports.listSearchResults = async function (opts) {
           ORDER BY desc.title
           LIMIT ?
           OFFSET ?;
-      `, [user, userCrawlSourceId, limit, offset])      
+      `, [user, userCrawlSourceId, limit, offset])
     }
     searchResults.people = _uniqWith(searchResults.people, (a, b) => a.url === b.url)
     await Promise.all(searchResults.people.map(async (p) => {
@@ -258,7 +258,7 @@ exports.listSearchResults = async function (opts) {
           ORDER BY post.createdAt DESC
           LIMIT ?
           OFFSET ?;
-      `, [userCrawlSourceId, since, limit, offset])      
+      `, [userCrawlSourceId, since, limit, offset])
     }
     await Promise.all(searchResults.posts.map(async (p) => {
       // fetch additional info
@@ -270,6 +270,6 @@ exports.listSearchResults = async function (opts) {
       delete p.pathname
     }))
   }
-  
+
   return searchResults
 }

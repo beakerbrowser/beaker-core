@@ -188,7 +188,7 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
   }
   return Promise.all(rows.map(async (row) => {
     var url = toOrigin(row.destUrl)
-    var desc = await siteDescriptions.getBest({subject: url, author: subject})
+    var desc = (await siteDescriptions.getBest({subject: url, author: subject})) || {}
     desc.url = url
     if (followedBy) {
       desc.followsUser = await isAFollowingB(url, followedBy)
