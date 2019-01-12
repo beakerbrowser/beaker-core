@@ -10,6 +10,8 @@ const READ_TIMEOUT = 30e3
 // =
 
 /**
+ * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * 
  * @typedef {Object} CrawlSourceRecord
  * @prop {string} id
  * @prop {string} url
@@ -26,7 +28,7 @@ exports.crawlerEvents = crawlerEvents
  * @param {CrawlSourceRecord} crawlSource
  * @param {string} crawlDataset
  * @param {number} crawlDatasetVersion
- * @param {(Object) => undefined} handlerFn
+ * @param {function(Object): Promise<void>} handlerFn
  * @returns {Promise}
  */
 exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatasetVersion, handlerFn) {
@@ -135,8 +137,8 @@ exports.generateTimeFilename = function () {
  */
 const toHostname =
 exports.toHostname = function (url) {
-  url = new URL(url)
-  return url.hostname
+  var urlParsed = new URL(url)
+  return urlParsed.hostname
 }
 
 /**

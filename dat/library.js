@@ -26,6 +26,49 @@ const {
 const {InvalidURLError} = require('beaker-error-constants')
 const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 
+// typedefs
+// =
+
+/**
+ * @typedef {Object} InternalDatArchive
+ * @prop {Buffer} key
+ * @prop {string} url
+ * @prop {Buffer} discoveryKey
+ * @prop {boolean} writable
+ * @prop {function(Function): void} ready
+ * @prop {function(Object, Function=): void} download
+ * @prop {function(Object=): ReadableStream} history
+ * @prop {function(Object=): ReadableStream} createReadStream
+ * @prop {function(string, Object=, Function=): any} readFile
+ * @prop {function(number, Object=): ReadableStream} createDiffStream
+ * @prop {function(string, Object=): WritableStream} createWriteStream
+ * @prop {function(string, any, Object=, Function=): void} writeFile
+ * @prop {function(string, Function=): void} unlink
+ * @prop {function(string, Object=, Function=): void} mkdir
+ * @prop {function(string, Function=): void} rmdir
+ * @prop {function(string, Object=, Function=): void} readdir
+ * @prop {function(string, Object=, Function=): void} stat
+ * @prop {function(string, Object=, Function=): void} lstat
+ * @prop {function(string, Object=, Function=): void} access
+ * @prop {Object} pda
+ * @prop {function(string): Promise<Object>} pda.stat
+ * @prop {function(string, Object=): Promise<any>} pda.readFile
+ * @prop {function(string, Object=): Promise<Array<Object>>} pda.readdir
+ * @prop {function(string): Promise<number>} pda.readSize
+ * @prop {function(string, any, Object=): Promise<void>} pda.writeFile
+ * @prop {function(string): Promise<void>} pda.mkdir
+ * @prop {function(string, string): Promise<void>} pda.copy
+ * @prop {function(string, string): Promise<void>} pda.rename
+ * @prop {function(string): Promise<void>} pda.unlink
+ * @prop {function(string, Object=): Promise<void>} pda.rmdir
+ * @prop {function(string=): Promise<void>} pda.download
+ * @prop {function(string=): ReadableStream} pda.watch
+ * @prop {function(): ReadableStream} pda.createNetworkActivityStream
+ * @prop {function(): Promise<Object>} pda.readManifest
+ * @prop {function(Object): Promise<void>} pda.writeManifest
+ * @prop {function(Object): Promise<void>} pda.updateManifest
+ */
+
 // globals
 // =
 

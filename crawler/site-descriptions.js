@@ -26,7 +26,8 @@ const JSON_PATH_REGEX = /^\/(dat\.json|data\/known_sites\/([^/]+)\/dat\.json)$/i
 // =
 
 /**
- * @typedef CrawlSourceRecord {import('./util').CrawlSourceRecord}
+ * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  *
  * @typedef {Object} SiteDescription
  * @prop {string} url
@@ -36,6 +37,8 @@ const JSON_PATH_REGEX = /^\/(dat\.json|data\/known_sites\/([^/]+)\/dat\.json)$/i
  * @prop {string} thumbUrl
  * @prop {Object} descAuthor
  * @prop {string} descAuthor.url
+ * @prop {boolean} [followsUser] - does this site follow the specified user site?
+ * @prop {Array<SiteDescription>} [followedBy] - list of sites following this site.
  */
 
 // globals
@@ -56,7 +59,7 @@ exports.removeListener = events.removeListener.bind(events)
  *
  * @param {InternalDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_site_descriptions', TABLE_VERSION, async ({changes, resetRequired}) => {
@@ -137,8 +140,8 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled site descriptions.
  *
  * @param {Object} [opts]
- * @param {string} [opts.subject] - (URL) filter descriptions to those which describe this subject.
- * @param {string} [opts.author] - (URL) filter descriptions to those created by this author.
+ * @param {string | Array<string>} [opts.subject] - (URL) filter descriptions to those which describe this subject.
+ * @param {string | Array<string>} [opts.author] - (URL) filter descriptions to those created by this author.
  * @param {number} [opts.offset]
  * @param {number} [opts.limit]
  * @param {boolean} [opts.reverse]
@@ -233,12 +236,15 @@ exports.getBest = async function ({subject, author} = {}) {
  * Capture a site description into the archive's known_sites cache.
  *
  * @param {InternalDatArchive} archive - where to write the capture to.
- * @param {(InternalDatArchive|string)} subjectArchive - which archive to capture.
+ * @param {(InternalDatArchive|string)} subject - which archive to capture.
  * @returns Promise
  */
-exports.capture = async function (archive, subjectArchive) {
-  if (typeof subjectArchive === 'string') {
-    subjectArchive = await dat.library.getOrLoadArchive(subjectArchive)
+exports.capture = async function (archive, subject) {
+  var subjectArchive
+  if (typeof subject === 'string') {
+    subjectArchive = await dat.library.getOrLoadArchive(subject)
+  } else {
+    subjectArchive = subject
   }
 
   // create directory
@@ -273,12 +279,15 @@ exports.capture = async function (archive, subjectArchive) {
  * Delete a captured site description in the given archive's known_sites cache.
  *
  * @param {InternalDatArchive} archive - where to remove the capture from.
- * @param {(InternalDatArchive|string)} subjectUrl - which archive's capture to remove.
+ * @param {(InternalDatArchive|string)} subject - which archive's capture to remove.
  * @returns Promise
  */
-exports.deleteCapture = async function (archive, subjectUrl) {
-  if (subjectUrl && subjectUrl.url) {
-    subjectUrl = subjectUrl.url
+exports.deleteCapture = async function (archive, subject) {
+  var subjectUrl
+  if (typeof subject === 'string') {
+    subjectUrl = subject
+  } else {
+    subjectUrl = subject.url
   }
   assert(typeof subjectUrl === 'string', 'Delete() must be provided a valid URL string')
   var hostname = toHostname(subjectUrl)
@@ -302,8 +311,8 @@ function isString (v) {
  * @returns {string}
  */
 function toOrigin (url) {
-  url = new URL(url)
-  return url.protocol + '//' + url.hostname
+  var urlParsed = new URL(url)
+  return urlParsed.protocol + '//' + urlParsed.hostname
 }
 
 /**
@@ -313,14 +322,14 @@ function toOrigin (url) {
  */
 function getUrlFromDescriptionPath (archive, name) {
   if (name === '/dat.json') return archive.url
-  name = name.split('/') // '/data/known_sites/{hostname}/dat.json' -> ['', 'data', 'known_sites', hostname, 'dat.json']
-  return 'dat://' + name[3]
+  var parts = name.split('/') // '/data/known_sites/{hostname}/dat.json' -> ['', 'data', 'known_sites', hostname, 'dat.json']
+  return 'dat://' + parts[3]
 }
 
 /**
  * @param {InternalDatArchive} archive
  * @param {string} pathname
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 async function ensureDirectory (archive, pathname) {
   try { await archive.pda.mkdir(pathname) }
@@ -330,7 +339,7 @@ async function ensureDirectory (archive, pathname) {
 /**
  * @param {InternalDatArchive} archive
  * @param {string} pathname
- * @returns {Promise}
+ * @returns {Promise<boolean>}
  */
 async function fileExists (archive, pathname) {
   try { await archive.pda.stat(pathname) }

@@ -18,8 +18,9 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef CrawlSourceRecord {import('./util').CrawlSourceRecord}
- * @typedef SiteDescription { import("./site-descriptions").SiteDescription }
+ * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
+ * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
  * @typedef {Object} Post
  * @prop {string} pathname
@@ -196,11 +197,12 @@ exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
  */
 const get = exports.get = async function (url, pathname = undefined) {
   // validate & parse params
+  var urlParsed
   if (url) {
-    try { url = new URL(url) }
+    try { urlParsed = new URL(url) }
     catch (e) { throw new Error('Failed to parse post URL: ' + url) }
   }
-  pathname = pathname || url.pathname
+  pathname = pathname || urlParsed.pathname
 
   // execute query
   return await massagePostRow(await db.get(`
@@ -212,7 +214,7 @@ const get = exports.get = async function (url, pathname = undefined) {
         AND src.url = ?
       WHERE
         crawl_posts.pathname = ?
-  `, [url.origin, pathname]))
+  `, [urlParsed.origin, pathname]))
 }
 
 /**
@@ -224,7 +226,7 @@ const get = exports.get = async function (url, pathname = undefined) {
  * @param {string} post.content
  * @returns {Promise}
  */
-exports.create = async function (archive, {content} = {}) {
+exports.create = async function (archive, {content}) {
   assert(typeof content === 'string', 'Create() must be provided a `content` string')
   var filename = generateTimeFilename()
   await ensureDirectory(archive, '/data')
@@ -247,7 +249,7 @@ exports.create = async function (archive, {content} = {}) {
  * @param {string} post.content
  * @returns {Promise}
  */
-exports.edit = async function (archive, pathname, {content} = {}) {
+exports.edit = async function (archive, pathname, {content}) {
   assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
   assert(typeof content === 'string', 'Edit() must be provided a `content` string')
   var oldJson = JSON.parse(await archive.pda.readFile(pathname))
@@ -290,8 +292,8 @@ function isString (v) {
  * @returns {string}
  */
 function toOrigin (url) {
-  url = new URL(url)
-  return url.protocol + '//' + url.hostname
+  var urlParsed = new URL(url)
+  return urlParsed.protocol + '//' + urlParsed.hostname
 }
 
 /**
@@ -306,12 +308,11 @@ async function ensureDirectory (archive, pathname) {
 
 /**
  * @param {Object} row
- * @returns {Post}
+ * @returns {Promise<Post>}
  */
 async function massagePostRow (row) {
   if (!row) return null
   row.author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
-console.log('author for', row.author, row)
   if (!row.author) row.author = {url: row.crawlSourceUrl}
   delete row.crawlSourceUrl
   delete row.crawlSourceId

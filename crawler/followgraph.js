@@ -1,7 +1,7 @@
 const assert = require('assert')
 const _difference = require('lodash.difference')
 const Events = require('events')
-const {Url} = require('url')
+const {URL} = require('url')
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
@@ -20,13 +20,9 @@ const JSON_PATH = '/data/follows.json'
 // =
 
 /**
- * @typedef CrawlSourceRecord {import('./util').CrawlSourceRecord}
- * @typedef SiteDescription {import('./site-descriptions').SiteDescription}
- *
- * @typedef {Object} SiteDescriptionWithFollowData
- * @extends {SiteDescription}
- * @prop {boolean} [followsUser] - does this site follow the specified user site?
- * @prop {Array<SiteDescription>} [followedBy] - list of sites following this site.
+ * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
+ * @typedef {import('./site-descriptions').SiteDescription} SiteDescription
  */
 
 // globals
@@ -47,7 +43,7 @@ exports.removeListener = events.removeListener.bind(events)
  *
  * @param {InternalDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
@@ -126,7 +122,7 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @param {Object} [opts]
  * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
  * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
- * @returns {(Promise<Array<string>>|Promise<Array<SiteDescriptionWithFollowData>>)}
+ * @returns {Promise<Array<string|SiteDescription>>}
  */
 const listFollowers = exports.listFollowers = async function (subject, {followedBy, includeDesc} = {}) {
   var rows
@@ -173,7 +169,7 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
  * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
  * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
  * @param {boolean} [opts.includeFollowers] - include .followedBy in the result. Requires includeDesc to be true.
- * @returns {(Promise<Array<string>>|Promise<Array<SiteDescriptionWithFollowData>>)}
+ * @returns {Promise<Array<SiteDescription | string>>}
  */
 const listFollows = exports.listFollows = async function (subject, {followedBy, includeDesc, includeFollowers} = {}) {
   var rows = await db.all(`
@@ -188,13 +184,13 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
   }
   return Promise.all(rows.map(async (row) => {
     var url = toOrigin(row.destUrl)
-    var desc = (await siteDescriptions.getBest({subject: url, author: subject})) || {}
+    var desc = /** @type SiteDescription */ ((await siteDescriptions.getBest({subject: url, author: subject})) || {})
     desc.url = url
     if (followedBy) {
       desc.followsUser = await isAFollowingB(url, followedBy)
     }
     if (includeFollowers) {
-      desc.followedBy = await listFollowers(url, {followedBy, includeDesc: true})
+      desc.followedBy = /** @type Array<SiteDescription> */ (await listFollowers(url, {followedBy, includeDesc: true}))
     }
     return desc
   }))
@@ -207,15 +203,15 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
  * @param {string} subject - (URL)
  * @param {Object} [opts]
  * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
- * @returns {Promise<Array<SiteDescriptionWithFollowData>>}
+ * @returns {Promise<Array<SiteDescription>>}
  */
 const listFoaFs = exports.listFoaFs = async function (subject, {followedBy} = {}) {
   var foafs = []
   // list URLs followed by subject
-  var follows = await listFollows(subject, {followedBy, includeDesc: true})
+  var follows = /** @type Array<SiteDescription> */ (await listFollows(subject, {followedBy, includeDesc: true}))
   for (let follow of follows) {
     // list follows of this follow
-    for (let foaf of await listFollows(follow.url, {followedBy, includeDesc: true})) {
+    for (let foaf of /** @type Array<SiteDescription> */ (await listFollows(follow.url, {followedBy, includeDesc: true}))) {
       // ignore if followed by subject or is subject
       if (foaf.url === subject) continue
       if (follows.find(v => v.url === foaf.url)) continue
@@ -260,7 +256,7 @@ const isAFollowingB = exports.isAFollowingB = async function (a, b) {
  *
  * @param {InternalDatArchive} archive
  * @param {string} followUrl
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 exports.follow = async function (archive, followUrl) {
   // normalize followUrl
@@ -284,7 +280,7 @@ exports.follow = async function (archive, followUrl) {
  *
  * @param {InternalDatArchive} archive
  * @param {string} followUrl
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 exports.unfollow = async function (archive, followUrl) {
   // normalize followUrl
@@ -309,8 +305,8 @@ exports.unfollow = async function (archive, followUrl) {
  */
 function toOrigin (url) {
   try {
-    url = new URL(url)
-    return url.protocol + '//' + url.hostname
+    var urlParsed = new URL(url)
+    return urlParsed.protocol + '//' + urlParsed.hostname
   } catch (e) {
     return null
   }
@@ -337,8 +333,8 @@ async function readFollowsFile (archive) {
 
 /**
  * @param {InternalDatArchive} archive
- * @param {(Object) => undefined} updateFn
- * @returns {Promise}
+ * @param {function(Object): void} updateFn
+ * @returns {Promise<void>}
  */
 async function updateFollowsFile (archive, updateFn) {
   var release = await lock('crawler:followgraph:' + archive.url)

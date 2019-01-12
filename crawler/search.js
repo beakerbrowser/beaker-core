@@ -25,7 +25,7 @@ const BUILTIN_PAGES = [
 // =
 
 /**
- * @typedef SiteDescription { import("./site-descriptions").SiteDescription }
+ * @typedef {import("./site-descriptions").SiteDescription} SiteDescription
  *
  * @typedef {Object} SuggestionResults
  * @prop {Array<Object>} apps
