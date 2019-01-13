@@ -1,7 +1,13 @@
 const lock = require('../lib/lock')
 const db = require('./profile-data-db')
 
+// typedefs
+// =
+
 class BadParamError extends Error {
+  /**
+   * @param {string} msg
+   */
   constructor (msg) {
     super()
     this.name = 'BadParamError'
@@ -9,9 +15,30 @@ class BadParamError extends Error {
   }
 }
 
+/**
+ * @typedef {Object} Visit
+ * @prop {number} profileId
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {number} ts
+ *
+ * @typedef {Object} VisitSearchResult
+ * @prop {string} offsets
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {number} num_visits
+ */
+
 // exported methods
 // =
 
+/**
+ * @param {number} profileId
+ * @param {Object} values
+ * @param {string} values.url
+ * @param {string} values.title
+ * @returns {Promise<void>}
+ */
 exports.addVisit = async function (profileId, {url, title}) {
   // validate parameters
   if (!url || typeof url !== 'string') {
@@ -54,14 +81,24 @@ exports.addVisit = async function (profileId, {url, title}) {
   }
 }
 
+/**
+ * @param {number} profileId
+ * @param {Object} opts
+ * @param {string} [opts.search]
+ * @param {number} [opts.offset]
+ * @param {number} [opts.limit]
+ * @param {number} [opts.before]
+ * @param {number} [opts.after]
+ * @returns {Promise<Array<Visit>>}
+ */
 exports.getVisitHistory = async function (profileId, {search, offset, limit, before, after}) {
   var release = await lock('history-db')
   try {
-    const params = [
+    const params = /** @type Array<string | number> */([
       profileId,
       limit || 50,
       offset || 0
-    ]
+    ])
     if (search) {
       // prep search terms
       params.push(
@@ -102,6 +139,13 @@ exports.getVisitHistory = async function (profileId, {search, offset, limit, bef
   }
 }
 
+/**
+ * @param {number} profileId
+ * @param {Object} opts
+ * @param {number} [opts.offset]
+ * @param {number} [opts.limit]
+ * @returns {Promise<Array<Visit>>}
+ */
 exports.getMostVisited = async function (profileId, { offset, limit }) {
   var release = await lock('history-db')
   try {
@@ -121,6 +165,10 @@ exports.getMostVisited = async function (profileId, { offset, limit }) {
   }
 }
 
+/**
+ * @param {string} q
+ * @returns {Promise<Array<VisitSearchResult>>}
+ */
 exports.search = async function (q) {
   if (!q || typeof q !== 'string') {
     throw new BadParamError('q must be a string')
@@ -148,6 +196,10 @@ exports.search = async function (q) {
   }
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
 exports.removeVisit = async function (url) {
   // validate parameters
   if (!url || typeof url !== 'string') {
@@ -168,6 +220,10 @@ exports.removeVisit = async function (url) {
   }
 }
 
+/**
+ * @param {number} timestamp
+ * @returns {Promise<void>}
+ */
 exports.removeVisitsAfter = async function (timestamp) {
   var release = await lock('history-db')
   try {
@@ -182,6 +238,9 @@ exports.removeVisitsAfter = async function (timestamp) {
   }
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.removeAllVisits = async function () {
   var release = await lock('history-db')
   db.run('DELETE FROM visits;')

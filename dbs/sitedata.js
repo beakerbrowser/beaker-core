@@ -8,6 +8,7 @@ const datLibrary = require('../dat/library')
 
 // globals
 // =
+
 var db
 var migrations
 var setupPromise
@@ -15,6 +16,10 @@ var setupPromise
 // exported methods
 // =
 
+/**
+ * @param {Object} opts
+ * @param {string} opts.userDataPath
+ */
 exports.setup = function (opts) {
   // open database
   var dbPath = path.join(opts.userDataPath, 'SiteData')
@@ -22,6 +27,14 @@ exports.setup = function (opts) {
   setupPromise = setupSqliteDB(db, {migrations}, '[SITEDATA]')
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @param {number | string} value
+ * @param {Object} [opts]
+ * @param {boolean} [opts.dontExtractOrigin]
+ * @returns {Promise<void>}
+ */
 const set = exports.set = async function (url, key, value, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
@@ -35,6 +48,11 @@ const set = exports.set = async function (url, key, value, opts) {
   })
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 const clear = exports.clear = async function (url, key) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -46,6 +64,13 @@ const clear = exports.clear = async function (url, key) {
   })
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @param {Object} [opts]
+ * @param {boolean} [opts.dontExtractOrigin]
+ * @returns {Promise<string>}
+ */
 const get = exports.get = async function (url, key, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
@@ -58,6 +83,10 @@ const get = exports.get = async function (url, key, opts) {
   })
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<Object>}
+ */
 const getPermissions = exports.getPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -75,6 +104,10 @@ const getPermissions = exports.getPermissions = async function (url) {
   })
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<Array<string>>}
+ */
 exports.getNetworkPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -84,7 +117,7 @@ exports.getNetworkPermissions = async function (url) {
       if (err) return cb(err)
 
       // convert to array
-      var origins = []
+      var origins = /** @type string[] */([])
       if (rows) {
         rows.forEach(row => {
           if (row.value) origins.push(row.key.split(':').pop())
@@ -95,6 +128,10 @@ exports.getNetworkPermissions = async function (url) {
   })
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<Object>}
+ */
 const getAppPermissions = exports.getAppPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -117,15 +154,31 @@ const getAppPermissions = exports.getAppPermissions = async function (url) {
   })
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @returns {Promise<string>}
+ */
 const getPermission = exports.getPermission = function (url, key) {
   return get(url, 'perm:' + key)
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @param {string | number} value
+ * @returns {Promise<void>}
+ */
 const setPermission = exports.setPermission = function (url, key, value) {
   value = value ? 1 : 0
   return set(url, 'perm:' + key, value)
 }
 
+/**
+ * @param {string} url
+ * @param {Object} appPerms
+ * @returns {Promise<void>}
+ */
 const setAppPermissions = exports.setAppPermissions = async function (url, appPerms) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -150,10 +203,19 @@ const setAppPermissions = exports.setAppPermissions = async function (url, appPe
   }
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 const clearPermission = exports.clearPermission = function (url, key) {
   return clear(url, 'perm:' + key)
 }
 
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 const clearPermissionAllOrigins = exports.clearPermissionAllOrigins = async function (key) {
   await setupPromise
   key = 'perm:' + key
@@ -161,26 +223,6 @@ const clearPermissionAllOrigins = exports.clearPermissionAllOrigins = async func
     db.run(`
       DELETE FROM sitedata WHERE key = ?
     `, [key], cb)
-  })
-}
-
-exports.query = async function (values) {
-  await setupPromise
-
-  // massage query
-  if ('origin' in values) {
-    values.origin = await extractOrigin(values.origin)
-  }
-
-  return cbPromise(cb => {
-    // run query
-    const keys = Object.keys(values)
-    const where = keys.map(k => `${k} = ?`).join(' AND ')
-    values = keys.map(k => values[k])
-    db.all(`SELECT * FROM sitedata WHERE ${where}`, values, (err, res) => {
-      if (err) return cb(err)
-      cb(null, res && res.value)
-    })
   })
 }
 
@@ -199,6 +241,10 @@ exports.WEBAPI = {
 // internal methods
 // =
 
+/**
+ * @param {string} originURL
+ * @returns {Promise<string>}
+ */
 async function extractOrigin (originURL) {
   var urlp = url.parse(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return

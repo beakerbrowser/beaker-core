@@ -26,6 +26,7 @@ const BUILTIN_PAGES = [
 
 /**
  * @typedef {import("./site-descriptions").SiteDescription} SiteDescription
+ * @typedef {import("../dbs/archives").LibraryArchiveRecord} LibraryArchiveRecord
  *
  * @typedef {Object} SuggestionResults
  * @prop {Array<Object>} apps
@@ -82,14 +83,14 @@ exports.listSuggestions = async function (query = '', opts = {}) {
   suggestions.apps = BUILTIN_PAGES.filter(filterFn)
 
   // library
-  var libraryResults = await datLibrary.queryArchives({isSaved: true})
+  var libraryResults = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
   libraryResults = libraryResults.filter(filterFn)
-  libraryResults = _groupBy(libraryResults, a => getBasicType(a.type))
-  suggestions.people = libraryResults.user
-  suggestions.webPages = libraryResults['web-page']
-  suggestions.fileShares = libraryResults['file-share']
-  suggestions.imageCollections = libraryResults['image-collection']
-  suggestions.others = libraryResults.other
+  var libraryResultsGrouped = _groupBy(libraryResults, a => getBasicType(a.type))
+  suggestions.people = libraryResultsGrouped.user
+  suggestions.webPages = libraryResultsGrouped['web-page']
+  suggestions.fileShares = libraryResultsGrouped['file-share']
+  suggestions.imageCollections = libraryResultsGrouped['image-collection']
+  suggestions.others = libraryResultsGrouped.other
 
   if (query) {
     // bookmarks

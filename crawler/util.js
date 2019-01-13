@@ -11,7 +11,7 @@ const READ_TIMEOUT = 30e3
 
 /**
  * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
- * 
+ *
  * @typedef {Object} CrawlSourceRecord
  * @prop {string} id
  * @prop {string} url

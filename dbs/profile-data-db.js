@@ -14,6 +14,10 @@ var setupPromise
 // exported methods
 // =
 
+/**
+ * @param {Object} opts
+ * @param {string} opts.userDataPath
+ */
 exports.setup = function (opts) {
   // open database
   var dbPath = path.join(opts.userDataPath, 'Profiles')
@@ -21,16 +25,28 @@ exports.setup = function (opts) {
   setupPromise = setupSqliteDB(db, {setup: setupDb, migrations}, '[PROFILES]')
 }
 
+/**
+ * @param {...(string | number | boolean | Array<string | number | boolean>)} args
+ * @return {Promise<any>}
+ */
 exports.get = async function (...args) {
   await setupPromise
   return cbPromise(cb => db.get(...args, cb))
 }
 
+/**
+ * @param {...(string | number | boolean | Array<string | number | boolean>)} args
+ * @return {Promise<Array<any>>}
+ */
 exports.all = async function (...args) {
   await setupPromise
   return cbPromise(cb => db.all(...args, cb))
 }
 
+/**
+ * @param {...(string | number | boolean | Array<string | number | boolean>)} args
+ * @return {Promise<void>}
+ */
 exports.run = async function (...args) {
   await setupPromise
   return cbPromise(cb => db.run(...args, function (err) {
@@ -39,10 +55,16 @@ exports.run = async function (...args) {
   }))
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.serialize = function () {
   return db.serialize()
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.parallelize = function () {
   return db.parallelize()
 }

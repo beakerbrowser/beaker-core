@@ -75,7 +75,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
 
     // diff against the current follows
-    var currentFollows = await listFollows(archive.url)
+    var currentFollows = /** @type string[] */(await listFollows(archive.url))
     var newFollows = followsJson.urls
     var adds = _difference(newFollows, currentFollows)
     var removes = _difference(currentFollows, newFollows)

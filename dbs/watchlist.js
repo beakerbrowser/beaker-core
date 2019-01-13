@@ -1,9 +1,31 @@
 const lock = require('../lib/lock')
 const db = require('./profile-data-db')
 
+// typedefs
+// =
+
+/**
+ * @typedef {Object} WatchedSite
+ * @prop {number} profileId
+ * @prop {string} url
+ * @prop {string} description
+ * @prop {boolean} seedWhenResolved
+ * @prop {boolean} resolved
+ * @prop {number} updatedAt
+ * @prop {number} createdAt
+ */
+
 // exported methods
 // =
 
+/**
+ * @param {number} profileId
+ * @param {string} url
+ * @param {Object} opts
+ * @param {string} opts.description
+ * @param {number} opts.seedWhenResolved
+ * @return {Promise<void>}
+ */
 exports.addSite = async function (profileId, url, opts) {
   var release = await lock('watchlist-db')
   try {
@@ -22,23 +44,36 @@ exports.addSite = async function (profileId, url, opts) {
   return db.get('SELECT rowid, * from watchlist WHERE profileId = ? AND url = ?', [profileId, url])
 }
 
+/**
+ * @param {number} profileId
+ * @returns {Promise<Array<WatchedSite>>}
+ */
 exports.getSites = async function (profileId) {
-  return db.all(`SELECT * FROM watchlist WHERE profileId = ?1`, [profileId])
+  return db.all(`SELECT * FROM watchlist WHERE profileId = ?`, [profileId])
 }
 
-exports.updateWatchlist = async function (profileId, site, opts) {
-  var combine = Object.assign(site, opts)
+/**
+ * @param {number} profileId
+ * @param {WatchedSite} site
+ * @returns {Promise<void>}
+ */
+exports.updateWatchlist = async function (profileId, site) {
   var updatedAt = (Date.now() / 1000 | 0)
 
   var release = await lock('watchlist-db')
   try {
     await db.run(`UPDATE watchlist SET seedWhenResolved = ?, resolved = ?, updatedAt = ?
-    WHERE profileId = ? AND url = ?`, [combine.seedWhenResolved, combine.resolved, updatedAt, profileId, combine.url])
+    WHERE profileId = ? AND url = ?`, [site.seedWhenResolved, site.resolved, updatedAt, profileId, site.url])
   } finally {
     release()
   }
 }
 
+/**
+ * @param {number} profileId
+ * @param {string} url
+ * @return {Promise<void>}
+ */
 exports.removeSite = async function (profileId, url) {
   return db.run(`DELETE FROM watchlist WHERE profileId = ? AND url = ?`, [profileId, url])
 }

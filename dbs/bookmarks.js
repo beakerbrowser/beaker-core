@@ -5,15 +5,41 @@ const lock = require('../lib/lock')
 const NORMALIZE_OPTS = {
   stripFragment: false,
   stripWWW: false,
-  removeQueryParameters: false,
   removeTrailingSlash: false
 }
+
+// typedefs
+// =
+
+/**
+ * @typedef {Object} Bookmark
+ * @prop {boolean} _origin
+ * @prop {boolean} _url
+ * @prop {boolean} private
+ * @prop {number} createdAt
+ * @prop {string} href
+ * @prop {string} title
+ * @prop {string[]} tags
+ * @prop {string} notes
+ * @prop {boolean} pinned
+ * @prop {number} pinOrder
+ */
 
 // exported methods
 // =
 
+/**
+ * @param {number} profileId
+ * @param {string} url
+ * @param {Object} values
+ * @param {string} values.title
+ * @param {string | string[]} values.tags
+ * @param {string} values.notes
+ * @param {number} values.pinOrder
+ * @returns {Promise<void>}
+ */
 exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder}) {
-  tags = tagsToString(tags)
+  var tagsStr = tagsToString(tags)
   var release = await lock(`bookmark:${url}`)
   try {
     // read old bookmark and fallback to old values as needed
@@ -21,7 +47,7 @@ exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder
     oldBookmark = oldBookmark || {}
     const pinned = oldBookmark.pinned ? 1 : 0
     title = typeof title === 'undefined' ? oldBookmark.title : title
-    tags = typeof tags === 'undefined' ? oldBookmark.tags : tags
+    tagsStr = typeof tagsStr === 'undefined' ? oldBookmark.tags : tagsStr
     notes = typeof notes === 'undefined' ? oldBookmark.notes : notes
     pinOrder = typeof pinOrder === 'undefined' ? oldBookmark.pinOrder : pinOrder
 
@@ -30,20 +56,36 @@ exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder
       INSERT OR REPLACE
         INTO bookmarks (profileId, url, title, tags, notes, pinned, pinOrder)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [profileId, url, title, tags, notes, pinned, pinOrder])
+    `, [profileId, url, title, tagsStr, notes, pinned, pinOrder])
   } finally {
     release()
   }
 }
 
+/**
+ * @param {number} profileId
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
 exports.unbookmark = function (profileId, url) {
   return db.run(`DELETE FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
 }
 
+/**
+ * @param {number} profileId
+ * @param {string} url
+ * @param {boolean} pinned
+ * @returns {Promise<void>}
+ */
 exports.setBookmarkPinned = function (profileId, url, pinned) {
   return db.run(`UPDATE bookmarks SET pinned = ? WHERE profileId = ? AND url = ?`, [pinned ? 1 : 0, profileId, url])
 }
 
+/**
+ * @param {number} profileId
+ * @param {string[]} urls
+ * @returns {Promise<void>}
+ */
 exports.setBookmarkPinOrder = async function (profileId, urls) {
   var len = urls.length
   await Promise.all(urls.map((url, i) => (
@@ -51,10 +93,21 @@ exports.setBookmarkPinOrder = async function (profileId, urls) {
   )))
 }
 
+/**
+ * @param {number} profileId
+ * @param {string} url
+ * @returns {Promise<Bookmark>}
+ */
 exports.getBookmark = async function (profileId, url) {
   return toNewFormat(await db.get(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url]))
 }
 
+/**
+ * @param {number} profileId
+ * @param {Object} [opts]
+ * @param {string} [opts.tag]
+ * @returns {Promise<Array<Bookmark>>}
+ */
 exports.listBookmarks = async function (profileId, {tag} = {}) {
   var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? ORDER BY createdAt DESC`, [profileId])
   bookmarks = bookmarks.map(toNewFormat)
@@ -73,11 +126,19 @@ exports.listBookmarks = async function (profileId, {tag} = {}) {
   return bookmarks
 }
 
+/**
+ * @param {number} profileId
+ * @returns {Promise<Array<Bookmark>>}
+ */
 exports.listPinnedBookmarks = async function (profileId) {
   var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND pinned = 1 ORDER BY pinOrder DESC`, [profileId])
   return bookmarks.map(toNewFormat)
 }
 
+/**
+ * @param {number} profileId
+ * @returns {Promise<Array<string>>}
+ */
 exports.listBookmarkTags = async function (profileId) {
   var tagSet = new Set()
   var bookmarks = await db.all(`SELECT tags FROM bookmarks WHERE profileId = ?`, [profileId])
@@ -89,10 +150,14 @@ exports.listBookmarkTags = async function (profileId) {
   return Array.from(tagSet)
 }
 
-// TEMP
-// apply normalization to old bookmarks
-// (can probably remove this in 2018 or so)
-// -prf
+/**
+ * @description
+ * TEMP
+ * apply normalization to old bookmarks
+ * (can probably remove this in 2018 or so)
+ * -prf
+ * @returns {Promise<void>}
+ */
 exports.fixOldBookmarks = async function () {
   var bookmarks = await db.all(`SELECT url FROM bookmarks`)
   bookmarks.forEach(b => {
@@ -101,6 +166,10 @@ exports.fixOldBookmarks = async function () {
   })
 }
 
+/**
+ * @param {string | string[]} v
+ * @returns {string}
+ */
 function tagsToString (v) {
   if (Array.isArray(v)) {
     v = v.join(' ')
@@ -108,8 +177,12 @@ function tagsToString (v) {
   return v
 }
 
+/**
+ * @param {Object} b
+ * @returns {Bookmark | null}
+ */
 function toNewFormat (b) {
-  if (!b) return b
+  if (!b) return null
   return {
     _origin: false,
     _url: false,
