@@ -1,6 +1,6 @@
 /**
  * @typedef {import('../../dbs/archives').LibraryArchiveUserSettings} LibraryArchiveUserSettings
- *  
+ *
  * @typedef {Object} DatDaemon
  * @prop {function(DatDaemonSetupOpts): Promise<void>} setup
  * @prop {function(DatDaemonThrottleOpts): Promise<void>} setBandwidthThrottle
@@ -36,49 +36,49 @@
  * @prop {function(any=, ...any=): Promise<any>} ext_setSessionData
  * @prop {function(any=, ...any=): NodeJS.ReadableStream} ext_createDatPeersStream
  * NOTE: the ext_* methods are temporary so Im not going to bother documenting their types
- * 
+ *
  * @typedef {Object} DatDaemonSetupOpts
  * @prop {string} datPath
  * @prop {string[]} disallowedSavePaths
- * 
+ *
  * @typedef {Object} DatDaemonThrottleOpts
  * @prop {number} [up]
  * @prop {number} [down]
- * 
+ *
  * @typedef {Object} DatDaemonLoadArchiveOpts
  * @prop {string | Buffer} key
  * @prop {Buffer} [secretKey]
  * @prop {string} metaPath
  * @prop {LibraryArchiveUserSettings} userSettings
- * 
+ *
  * @typedef {Object} DatDaemonFSDiffListingOpts
  * @prop {boolean} [shallow] - Dont descend into changed folders (default true)
  * @prop {boolean} [compareContent] - Compare the actual content (default true)
  * @prop {string[]} [paths] - A whitelist of files to compare
  * @prop {string} [localSyncPath] - Override the archive localSyncPath
  * @prop {boolean} [addOnly] - Dont modify or remove any files (default false)
- * 
+ *
  * @typedef {Object} DatDaemonFSQueueSyncEventOpts
  * @prop {boolean} toFolder
  * @prop {boolean} toArchive
- * 
+ *
  * @typedef {Object} DatDaemonLoadedArchiveInfo
  * @prop {Buffer} discoveryKey
  * @prop {boolean} writable
- * 
+ *
  * @typedef {never} DatDaemonPeerInfo
  * TODO- what's in here?
- * 
+ *
  * @typedef {Object} DatDaemonPeerHistory
  * @prop {number} ts
  * @prop {number} peers
- * 
+ *
  * @typedef {Object} DatDaemonNetworkStats
  * @prop {number} downloadSpeed
  * @prop {number} uploadSpeed
  * @prop {number} downloadTotal
  * @prop {number} uploadTotal
- * 
+ *
  * @typedef {Object} DatDaemonArchiveInfo
  * @prop {number} version
  * @prop {number} size
@@ -86,10 +86,10 @@
  * @prop {DatDaemonPeerInfo[]} peerInfo
  * @prop {DatDaemonPeerHistory[]} peerHistory
  * @prop {DatDaemonNetworkStats} networkStats
- * 
+ *
  * @typedef {never} DatDaemonFSListingDiff
  * TODO - what's in here?
- * 
+ *
  * @typedef {never} DatDaemonFSFileDiff
  * TODO - what's in here?
  */

@@ -32,7 +32,7 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 /**
  * @typedef {import('./daemon/manifest').DatDaemon} DatDaemon
  * @typedef {import('../dbs/archives').LibraryArchiveRecord} LibraryArchiveRecord
- * 
+ *
  * @typedef {Object} InternalDatArchive
  * @prop {Buffer} key
  * @prop {string} url

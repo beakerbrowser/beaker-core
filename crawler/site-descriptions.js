@@ -122,7 +122,7 @@ exports.crawlSite = async function (archive, crawlSource) {
           DELETE FROM crawl_site_descriptions WHERE crawlSourceId = ? AND url = ?
         `, [crawlSource.id, url])
         await db.run(`
-          INSERT OR REPLACE INTO crawl_site_descriptions (crawlSourceId, crawledAt, url, title, description, type)
+          INSERT INTO crawl_site_descriptions (crawlSourceId, crawledAt, url, title, description, type)
             VALUES (?, ?, ?, ?, ?, ?)
         `, [crawlSource.id, Date.now(), url, desc.title, desc.description, desc.type.join(',')])
         events.emit('description-added', archive.url)

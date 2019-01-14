@@ -1,6 +1,7 @@
 const Events = require('events')
 const dat = require('../dat')
 const crawler = require('../crawler')
+const publishedSites = require('../crawler/published-sites')
 const followgraph = require('../crawler/followgraph')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
@@ -18,7 +19,7 @@ const NUM_SIMULTANEOUS_CRAWLS = 10
 
 /**
  * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
- * 
+ *
  * @typedef {Object} User
  * @prop {string} url
  * @prop {InternalDatArchive} archive
@@ -135,7 +136,7 @@ exports.get = async function (url) {
   return await fetchUserInfo(user)
 }
 
-/** 
+/**
  * @return {Promise<User>}
  */
 const getDefault =
@@ -199,7 +200,7 @@ exports.remove = async function (url) {
 // =
 
 /**
- * @param {string} url 
+ * @param {string} url
  * @return {Promise<boolean>}
  */
 async function isUser (url) {
@@ -207,14 +208,14 @@ async function isUser (url) {
 }
 
 /**
- * Assembles a list of crawl targets based on the current database state. *
+ * Assembles a list of crawl targets based on the current database state.
  * Depends on NUM_SIMULTANEOUS_CRAWLS.
  *
  * This function will assemble the list using simple priority heuristics. The priorities are currently:
  *
  *  1. Followed sites
- *  2. Sites published by followed sites
- *  3. Sites followed by followed sites
+ *  2. Published sites
+ *  3. FoaFs
  *
  * The sites will be ordered by these priorities and then iterated linearly. The ordering within
  * the priority groupings will be according to URL for a deterministic but effectively random ordering.
@@ -231,8 +232,8 @@ async function selectNextCrawlTargets (user) {
   // get followed sites
   rows = rows.concat(await followgraph.listFollows(user.url))
 
-  // get sites published by followed sites
-  // TODO
+  // get sites published
+  rows = rows.concat(await publishedSites.listPublishedSites(user.url))
 
   // get sites followed by followed sites
   rows = rows.concat(await followgraph.listFoaFs(user.url))
@@ -255,7 +256,7 @@ async function selectNextCrawlTargets (user) {
 }
 
 /**
- * @param {Object} user 
+ * @param {Object} user
  * @returns {Promise<User>}
  */
 async function fetchUserInfo (user) {
@@ -272,7 +273,7 @@ async function fetchUserInfo (user) {
 }
 
 /**
- * @param {string} url 
+ * @param {string} url
  * @returns {string}
  */
 function normalizeUrl (url) {
@@ -280,7 +281,7 @@ function normalizeUrl (url) {
 }
 
 /**
- * @param {string} url 
+ * @param {string} url
  * @returns {Promise<void>}
  */
 async function validateUserUrl (url) {

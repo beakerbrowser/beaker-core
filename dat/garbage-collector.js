@@ -77,7 +77,7 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
 // =
 
 /**
- * @param {number} time 
+ * @param {number} time
  */
 function schedule (time) {
   nextGCTimeout = setTimeout(collect, time)

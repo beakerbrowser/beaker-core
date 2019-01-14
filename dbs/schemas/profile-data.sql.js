@@ -192,6 +192,17 @@ CREATE TABLE crawl_followgraph (
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
+-- crawled site publications
+CREATE TABLE crawl_published_sites (
+  crawlSourceId INTEGER NOT NULL,
+  crawledAt INTEGER,
+  
+  url TEXT NOT NULL,
+  isConfirmedAuthor INTEGER DEFAULT 0,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
 -- a list of the draft-dats for a master-dat
 -- deprecated
 CREATE TABLE archive_drafts (

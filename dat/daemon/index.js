@@ -105,7 +105,7 @@ const RPC_API = {
 
   /**
    * @method
-   * @param {*} opts 
+   * @param {*} opts
    */
   async setup (opts) {
     datPath = opts.datPath
