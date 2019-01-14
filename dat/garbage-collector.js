@@ -6,6 +6,16 @@ const {
 } = require('../lib/const')
 const debug = require('../lib/debug-logger').debugLogger('datgc')
 
+// typedefs
+// =
+
+/**
+ * @typedef {Object} CollectResult
+ * @prop {number} totalBytes
+ * @prop {number} totalArchives
+ * @prop {number} skippedArchives
+ */
+
 // globals
 // =
 
@@ -18,6 +28,12 @@ exports.setup = function () {
   schedule(DAT_GC_FIRST_COLLECT_WAIT)
 }
 
+/**
+ * @param {Object} [opts]
+ * @param {number} [opts.olderThan]
+ * @param {boolean} [opts.isOwner]
+ * @returns {Promise<CollectResult>}
+ */
 const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
   // clear any scheduled GC
   if (nextGCTimeout) {
@@ -60,6 +76,9 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
 // helpers
 // =
 
+/**
+ * @param {number} time 
+ */
 function schedule (time) {
   nextGCTimeout = setTimeout(collect, time)
   nextGCTimeout.unref()

@@ -4,6 +4,14 @@ const fs = require('fs')
 const {cbPromise} = require('../lib/functions')
 const {setupSqliteDB} = require('../lib/db')
 
+// typedefs
+// =
+
+/**
+ * @typedef {Object} SQLiteResult
+ * @prop {string} lastID
+ */
+
 // globals
 // =
 
@@ -45,7 +53,7 @@ exports.all = async function (...args) {
 
 /**
  * @param {...(string | number | boolean | Array<string | number | boolean>)} args
- * @return {Promise<void>}
+ * @return {Promise<SQLiteResult>}
  */
 exports.run = async function (...args) {
   await setupPromise

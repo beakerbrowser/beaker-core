@@ -13,6 +13,21 @@ const SITE_TYPE = 'unwalled.garden/user'
 const CRAWL_TICK_INTERVAL = 5e3
 const NUM_SIMULTANEOUS_CRAWLS = 10
 
+// typedefs
+// =
+
+/**
+ * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * 
+ * @typedef {Object} User
+ * @prop {string} url
+ * @prop {InternalDatArchive} archive
+ * @prop {boolean} isDefault
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {Date} createdAt
+ */
+
 // globals
 // =
 
@@ -26,6 +41,9 @@ exports.on = events.on.bind(events)
 exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.setup = async function () {
   // initiate ticker
   queueTick()
@@ -56,6 +74,9 @@ function queueTick () {
   setTimeout(tick, CRAWL_TICK_INTERVAL)
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 async function tick () {
   try {
     // TODO handle multiple users
@@ -95,10 +116,17 @@ async function tick () {
   queueTick()
 }
 
+/**
+ * @returns {Promise<User[]>}
+ */
 exports.list = async function () {
   return Promise.all(users.map(fetchUserInfo))
 }
 
+/**
+ * @param {string} url
+ * @return {Promise<User>}
+ */
 const get =
 exports.get = async function (url) {
   url = normalizeUrl(url)
@@ -107,6 +135,9 @@ exports.get = async function (url) {
   return await fetchUserInfo(user)
 }
 
+/** 
+ * @return {Promise<User>}
+ */
 const getDefault =
 exports.getDefault = async function () {
   var user = users.find(user => user.isDefault === true)
@@ -114,6 +145,10 @@ exports.getDefault = async function () {
   return await fetchUserInfo(user)
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
 exports.add = async function (url) {
   // make sure the user doesnt already exist
   url = normalizeUrl(url)
@@ -143,6 +178,10 @@ exports.add = async function (url) {
   events.emit('load-user', user)
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
 exports.remove = async function (url) {
   url = normalizeUrl(url)
   // get the user
@@ -159,17 +198,16 @@ exports.remove = async function (url) {
 // internal methods
 // =
 
+/**
+ * @param {string} url 
+ * @return {Promise<boolean>}
+ */
 async function isUser (url) {
   return !!(await get(url))
 }
 
 /**
- * @description
- * Assembles a list of crawl targets based on the current database state.
- *
- * @param {Object} user - the user to select crawl-targets for.
- * @returns {Promise<Array<string>>}
- *
+ * Assembles a list of crawl targets based on the current database state. *
  * Depends on NUM_SIMULTANEOUS_CRAWLS.
  *
  * This function will assemble the list using simple priority heuristics. The priorities are currently:
@@ -183,6 +221,9 @@ async function isUser (url) {
  *
  * NOTE. The current database state must be queried every time this function is run because the user
  * will follow and unfollow during runtime, which changes the list.
+ *
+ * @param {Object} user - the user to select crawl-targets for.
+ * @returns {Promise<Array<string>>}
  */
 async function selectNextCrawlTargets (user) {
   var rows = []
@@ -213,11 +254,16 @@ async function selectNextCrawlTargets (user) {
   return nextCrawlTargets.map(row => typeof row === 'string' ? row : row.url)
 }
 
+/**
+ * @param {Object} user 
+ * @returns {Promise<User>}
+ */
 async function fetchUserInfo (user) {
   var urlp = new URL(user.url)
   var meta = await archivesDb.getMeta(urlp.hostname)
   return {
     url: normalizeUrl(user.url),
+    archive: user.archive,
     isDefault: user.isDefault,
     title: meta.title,
     description: meta.description,
@@ -225,10 +271,18 @@ async function fetchUserInfo (user) {
   }
 }
 
+/**
+ * @param {string} url 
+ * @returns {string}
+ */
 function normalizeUrl (url) {
   return url ? url.replace(/(\/)$/, '') : url
 }
 
+/**
+ * @param {string} url 
+ * @returns {Promise<void>}
+ */
 async function validateUserUrl (url) {
   // make sure the archive is saved and that we own the archive
   var urlp = new URL(url)

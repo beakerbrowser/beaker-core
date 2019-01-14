@@ -103,6 +103,10 @@ const RPC_API = {
   // setup & config
   // =
 
+  /**
+   * @method
+   * @param {*} opts 
+   */
   async setup (opts) {
     datPath = opts.datPath
     folderSync.setup(opts)

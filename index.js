@@ -54,9 +54,9 @@ module.exports = {
     // (order is important)
     await dat.library.setup(opts)
     await dat.watchlist.setup()
-    await crawler.setup(opts)
-    await users.setup(opts)
-    webapis.setup(opts)
+    await crawler.setup()
+    await users.setup()
+    webapis.setup()
     spellCheckerLib.setup()
   }
 }

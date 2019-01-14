@@ -30,6 +30,9 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 // =
 
 /**
+ * @typedef {import('./daemon/manifest').DatDaemon} DatDaemon
+ * @typedef {import('../dbs/archives').LibraryArchiveRecord} LibraryArchiveRecord
+ * 
  * @typedef {Object} InternalDatArchive
  * @prop {Buffer} key
  * @prop {string} url
@@ -37,11 +40,11 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
  * @prop {boolean} writable
  * @prop {function(Function): void} ready
  * @prop {function(Object, Function=): void} download
- * @prop {function(Object=): ReadableStream} history
- * @prop {function(Object=): ReadableStream} createReadStream
+ * @prop {function(Object=): NodeJS.ReadableStream} history
+ * @prop {function(Object=): NodeJS.ReadableStream} createReadStream
  * @prop {function(string, Object=, Function=): any} readFile
- * @prop {function(number, Object=): ReadableStream} createDiffStream
- * @prop {function(string, Object=): WritableStream} createWriteStream
+ * @prop {function(number, Object=): NodeJS.ReadableStream} createDiffStream
+ * @prop {function(string, Object=): NodeJS.WritableStream} createWriteStream
  * @prop {function(string, any, Object=, Function=): void} writeFile
  * @prop {function(string, Function=): void} unlink
  * @prop {function(string, Object=, Function=): void} mkdir
@@ -62,8 +65,8 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
  * @prop {function(string): Promise<void>} pda.unlink
  * @prop {function(string, Object=): Promise<void>} pda.rmdir
  * @prop {function(string=): Promise<void>} pda.download
- * @prop {function(string=): ReadableStream} pda.watch
- * @prop {function(): ReadableStream} pda.createNetworkActivityStream
+ * @prop {function(string=): NodeJS.ReadableStream} pda.watch
+ * @prop {function(): NodeJS.ReadableStream} pda.createNetworkActivityStream
  * @prop {function(): Promise<Object>} pda.readManifest
  * @prop {function(Object): Promise<void>} pda.writeManifest
  * @prop {function(Object): Promise<void>} pda.updateManifest
@@ -76,11 +79,18 @@ var archives = {} // in-memory cache of archive objects. key -> archive
 var archiveLoadPromises = {} // key -> promise
 var archivesEvents = new EventEmitter()
 var daemonEvents
-var daemon
+var daemon = /** @type DatDaemon */({})
 
 // exported API
 // =
 
+/**
+ * @param {Object} opts
+ * @param {Object} opts.rpcAPI
+ * @param {Object} opts.datDaemonProcess
+ * @param {string[]} opts.disallowedSavePaths
+ * @return {Promise<void>}
+ */
 exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSavePaths}) {
   // connect to the daemon
   daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {proc: datDaemonProcess, timeout: false})
@@ -133,12 +143,18 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
   datGC.setup()
 }
 
+/**
+ * @returns {DatDaemon}
+ */
 exports.getDaemon = () => daemon
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.loadSavedArchives = function () {
   // load and configure all saved archives
   return archivesDb.query(0, {isSaved: true}).then(
-    async (archives) => {
+    async (/** @type LibraryArchiveRecord[] */archives) => {
       // HACK
       // load the archives one at a time and give 5 seconds between each
       // why: the purpose of loading saved archives is to seed them
@@ -156,14 +172,24 @@ exports.loadSavedArchives = function () {
   )
 }
 
+/**
+ * @returns {NodeJS.ReadableStream}
+ */
 exports.createEventStream = function createEventStream () {
-  return emitStream(archivesEvents)
+  return emitStream.toStream(archivesEvents)
 }
 
+/**
+ * @param {string} key
+ * @returns {Promise<string>}
+ */
 exports.getDebugLog = function getDebugLog (key) {
   return daemon.getDebugLog(key)
 }
 
+/**
+ * @returns {NodeJS.ReadableStream}
+ */
 exports.createDebugStream = function createDebugStream () {
   return daemon.createDebugStream()
 }
