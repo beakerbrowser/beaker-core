@@ -1,7 +1,6 @@
 const globals = require('../../globals')
 const assert = require('assert')
-const {Url} = require('url')
-const {PermissionsError} = require('beaker-error-constants')
+const {URL} = require('url')
 const dat = require('../../dat')
 const followgraphCrawler = require('../../crawler/followgraph')
 

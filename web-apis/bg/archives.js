@@ -1,11 +1,15 @@
 const path = require('path')
+const assert = require('assert')
+const {URL} = require('url')
 const mkdirp = require('mkdirp')
 const jetpack = require('fs-jetpack')
+const globals = require('../../globals')
 const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
 const archivesDb = require('../../dbs/archives')
 const archiveDraftsDb = require('../../dbs/archive-drafts')
+const publishedSites  = require('../../crawler/published-sites')
 const {cbPromise} = require('../../lib/functions')
 const {timer} = require('../../lib/time')
 const lock = require('../../lib/lock')
@@ -48,6 +52,31 @@ module.exports = {
     return archivesDb.setUserSettings(0, key, opts)
   },
 
+  async publish (url) {
+    url = getOrigin(url)
+    assertString(url, 'Parameter one must be a URL')
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    if (!userSession) throw new Error('No active user session')
+    var userArchive = datLibrary.getArchive(userSession.url)
+
+    // ensure archive is owned and saved by the user
+    var info = await datLibrary.getArchiveInfo(url)
+    if (!info.isOwner) throw new Error('Must be the author of the site to publish it')
+    if (!info.userSettings.isSaved) throw new Error('Site must be saved to publish it')
+
+    return publishedSites.publishSite(userArchive, url)
+  },
+
+  async unpublish (url) {
+    url = getOrigin(url)
+    assertString(url, 'Parameter one must be a URL')
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    if (!userSession) throw new Error('No active user session')
+    var userArchive = datLibrary.getArchive(userSession.url)
+
+    return publishedSites.unpublishSite(userArchive, url)
+  },
+
   async remove (url) {
     var key = datLibrary.fromURLToKey(url)
     return archivesDb.setUserSettings(0, key, {isSaved: false})
@@ -83,7 +112,14 @@ module.exports = {
   },
 
   async list (query = {}) {
-    return datLibrary.queryArchives(query)
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    var archives = await datLibrary.queryArchives(query)
+    if (userSession) {
+      await Promise.all(archives.map(async (a) => {
+        a.isPublished = await publishedSites.isAPublishedByB(a.url, userSession.url)
+      }))
+    }
+    return archives
   },
 
   // folder sync
@@ -298,4 +334,19 @@ module.exports = {
   createDebugStream () {
     return datLibrary.createDebugStream()
   }
+}
+
+// internal methods
+// =
+
+function getOrigin (url) {
+  try {
+    url = new URL(url)
+    return url.protocol + '//' + url.hostname
+  } catch (e) {}
+  return null
+}
+
+function assertString (v, msg) {
+  assert(!!v && typeof v === 'string', msg)
 }

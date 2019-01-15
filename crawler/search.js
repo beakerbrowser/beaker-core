@@ -306,7 +306,7 @@ exports.listSearchResults = async function (opts) {
 // internal methods
 // =
 
-async function searchPublishedSites(type, {query, limit, offset, startHighlight, endHighlight, crawlSourceIds}) {
+async function searchPublishedSites (type, {query, limit, offset, startHighlight, endHighlight, crawlSourceIds}) {
   var rows
   if (query) {
     rows = await db.all(`
