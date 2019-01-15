@@ -5,6 +5,7 @@ const parseDatURL = require('parse-dat-url')
 const pda = require('pauls-dat-api')
 const concat = require('concat-stream')
 const pick = require('lodash.pick')
+const publishedSites  = require('../../crawler/published-sites')
 const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')
@@ -148,6 +149,9 @@ module.exports = {
 
       // request from beaker internal sites: give all data
       if (this.sender.getURL().startsWith('beaker:')) {
+        // add publish information
+        var userSession = globals.userSessionAPI.getFor(this.sender)
+        info.isPublished = await publishedSites.isAPublishedByB(url, userSession.url)
         // check that the local sync path is valid
         if (info && info.userSettings.localSyncPath) {
           const stat = await new Promise(resolve => {
