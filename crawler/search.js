@@ -45,6 +45,8 @@ const BUILTIN_PAGES = [
  * @prop {(null|PeopleSearchResult[])} people
  * @prop {(null|PostSearchResult[])} posts
  * @prop {(null|PageSearchResult[])} pages
+ * @prop {(null|PageSearchResult[])} images
+ * @prop {(null|PageSearchResult[])} files
  *
  * @typedef {Object} PeopleSearchResult
  * @prop {string} url
@@ -62,7 +64,7 @@ const BUILTIN_PAGES = [
  * @prop {string} content
  * @prop {number} createdAt
  * @prop {number} updatedAt
- * 
+ *
  * @typedef {Object} PageSearchResult
  * @prop {string} url
  * @prop {string} title
@@ -135,6 +137,8 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {boolean} [opts.types.people]
  * @param {boolean} [opts.types.posts]
  * @param {boolean} [opts.types.pages]
+ * @param {boolean} [opts.types.images]
+ * @param {boolean} [opts.types.files]
  * @param {number} [opts.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.offset]
  * @param {number} [opts.limit = 20]
@@ -149,7 +153,9 @@ exports.listSearchResults = async function (opts) {
     highlightNonce,
     people: null,
     posts: null,
-    pages: null
+    pages: null,
+    images: null,
+    files: null
   }
   var {user, query, hops, types, since, offset, limit} = opts
   if (!types || typeof types !== 'object') {
@@ -285,47 +291,65 @@ exports.listSearchResults = async function (opts) {
     }))
   }
   if (types.pages) {
-    if (query) {
-      searchResults.pages = await db.all(`
-        SELECT
-            pub.url AS url,
-            pubSrc.url AS authorUrl,
-            SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-            SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description
-          FROM crawl_site_descriptions_fts_index desc_fts
-          INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
-          INNER JOIN crawl_published_sites pub ON pub.url = desc.url
-          INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
-          WHERE
-            crawl_site_descriptions_fts_index MATCH ?
-            AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- site published by a me or a followed user
-          ORDER BY rank
-          LIMIT ?
-          OFFSET ?;
-      `, [query, limit, offset])
-    } else {
-      searchResults.pages = await db.all(`
-        SELECT pub.url AS url, pubSrc.url AS authorUrl
-          FROM crawl_published_sites pub
-          INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
-          WHERE fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- site published by a me or a followed user
-          ORDER BY pub.crawledAt
-          LIMIT ?
-          OFFSET ?;
-      `, [limit, offset])
-    }
-    searchResults.pages = await Promise.all(searchResults.pages.map(async (p) => {
-      // fetch full records
-      var page = /**@type PageSearchResult*/(await siteDescriptions.getBest({subject: p.url, author: p.authorUrl}))
-      page.author = await siteDescriptions.getBest({subject: p.authorUrl})
-      // overwrite title and description so that highlighting can be included
-      if (p.title) page.title = p.title
-      if (p.description) page.description = p.description
-      return page
-    }))
+    searchResults.pages = await searchPublishedSites('web-page', {query, limit, offset, startHighlight, endHighlight, crawlSourceIds})
+  }
+  if (types.images) {
+    searchResults.images = await searchPublishedSites('image-collection', {query, limit, offset, startHighlight, endHighlight, crawlSourceIds})
+  }
+  if (types.files) {
+    searchResults.files = await searchPublishedSites('file-shares', {query, limit, offset, startHighlight, endHighlight, crawlSourceIds})
   }
 
   return searchResults
+}
+
+// internal methods
+// =
+
+async function searchPublishedSites(type, {query, limit, offset, startHighlight, endHighlight, crawlSourceIds}) {
+  var rows
+  if (query) {
+    rows = await db.all(`
+      SELECT
+          pub.url AS url,
+          pubSrc.url AS authorUrl,
+          SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
+          SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description
+        FROM crawl_site_descriptions_fts_index desc_fts
+        INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
+        INNER JOIN crawl_published_sites pub ON pub.url = desc.url
+        INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
+        LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
+        WHERE
+          crawl_site_descriptions_fts_index MATCH ?
+          AND (',' || desc.type || ',') LIKE ?
+          AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- site published by a me or a followed user
+        ORDER BY rank
+        LIMIT ?
+        OFFSET ?;
+    `, [query, `%,${type},%`, limit, offset])
+  } else {
+    rows = await db.all(`
+      SELECT pub.url AS url, pubSrc.url AS authorUrl
+        FROM crawl_published_sites pub
+        INNER JOIN crawl_site_descriptions desc ON desc.url = pub.url
+        INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
+        LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
+        WHERE 
+          (',' || desc.type || ',') LIKE ?
+          AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- site published by a me or a followed user
+        ORDER BY pub.crawledAt
+        LIMIT ?
+        OFFSET ?;
+    `, [`%,${type},%`, limit, offset])
+  }
+  return Promise.all(rows.map(async (row) => {
+    // fetch full records
+    var result = /**@type PageSearchResult*/(await siteDescriptions.getBest({subject: row.url, author: row.authorUrl}))
+    result.author = await siteDescriptions.getBest({subject: row.authorUrl})
+    // overwrite title and description so that highlighting can be included
+    if (row.title) result.title = row.title
+    if (row.description) result.description = row.description
+    return result
+  }))
 }

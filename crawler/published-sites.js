@@ -23,7 +23,7 @@ const JSON_PATH = '/data/sites.json'
  * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef {import('./site-descriptions').SiteDescription} SiteDescription
- * 
+ *
  * @typedef {Object} PublishedSites
  * @prop {SiteDescription} author
  * @prop {SiteDescription[]} sites
