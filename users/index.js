@@ -213,9 +213,10 @@ async function isUser (url) {
  *
  * This function will assemble the list using simple priority heuristics. The priorities are currently:
  *
- *  1. Followed sites
- *  2. Published sites
- *  3. FoaFs
+ *  1. Self
+ *  2. Followed sites
+ *  3. Published sites
+ *  4. FoaFs
  *
  * The sites will be ordered by these priorities and then iterated linearly. The ordering within
  * the priority groupings will be according to URL for a deterministic but effectively random ordering.
@@ -227,7 +228,8 @@ async function isUser (url) {
  * @returns {Promise<Array<string>>}
  */
 async function selectNextCrawlTargets (user) {
-  var rows = []
+  // get self
+  var rows = [user.url]
 
   // get followed sites
   rows = rows.concat(await followgraph.listFollows(user.url))
@@ -237,6 +239,9 @@ async function selectNextCrawlTargets (user) {
 
   // get sites followed by followed sites
   rows = rows.concat(await followgraph.listFoaFs(user.url))
+
+  // get sites published by followed sites
+  // TODO
 
   // assemble into list
   var start = user.crawlSelectorCursor || 0
