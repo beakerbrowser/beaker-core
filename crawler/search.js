@@ -233,7 +233,7 @@ exports.listSearchResults = async function (opts) {
           OFFSET ?;
       `, [user, userCrawlSourceId, limit, offset])
     }
-    searchResults.people = _uniqWith(searchResults.people, (a, b) => a.url === b.url)
+    searchResults.people = _uniqWith(searchResults.people, (a, b) => a.url === b.url) // remove duplicates
     await Promise.all(searchResults.people.map(async (p) => {
       // fetch additional info
       p.followedBy = await followgraph.listFollowers(p.url, {includeDesc: true})
@@ -291,13 +291,13 @@ exports.listSearchResults = async function (opts) {
     }))
   }
   if (types.pages) {
-    searchResults.pages = await searchPublishedSites('web-page', {query, limit, offset, startHighlight, endHighlight, crawlSourceIds})
+    searchResults.pages = await searchPublishedSites('web-page', {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds})
   }
   if (types.images) {
-    searchResults.images = await searchPublishedSites('image-collection', {query, limit, offset, startHighlight, endHighlight, crawlSourceIds})
+    searchResults.images = await searchPublishedSites('image-collection', {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds})
   }
   if (types.files) {
-    searchResults.files = await searchPublishedSites('file-shares', {query, limit, offset, startHighlight, endHighlight, crawlSourceIds})
+    searchResults.files = await searchPublishedSites('file-shares', {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds})
   }
 
   return searchResults
@@ -306,7 +306,7 @@ exports.listSearchResults = async function (opts) {
 // internal methods
 // =
 
-async function searchPublishedSites (type, {query, limit, offset, startHighlight, endHighlight, crawlSourceIds}) {
+async function searchPublishedSites (type, {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds}) {
   var rows
   if (query) {
     rows = await db.all(`
@@ -323,11 +323,11 @@ async function searchPublishedSites (type, {query, limit, offset, startHighlight
         WHERE
           crawl_site_descriptions_fts_index MATCH ?
           AND (',' || desc.type || ',') LIKE ?
-          AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- site published by a me or a followed user
+          AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
         ORDER BY rank
         LIMIT ?
         OFFSET ?;
-    `, [query, `%,${type},%`, limit, offset])
+    `, [query, `%,${type},%`, userCrawlSourceId, limit, offset])
   } else {
     rows = await db.all(`
       SELECT pub.url AS url, pubSrc.url AS authorUrl
@@ -337,12 +337,13 @@ async function searchPublishedSites (type, {query, limit, offset, startHighlight
         LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
         WHERE 
           (',' || desc.type || ',') LIKE ?
-          AND fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- site published by a me or a followed user
+          AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
         ORDER BY pub.crawledAt
         LIMIT ?
         OFFSET ?;
-    `, [`%,${type},%`, limit, offset])
+    `, [`%,${type},%`, userCrawlSourceId, limit, offset])
   }
+  rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
   return Promise.all(rows.map(async (row) => {
     // fetch full records
     var result = /**@type PageSearchResult*/(await siteDescriptions.getBest({subject: row.url, author: row.authorUrl}))
