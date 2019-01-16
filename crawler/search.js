@@ -159,7 +159,13 @@ exports.listSearchResults = async function (opts) {
   }
   var {user, query, hops, types, since, offset, limit} = opts
   if (!types || typeof types !== 'object') {
-    types = {people: true, posts: true}
+    types = {}
+    // default to all
+    for (var k in searchResults) {
+      if (k !== 'highlightNonce') {
+        types[k] = true
+      }
+    }
   }
   since = since || 0
   offset = offset || 0
