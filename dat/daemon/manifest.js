@@ -42,6 +42,7 @@ module.exports = {
 
   ext_listPeers: 'promise',
   ext_getPeer: 'promise',
+  ext_getOwnPeerId: 'promise',
   ext_broadcastEphemeralMessage: 'promise',
   ext_sendEphemeralMessage: 'promise',
   ext_getSessionData: 'promise',

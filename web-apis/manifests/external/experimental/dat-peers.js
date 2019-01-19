@@ -5,5 +5,6 @@ module.exports = {
   send: 'promise',
   getSessionData: 'promise',
   setSessionData: 'promise',
+  getOwnPeerId: 'promise',
   createEventStream: 'readable'
 }

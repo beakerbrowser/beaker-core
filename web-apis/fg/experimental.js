@@ -84,6 +84,7 @@ exports.setup = function (rpc) {
     experimental.datPeers.broadcast = datPeersRPC.broadcast
     experimental.datPeers.getSessionData = datPeersRPC.getSessionData
     experimental.datPeers.setSessionData = datPeersRPC.setSessionData
+    experimental.datPeers.getOwnPeerId = datPeersRPC.getOwnPeerId
   }
 
   return experimental
