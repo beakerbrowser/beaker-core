@@ -1,11 +1,11 @@
 const Events = require('events')
+const logger = require('../logger').category('crawler')
 const dat = require('../dat')
 const crawler = require('../crawler')
 const publishedSites = require('../crawler/published-sites')
 const followgraph = require('../crawler/followgraph')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
-const debug = require('../lib/debug-logger').debugLogger('users')
 
 // constants
 // =
@@ -51,13 +51,13 @@ exports.setup = async function () {
 
   // load the current users
   users = await db.all(`SELECT * FROM users`)
-  console.log('users loaded', users)
   users.forEach(async (user) => {
     // massage data
     user.url = normalizeUrl(user.url)
     user.archive = null
     user.isDefault = Boolean(user.isDefault)
     user.createdAt = new Date(user.createdAt)
+    logger.verbose('Loading user', user)
 
     // fetch the user archive
     try {
@@ -66,7 +66,7 @@ exports.setup = async function () {
       /* dont await */crawler.watchSite(user.archive)
       events.emit('load-user', user)
     } catch (err) {
-      debug('Failed to load user', {user, err})
+      logger.error('Failed to load user', {user, err})
     }
   })
 }
@@ -102,15 +102,14 @@ async function tick () {
           // TODO
         }
       } catch (e) {
-        console.error('Failed to crawl site', crawlTarget, e)
-        // TODO more handling?
+        // TODO handle?
       }
     })
 
     // await all crawls
     await Promise.all(activeCrawls)
   } catch (e) {
-    console.error('Crawler tick failed', e)
+    logger.error('Crawler tick failed', e)
   }
 
   // queue next tick
@@ -166,7 +165,7 @@ exports.add = async function (url) {
     isDefault: users.length === 0,
     createdAt: Date.now()
   }
-  console.log('adding new user', user)
+  logger.verbose('Adding user', user)
   await db.run(
     `INSERT INTO users (url, isDefault, createdAt) VALUES (?, ?, ?)`,
     [user.url, Number(user.isDefault), user.createdAt]
@@ -190,6 +189,7 @@ exports.remove = async function (url) {
   if (!user) return
 
   // remove the user
+  logger.verbose('Removing user', user)
   users.splice(users.indexOf(user), 1)
   await db.run(`DELETE FROM users WHERE url = ?`, [user.url])
   /* dont await */crawler.unwatchSite(user.archive)

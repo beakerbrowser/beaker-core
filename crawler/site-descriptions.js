@@ -1,8 +1,8 @@
 const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
+const logger = require('../logger').child({category: 'crawler', dataset: 'site-descriptions'})
 const db = require('../dbs/profile-data-db')
-const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
 const crawler = require('./index')
 const {
@@ -10,11 +10,9 @@ const {
   doCheckpoint,
   emitProgressEvent,
   getMatchingChangesInOrder,
-  generateTimeFilename,
   getSiteDescriptionThumbnailUrl,
   toHostname
 } = require('./util')
-const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
 // =
@@ -64,9 +62,10 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_site_descriptions', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
-    console.log('Crawling site descriptions for', archive.url, {changes, resetRequired})
+    logger.silly('Crawling site descriptions', {url: archive.url, numChanges: changes.length, resetRequired})
     if (resetRequired) {
       // reset all data
+      logger.silly('Resetting dataset', {url: archive.url})
       await db.run(`
         DELETE FROM crawl_site_descriptions WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -75,14 +74,14 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // collect changed site descriptions
     var changedSiteDescriptions = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
-    console.log('collected changed site descriptions', changedSiteDescriptions)
+    logger.silly('Collected changed site-descriptions', {changedPosts: changedSiteDescriptions.map(p => p.name)})
     emitProgressEvent(archive.url, 'crawl_site_descriptions', 0, changedSiteDescriptions.length)
 
     // read and apply each post in order
     var progress = 0
     for (let changedSiteDescription of changedSiteDescriptions) {
       // TODO Currently the crawler will abort reading the feed if any description fails to load
-      //      this means that a single bad or unreachable file can stop the forward progress of description indexing
+      //      this means that a single unreachable file can stop the forward progress of description indexing
       //      to solve this, we need to find a way to tolerate bad description-files without losing our ability to efficiently detect new posts
       //      -prf
 
@@ -96,15 +95,23 @@ exports.crawlSite = async function (archive, crawlSource) {
         `, [crawlSource.id, url])
         events.emit('description-removed', archive.url)
       } else {
-        // read and validate
+        // read 
+        let descString
+        try {
+          descString = await archive.pda.readFile(changedSiteDescription.name, 'utf8')
+        } catch (err) {
+          logger.warn('Failed to read dat.json file, aborting', {url: archive.url, name: changedSiteDescription.name, err})
+          return // abort indexing
+        }
+        
+        // parse and validate
         let desc
         try {
-          desc = JSON.parse(await archive.pda.readFile(changedSiteDescription.name, 'utf8'))
+          desc = JSON.parse(descString)
           assert(typeof desc === 'object', 'File be an object')
         } catch (err) {
-          console.error('Failed to read site-description file', {url: archive.url, name: changedSiteDescription.name, err})
-          debug('Failed to read site-description file', {url: archive.url, name: changedSiteDescription.name, err})
-          return // abort indexing
+          logger.warn('Failed to parse dat.json file, aborting', {url: archive.url, name: changedSiteDescription.name, err})
+          continue // skip
         }
 
         // massage the description
@@ -129,6 +136,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       }
 
       // checkpoint our progress
+      logger.silly(`Finished crawling site descriptions`, {url: archive.url})
       await doCheckpoint('crawl_site_descriptions', TABLE_VERSION, crawlSource, changedSiteDescription.version)
       emitProgressEvent(archive.url, 'crawl_site_descriptions', ++progress, changedSiteDescription.length)
     }
@@ -257,8 +265,7 @@ exports.capture = async function (archive, subject) {
   try {
     var datJson = JSON.parse(await subjectArchive.pda.readFile('/dat.json'))
   } catch (e) {
-    console.error('Failed to read dat.json of subject archive', e)
-    debug('Failed to read dat.json of subject archive', e)
+    logger.warn('Failed to read dat.json of subject archive', e)
     throw new Error('Unabled to read subject dat.json')
   }
   await archive.pda.writeFile(`/data/known_sites/${hostname}/dat.json`, JSON.stringify(datJson))

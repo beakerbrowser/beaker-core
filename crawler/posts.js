@@ -1,11 +1,11 @@
 const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
+const logger = require('../logger').child({category: 'crawler', dataset: 'posts'})
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
-const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
 // =
@@ -54,9 +54,10 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
-    console.log('Crawling posts for', archive.url, {changes, resetRequired})
+    logger.silly('Crawling posts', {url: archive.url, numChanges: changes.length, resetRequired})
     if (resetRequired) {
       // reset all data
+      logger.silly('Resetting dataset', {url: archive.url})
       await db.run(`
         DELETE FROM crawl_posts WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -65,15 +66,15 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // collect changed posts
     var changedPosts = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
-    console.log('collected changed posts', changedPosts)
+    logger.silly('Collected changed posts', {changedPosts: changedPosts.map(p => p.name)})
     emitProgressEvent(archive.url, 'crawl_posts', 0, changedPosts.length)
 
     // read and apply each post in order
     var progress = 0
     for (let changedPost of changedPosts) {
       // TODO Currently the crawler will abort reading the feed if any post fails to load
-      //      this means that a single bad or unreachable file can stop the forward progress of post indexing
-      //      to solve this, we need to find a way to tolerate bad post-files without losing our ability to efficiently detect new posts
+      //      this means that a single unreachable file can stop the forward progress of post indexing
+      //      to solve this, we need to find a way to tolerate unreachable post-files without losing our ability to efficiently detect new posts
       //      -prf
       if (changedPost.type === 'del') {
         // delete
@@ -82,18 +83,27 @@ exports.crawlSite = async function (archive, crawlSource) {
         `, [crawlSource.id, changedPost.name])
         events.emit('post-removed', archive.url)
       } else {
-        // read and validate
+        // read 
+        let postString
+        try {
+          postString = await archive.pda.readFile(changedPost.name, 'utf8')
+        } catch (err) {
+          logger.warn('Failed to read post file, aborting', {url: archive.url, name: changedPost.name, err})
+          return // abort indexing
+        }
+        
+        // parse and validate
         let post
         try {
-          post = JSON.parse(await archive.pda.readFile(changedPost.name, 'utf8'))
+          post = JSON.parse(postString)
           assert(typeof post === 'object', 'File be an object')
           assert(post.type === 'unwalled.garden/post', 'JSON type must be unwalled.garden/post')
           assert(typeof post.content === 'string', 'JSON content must be a string')
           assert(typeof post.createdAt === 'string', 'JSON createdAt must be a date-time')
           assert(!isNaN(Number(new Date(post.createdAt))), 'JSON createdAt must be a date-time')
         } catch (err) {
-          debug('Failed to read post file', {url: archive.url, name: changedPost.name, err})
-          return // abort indexing
+          logger.warn('Failed to parse post file, skipping', {url: archive.url, name: changedPost.name, err})
+          continue // skip
         }
 
         // massage the post
@@ -120,6 +130,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       }
 
       // checkpoint our progress
+      logger.silly(`Finished crawling posts`, {url: archive.url})
       await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
       emitProgressEvent(archive.url, 'crawl_posts', ++progress, changedPosts.length)
     }

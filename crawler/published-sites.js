@@ -2,12 +2,12 @@ const assert = require('assert')
 const _difference = require('lodash.difference')
 const Events = require('events')
 const {URL} = require('url')
+const logger = require('../logger').child({category: 'crawler', dataset: 'published-sites'})
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
-const debug = require('../lib/debug-logger').debugLogger('crawler')
 
 // constants
 // =
@@ -52,9 +52,10 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_published_sites', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
-    console.log('Crawling published sites for', archive.url, {changes, resetRequired})
+    logger.silly('Crawling published sites', {url: archive.url, numChanges: changes.length, resetRequired})
     if (resetRequired) {
       // reset all data
+      logger.silly('Resetting dataset', {url: archive.url})
       await db.run(`
         DELETE FROM crawl_published_sites WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -64,17 +65,21 @@ exports.crawlSite = async function (archive, crawlSource) {
     // did sites.json change?
     var change = changes.find(c => c.name === JSON_PATH)
     if (!change) {
+      logger.silly('No change detected to published-sites record, aborting', {url: archive.url})
+      if (changes.length) {
+        await doCheckpoint('crawl_published_sites', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
+      }
       return
     }
 
+    logger.silly('Change detected to published-sites record', {url: archive.url})
     emitProgressEvent(archive.url, 'crawl_published_sites', 0, 1)
 
     // read and validate
     try {
       var sitesJson = await readSitesFile(archive)
     } catch (err) {
-      console.error('Failed to read published-sites file', {url: archive.url, err})
-      debug('Failed to read published-sites file', {url: archive.url, err})
+      logger.warn('Failed to read published-sites file', {url: archive.url, err})
       return
     }
 
@@ -83,6 +88,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     var newSites = sitesJson.urls
     var adds = _difference(newSites, currentPublishedSites)
     var removes = _difference(currentPublishedSites, newSites)
+    logger.silly(`Adding ${adds.length} sites and removing ${removes.length} sites`, {url: archive.url})
 
     // write updates
     for (let add of adds) {
@@ -94,7 +100,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         if (e.code === 'SQLITE_CONSTRAINT') {
           // uniqueness constraint probably failed, which means we got a duplicate somehow
           // dont worry about it
-          debug('Attempted to insert duplicate published-site record', {crawlSource, url: add})
+          logger.warn('Attempted to insert duplicate published-site record', {url: archive.url, add})
         } else {
           throw e
         }
@@ -113,6 +119,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
 
     // write checkpoint as success
+    logger.silly(`Finished crawling published sites`, {url: archive.url})
     await doCheckpoint('crawl_published_sites', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
     emitProgressEvent(archive.url, 'crawl_published_sites', 1, 1)
   })
@@ -274,7 +281,7 @@ async function updateSitesFile (archive, updateFn) {
           urls: []
         }
       } else {
-        debug('Failed to read follows file', {url: archive.url, err})
+        logger.warn('Failed to read published-sites file', {url: archive.url, err})
         throw err
       }
     }

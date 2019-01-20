@@ -55,7 +55,6 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   // fetch change log
   var start = state.crawlSourceVersion + 1
   var end = version + 1
-  console.log('fetching changes', archive.url, start, end, state)
   var changes = await new Promise((resolve, reject) => {
     pump(
       archive.history({start, end, timeout: READ_TIMEOUT}),

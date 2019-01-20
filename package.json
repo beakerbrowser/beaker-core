@@ -83,6 +83,7 @@
     "textextensions": "^2.4.0",
     "through2": "^2.0.5",
     "utp-native": "^2.1.3",
+    "winston": "winstonjs/winston#b4ced895b3e1ead8a616590189b003cfd9d7acca",
     "yazl": "^2.5.1"
   },
   "devDependencies": {

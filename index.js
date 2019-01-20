@@ -2,6 +2,7 @@ const assert = require('assert')
 const {join} = require('path')
 const debugLogger = require('./lib/debug-logger')
 const globals = require('./globals')
+const logger = require('./logger')
 const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
 const dbs = require('./dbs')
@@ -14,6 +15,7 @@ const spellCheckerLib = require('./lib/spell-checker')
 module.exports = {
   getEnvVar,
   globals,
+  logger,
   dat,
   dbs,
   crawler,
@@ -41,6 +43,7 @@ module.exports = {
     }
 
     // initiate log
+    logger.setup(join(opts.userDataPath, 'beaker.log'))
     debugLogger.setup(join(opts.userDataPath, 'debug.log'))
 
     // setup databases

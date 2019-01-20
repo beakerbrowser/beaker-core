@@ -1,10 +1,9 @@
 const emitStream = require('emit-stream')
-const {URL} = require('url')
 const _throttle = require('lodash.throttle')
+const logger = require('../logger').category('crawler')
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
-const users = require('../users')
 const dat = require('../dat')
 
 const {crawlerEvents, toHostname} = require('./util')
@@ -28,13 +27,14 @@ exports.siteDescriptions = siteDescriptions
 const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
 
 exports.setup = async function () {
+  logger.verbose('Crawler initialized')
 }
 
 exports.watchSite = async function (archive) {
   if (typeof archive === 'string') {
     archive = await dat.library.getOrLoadArchive(archive)
   }
-  console.log('watchSite', archive.url)
+  logger.silly('Watching site', {url: archive.url})
 
   if (!(archive.url in watches)) {
     crawlerEvents.emit('watch', {sourceUrl: archive.url})
@@ -44,7 +44,7 @@ exports.watchSite = async function (archive) {
     watches[archive.url] = archive.pda.watch()
     watches[archive.url].on('data', ([event, args]) => {
       // BUG watch is really inconsistent -prf
-      console.log('MIRACLE ALERT! The crawler watch stream emitted a change event', archive.url, event, args)
+      logger.debug('MIRACLE ALERT! The crawler watch stream emitted a change event', {url: archive.url, event, args})
       if (event === 'invalidated') {
         queueCrawl()
       }
@@ -58,6 +58,7 @@ exports.watchSite = async function (archive) {
 exports.unwatchSite = async function (url) {
   // stop watching for file changes
   if (url in watches) {
+    logger.silly('Unwatching site', {url})
     crawlerEvents.emit('unwatch', {sourceUrl: url})
     watches[url].close()
     watches[url] = null
@@ -66,7 +67,7 @@ exports.unwatchSite = async function (url) {
 
 const crawlSite =
 exports.crawlSite = async function (archive) {
-  console.log('crawling', archive.url)
+  logger.silly('Crawling site', {url: archive.url})
   crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
   try {
@@ -85,9 +86,10 @@ exports.crawlSite = async function (archive) {
       siteDescriptions.crawlSite(archive, crawlSource)
     ])
   } catch (err) {
-    console.error('Crawler error', {sourceUrl: archive.url, err: err.toString()})
+    logger.error('Failed to crawl site', {sourceUrl: archive.url, err: err.toString()})
     crawlerEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
   } finally {
+    logger.silly('Finished crawling site', {url: archive.url})
     crawlerEvents.emit('crawl-finish', {sourceUrl: archive.url})
     release()
   }
@@ -119,6 +121,7 @@ exports.getCrawlStates = async function () {
 
 const resetSite =
 exports.resetSite = async function (url) {
+  logger.silly('Resetting site', {url})
   await db.run(`DELETE FROM crawl_sources WHERE url = ?`, [url])
 }
 

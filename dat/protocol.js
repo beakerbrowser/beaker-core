@@ -2,7 +2,7 @@ const {join} = require('path')
 const parseDatUrl = require('parse-dat-url')
 const parseRange = require('range-parser')
 const once = require('once')
-const debug = require('../lib/debug-logger').debugLogger('dat-serve')
+const logger = require('../logger').child({category: 'dat', subcategory: 'dat-serve'})
 const intoStream = require('into-stream')
 const {toZipStream} = require('../lib/zip')
 const slugify = require('slugify')
@@ -17,17 +17,15 @@ const {makeSafe} = require('../lib/strings')
 
 // HACK detect whether the native builds of some key deps are working -prf
 // -prf
-try {
-  require('utp-native')
-} catch (err) {
-  debug('Failed to load utp-native. Peer-to-peer connectivity may be degraded.', err.toString())
-  console.error('Failed to load utp-native. Peer-to-peer connectivity may be degraded.', err)
+var utpLoadError = false
+try { require('utp-native') }
+catch (err) {
+  utpLoadError = err
 }
-try {
-  require('sodium-native')
-} catch (err) {
-  debug('Failed to load sodium-native. Performance may be degraded.', err.toString())
-  console.error('Failed to load sodium-native. Performance may be degraded.', err)
+var sodiumLoadError = false
+try { require('sodium-native') }
+catch (err) {
+  sodiumLoadError = err
 }
 
 // constants
@@ -40,6 +38,14 @@ const REQUEST_TIMEOUT_MS = 30e3 // 30 seconds
 // =
 
 exports.electronHandler = async function (request, respond) {
+  // log warnings now, after the logger has setup its transports
+  if (utpLoadError) {
+    logger.warn('Failed to load utp-native. Peer-to-peer connectivity may be degraded.', {err: utpLoadError.toString()})
+  }
+  if (sodiumLoadError) {
+    logger.warn('Failed to load sodium-native. Performance may be degraded.', {err: sodiumLoadError.toString()})
+  }
+
   respond = once(respond)
   var respondError = (code, status, errorPageInfo) => {
     if (errorPageInfo) {
@@ -90,7 +96,7 @@ exports.electronHandler = async function (request, respond) {
   const cleanup = () => clearTimeout(timeout)
   timeout = setTimeout(() => {
     // cleanup
-    debug('Timed out searching for', archiveKey)
+    logger.debug('Timed out searching for', {url: archiveKey})
     if (fileReadStream) {
       fileReadStream.destroy()
       fileReadStream = null
@@ -108,7 +114,7 @@ exports.electronHandler = async function (request, respond) {
     // start searching the network
     archive = await datLibrary.getOrLoadArchive(archiveKey)
   } catch (err) {
-    debug('Failed to open archive', archiveKey, err)
+    logger.warn('Failed to open archive', {url: archiveKey, err})
     cleanup()
     return respondError(500, 'Failed')
   }
@@ -131,7 +137,7 @@ exports.electronHandler = async function (request, respond) {
         errorDescription: `<span>You can open the <a class="link" href="${latestUrl}">latest published version</a> instead.</span>`
       })
     } else {
-      debug('Failed to open archive', archiveKey, err)
+      logger.warn('Failed to open archive checkout', {url: archiveKey, err})
       cleanup()
       return respondError(500, 'Failed')
     }
@@ -174,7 +180,7 @@ exports.electronHandler = async function (request, respond) {
     } else {
       // serve the zip
       var zs = toZipStream(checkoutFS, filepath)
-      zs.on('error', err => console.log('Error while producing .zip file', err))
+      zs.on('error', err => logger.error('Error while producing .zip file', err))
       return respond({
         statusCode: 200,
         headers,
@@ -184,7 +190,6 @@ exports.electronHandler = async function (request, respond) {
   }
 
   // lookup entry
-  debug('Attempting to lookup', archiveKey, filepath)
   var statusCode = 200
   var headers = {}
   var entry
@@ -262,8 +267,6 @@ exports.electronHandler = async function (request, respond) {
 
   // handle not found
   if (!entry) {
-    debug('Entry not found:', urlp.path)
-
     // check for a fallback page
     if (manifest && manifest.fallback_page && !urlp.query.disable_fallback_page) {
       await tryStat(manifest.fallback_page)
@@ -307,7 +310,6 @@ exports.electronHandler = async function (request, respond) {
     statusCode = 206
     headers['Content-Range'] = 'bytes ' + range.start + '-' + range.end + '/' + entry.size
     headers['Content-Length'] = range.end - range.start + 1
-    debug('Serving range:', range)
   } else {
     if (entry.size) {
       headers['Content-Length'] = entry.size
@@ -315,7 +317,6 @@ exports.electronHandler = async function (request, respond) {
   }
 
   // fetch the entry and stream the response
-  debug('Entry found:', entry.path)
   fileReadStream = checkoutFS.createReadStream(entry.path, range)
   var dataStream = fileReadStream
     .pipe(mime.identifyStream(entry.path, mimeType => {
@@ -352,7 +353,6 @@ exports.electronHandler = async function (request, respond) {
   fileReadStream.once('end', () => {
     if (!headersSent) {
       cleanup()
-      debug('Served empty file')
       respond({
         statusCode: 200,
         headers: {
@@ -366,7 +366,7 @@ exports.electronHandler = async function (request, respond) {
 
   // handle read-stream errors
   fileReadStream.once('error', err => {
-    debug('Error reading file', err)
+    logger.warn('Error reading file', {url: archive.url, path: entry.path, err})
     if (!headersSent) respondError(500, 'Failed to read file')
   })
 }
