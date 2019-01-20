@@ -11,7 +11,7 @@ const {getSiteDescriptionThumbnailUrl} = require('./util')
 
 /** @type {Array<Object>} */
 const BUILTIN_PAGES = [
-  {title: 'Timeline', url: 'beaker://timeline'},
+  // {title: 'Timeline', url: 'beaker://timeline'}, DISABLED -prf
   {title: 'Your Library', url: 'beaker://library'},
   {title: 'Search', url: 'beaker://search'},
   {title: 'Bookmarks', url: 'beaker://bookmarks'},
