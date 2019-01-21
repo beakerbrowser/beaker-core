@@ -1,6 +1,7 @@
 const { EventTarget, bindEventStream, fromEventStream } = require('./event-target')
 const errors = require('beaker-error-constants')
 
+const loggerManifest = require('../manifests/internal/logger')
 const archivesManifest = require('../manifests/internal/archives')
 const beakerBrowserManifest = require('../manifests/internal/browser')
 const bookmarksManifest = require('../manifests/internal/bookmarks')
@@ -19,6 +20,7 @@ exports.setup = function (rpc) {
 
   // internal only
   if (window.location.protocol === 'beaker:') {
+    const loggerRPC = rpc.importAPI('logger', loggerManifest, opts)
     const archivesRPC = rpc.importAPI('archives', archivesManifest, opts)
     const beakerBrowserRPC = rpc.importAPI('beaker-browser', beakerBrowserManifest, opts)
     const bookmarksRPC = rpc.importAPI('bookmarks', bookmarksManifest, opts)
@@ -30,6 +32,11 @@ exports.setup = function (rpc) {
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
     const postsRPC = rpc.importAPI('posts', postsManifest, opts)
     const followgraphRPC = rpc.importAPI('followgraph', followgraphManifest, opts)
+
+    // beaker.logger
+    beaker.logger = {}
+    beaker.logger.stream = loggerRPC.stream
+    beaker.logger.query = loggerRPC.query
 
     // beaker.archives
     beaker.archives = new EventTarget()

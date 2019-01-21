@@ -3,6 +3,7 @@ const globals = require('../globals')
 const SECURE_ORIGIN_REGEX = /^(beaker:|dat:|https:|http:\/\/localhost(\/|:))/i
 
 // internal manifests
+const loggerManifest = require('./manifests/internal/logger')
 const archivesManifest = require('./manifests/internal/archives')
 const beakerBrowserManifest = require('./manifests/internal/browser')
 const bookmarksManifest = require('./manifests/internal/bookmarks')
@@ -16,6 +17,7 @@ const postsManifest = require('./manifests/internal/posts')
 const followgraphManifest = require('./manifests/internal/followgraph')
 
 // internal apis
+const loggerAPI = require('../logger').WEBAPI
 const archivesAPI = require('./bg/archives')
 const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
@@ -51,6 +53,7 @@ const experimentalLibraryAPI = require('./bg/experimental/library')
 
 exports.setup = function () {
   // internal apis
+  globals.rpcAPI.exportAPI('logger', loggerManifest, loggerAPI, internalOnly)
   globals.rpcAPI.exportAPI('archives', archivesManifest, archivesAPI, internalOnly)
   globals.rpcAPI.exportAPI('beaker-browser', beakerBrowserManifest, globals.browserWebAPI, internalOnly)
   globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, internalOnly)
