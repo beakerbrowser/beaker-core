@@ -55,7 +55,7 @@ exports.setup = async function (p) {
     format: combine(colorize(), padLevels(), simple())
   }))
 
-  logger.verbose('Program start')
+  logger.info('Program start')
 }
 
 exports.get = () => logger

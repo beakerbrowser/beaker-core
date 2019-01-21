@@ -1,3 +1,4 @@
+const ms = require('ms')
 const archivesDb = require('../dbs/archives')
 const datLibrary = require('./library')
 const {
@@ -35,6 +36,8 @@ exports.setup = function () {
  * @returns {Promise<CollectResult>}
  */
 const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
+  logger.info('Running GC')
+
   // clear any scheduled GC
   if (nextGCTimeout) {
     clearTimeout(nextGCTimeout)
@@ -72,6 +75,7 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
 
   // schedule the next GC
   schedule(DAT_GC_REGULAR_COLLECT_WAIT)
+  logger.debug(`Scheduling next run to happen in ${ms(DAT_GC_REGULAR_COLLECT_WAIT)}`)
 
   // return stats
   return {totalBytes, totalArchives: unusedArchives.length - skippedArchives, skippedArchives}

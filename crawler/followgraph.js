@@ -48,10 +48,10 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
-    logger.silly('Crawling follows', {url: archive.url, numChanges: changes.length, resetRequired})
+    logger.silly('Crawling follows', {details: {url: archive.url, numChanges: changes.length, resetRequired}})
     if (resetRequired) {
       // reset all data
-      logger.silly('Resetting dataset', {url: archive.url})
+      logger.debug('Resetting dataset', {details: {url: archive.url}})
       await db.run(`
         DELETE FROM crawl_followgraph WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -61,21 +61,21 @@ exports.crawlSite = async function (archive, crawlSource) {
     // did follows.json change?
     var change = changes.find(c => c.name === JSON_PATH)
     if (!change) {
-      logger.silly('No change detected to follows record, aborting', {url: archive.url})
+      logger.debug('No change detected to follows record', {details: {url: archive.url}})
       if (changes.length) {
         await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
       }
       return
     }
 
-    logger.silly('Change detected to follows record', {url: archive.url})
+    logger.debug('Change detected to follows record', {details: {url: archive.url}})
     emitProgressEvent(archive.url, 'crawl_followgraph', 0, 1)
 
     // read and validate
     try {
       var followsJson = await readFollowsFile(archive)
     } catch (err) {
-      logger.warn('Failed to read follows file', {url: archive.url, err})
+      logger.warn('Failed to read follows file', {details: {url: archive.url, err}})
       return
     }
 
@@ -84,7 +84,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     var newFollows = followsJson.urls
     var adds = _difference(newFollows, currentFollows)
     var removes = _difference(currentFollows, newFollows)
-    logger.silly(`Adding ${adds.length} follows and removing ${removes.length} follows`, {url: archive.url})
+    logger.silly(`Adding ${adds.length} follows and removing ${removes.length} follows`, {details: {url: archive.url}})
 
     // write updates
     for (let add of adds) {
@@ -96,7 +96,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         if (e.code === 'SQLITE_CONSTRAINT') {
           // uniqueness constraint probably failed, which means we got a duplicate somehow
           // dont worry about it
-          logger.warn('Attempted to insert duplicate followgraph record', {url: archive.url, add})
+          logger.warn('Attempted to insert duplicate followgraph record', {details: {url: archive.url, add}})
         } else {
           throw e
         }
@@ -115,7 +115,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
 
     // write checkpoint as success
-    logger.silly(`Finished crawling follows`, {url: archive.url})
+    logger.silly(`Finished crawling follows`, {details: {url: archive.url}})
     await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
     emitProgressEvent(archive.url, 'crawl_followgraph', 1, 1)
   })
@@ -357,7 +357,7 @@ async function updateFollowsFile (archive, updateFn) {
           urls: []
         }
       } else {
-        logger.warn('Failed to read follows file', {url: archive.url, err})
+        logger.warn('Failed to read follows file', {details: {url: archive.url, err}})
         throw err
       }
     }

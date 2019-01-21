@@ -27,7 +27,7 @@ exports.siteDescriptions = siteDescriptions
 const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
 
 exports.setup = async function () {
-  logger.verbose('Crawler initialized')
+  logger.info('Initialized crawler')
 }
 
 exports.watchSite = async function (archive) {
@@ -67,7 +67,7 @@ exports.unwatchSite = async function (url) {
 
 const crawlSite =
 exports.crawlSite = async function (archive) {
-  logger.silly('Crawling site', {url: archive.url})
+  logger.silly('Crawling site', {details: {url: archive.url}})
   crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
   try {
@@ -86,10 +86,9 @@ exports.crawlSite = async function (archive) {
       siteDescriptions.crawlSite(archive, crawlSource)
     ])
   } catch (err) {
-    logger.error('Failed to crawl site', {sourceUrl: archive.url, err: err.toString()})
+    logger.error('Failed to crawl site', {details: {url: archive.url, err: err.toString()}})
     crawlerEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
   } finally {
-    logger.silly('Finished crawling site', {url: archive.url})
     crawlerEvents.emit('crawl-finish', {sourceUrl: archive.url})
     release()
   }
@@ -121,7 +120,7 @@ exports.getCrawlStates = async function () {
 
 const resetSite =
 exports.resetSite = async function (url) {
-  logger.silly('Resetting site', {url})
+  logger.debug('Resetting site', {details: {url}})
   await db.run(`DELETE FROM crawl_sources WHERE url = ?`, [url])
 }
 

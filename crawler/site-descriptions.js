@@ -62,10 +62,10 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_site_descriptions', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
-    logger.silly('Crawling site descriptions', {url: archive.url, numChanges: changes.length, resetRequired})
+    logger.silly('Crawling site descriptions', {details: {url: archive.url, numChanges: changes.length, resetRequired}})
     if (resetRequired) {
       // reset all data
-      logger.silly('Resetting dataset', {url: archive.url})
+      logger.debug('Resetting dataset', {details: {url: archive.url}})
       await db.run(`
         DELETE FROM crawl_site_descriptions WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -74,7 +74,11 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // collect changed site descriptions
     var changedSiteDescriptions = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
-    logger.silly('Collected changed site-descriptions', {changedPosts: changedSiteDescriptions.map(p => p.name)})
+    if (changedSiteDescriptions.length > 0) {
+      logger.debug('Collected new/changed site-description files', {details: {url: archive.url, changedPosts: changedSiteDescriptions.map(p => p.name)}})
+    } else {
+      logger.debug('No new site-description files found', {details: {url: archive.url}})
+    }
     emitProgressEvent(archive.url, 'crawl_site_descriptions', 0, changedSiteDescriptions.length)
 
     // read and apply each post in order
@@ -100,7 +104,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         try {
           descString = await archive.pda.readFile(changedSiteDescription.name, 'utf8')
         } catch (err) {
-          logger.warn('Failed to read dat.json file, aborting', {url: archive.url, name: changedSiteDescription.name, err})
+          logger.warn('Failed to read dat.json file, aborting', {details: {url: archive.url, name: changedSiteDescription.name, err}})
           return // abort indexing
         }
 
@@ -110,7 +114,7 @@ exports.crawlSite = async function (archive, crawlSource) {
           desc = JSON.parse(descString)
           assert(typeof desc === 'object', 'File be an object')
         } catch (err) {
-          logger.warn('Failed to parse dat.json file, aborting', {url: archive.url, name: changedSiteDescription.name, err})
+          logger.warn('Failed to parse dat.json file, aborting', {details: {url: archive.url, name: changedSiteDescription.name, err}})
           continue // skip
         }
 
@@ -136,7 +140,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       }
 
       // checkpoint our progress
-      logger.silly(`Finished crawling site descriptions`, {url: archive.url})
+      logger.silly(`Finished crawling site descriptions`, {details: {url: archive.url}})
       await doCheckpoint('crawl_site_descriptions', TABLE_VERSION, crawlSource, changedSiteDescription.version)
       emitProgressEvent(archive.url, 'crawl_site_descriptions', ++progress, changedSiteDescription.length)
     }
@@ -264,8 +268,8 @@ exports.capture = async function (archive, subject) {
   // capture dat.json
   try {
     var datJson = JSON.parse(await subjectArchive.pda.readFile('/dat.json'))
-  } catch (e) {
-    logger.warn('Failed to read dat.json of subject archive', e)
+  } catch (err) {
+    logger.warn('Failed to read dat.json of subject archive', {details: {err}})
     throw new Error('Unabled to read subject dat.json')
   }
   await archive.pda.writeFile(`/data/known_sites/${hostname}/dat.json`, JSON.stringify(datJson))

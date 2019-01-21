@@ -54,10 +54,10 @@ exports.removeListener = events.removeListener.bind(events)
 exports.crawlSite = async function (archive, crawlSource) {
   return doCrawl(archive, crawlSource, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
-    logger.silly('Crawling posts', {url: archive.url, numChanges: changes.length, resetRequired})
+    logger.silly('Crawling posts', {details: {url: archive.url, numChanges: changes.length, resetRequired}})
     if (resetRequired) {
       // reset all data
-      logger.silly('Resetting dataset', {url: archive.url})
+      logger.debug('Resetting dataset', {details: {url: archive.url}})
       await db.run(`
         DELETE FROM crawl_posts WHERE crawlSourceId = ?
       `, [crawlSource.id])
@@ -66,7 +66,11 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // collect changed posts
     var changedPosts = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
-    logger.silly('Collected changed posts', {changedPosts: changedPosts.map(p => p.name)})
+    if (changedPosts.length) {
+      logger.debug('Collected new/changed post files', {details: {url: archive.url, changedPosts: changedPosts.map(p => p.name)}})
+    } else {
+      logger.debug('No new post-files found', {details: {url: archive.url}})
+    }
     emitProgressEvent(archive.url, 'crawl_posts', 0, changedPosts.length)
 
     // read and apply each post in order
@@ -88,7 +92,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         try {
           postString = await archive.pda.readFile(changedPost.name, 'utf8')
         } catch (err) {
-          logger.warn('Failed to read post file, aborting', {url: archive.url, name: changedPost.name, err})
+          logger.warn('Failed to read post file, aborting', {details: {url: archive.url, name: changedPost.name, err}})
           return // abort indexing
         }
 
@@ -102,7 +106,7 @@ exports.crawlSite = async function (archive, crawlSource) {
           assert(typeof post.createdAt === 'string', 'JSON createdAt must be a date-time')
           assert(!isNaN(Number(new Date(post.createdAt))), 'JSON createdAt must be a date-time')
         } catch (err) {
-          logger.warn('Failed to parse post file, skipping', {url: archive.url, name: changedPost.name, err})
+          logger.warn('Failed to parse post file, skipping', {details: {url: archive.url, name: changedPost.name, err}})
           continue // skip
         }
 
@@ -130,7 +134,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       }
 
       // checkpoint our progress
-      logger.silly(`Finished crawling posts`, {url: archive.url})
+      logger.silly(`Finished crawling posts`, {details: {url: archive.url}})
       await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
       emitProgressEvent(archive.url, 'crawl_posts', ++progress, changedPosts.length)
     }

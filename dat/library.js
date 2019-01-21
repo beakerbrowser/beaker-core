@@ -2,11 +2,11 @@ const emitStream = require('emit-stream')
 const EventEmitter = require('events')
 const datEncoding = require('dat-encoding')
 const pify = require('pify')
-const pda = require('pauls-dat-api')
 const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
 const _debounce = require('lodash.debounce')
 const mkdirp = require('mkdirp')
+const logger = require('../logger').child({category: 'dat', subcategory: 'library'})
 
 // dbs
 const siteData = require('../dbs/sitedata')
@@ -141,6 +141,7 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
 
   // start the GC manager
   datGC.setup()
+  logger.info('Initialized dat library')
 }
 
 /**

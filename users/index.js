@@ -57,7 +57,7 @@ exports.setup = async function () {
     user.archive = null
     user.isDefault = Boolean(user.isDefault)
     user.createdAt = new Date(user.createdAt)
-    logger.verbose('Loading user', user)
+    logger.info('Loading user', {details: user})
 
     // fetch the user archive
     try {
@@ -66,7 +66,7 @@ exports.setup = async function () {
       /* dont await */crawler.watchSite(user.archive)
       events.emit('load-user', user)
     } catch (err) {
-      logger.error('Failed to load user', {user, err})
+      logger.error('Failed to load user', {details: {user, err}})
     }
   })
 }
@@ -86,6 +86,7 @@ async function tick () {
 
     // assemble the next set of crawl targets
     var crawlTargets = await selectNextCrawlTargets(user)
+    logger.verbose(`Selected ${crawlTargets.length} crawl targets`, {details: {urls: crawlTargets}})
 
     // trigger the crawls on each
     var activeCrawls = crawlTargets.map(async (crawlTarget) => {
@@ -109,7 +110,7 @@ async function tick () {
     // await all crawls
     await Promise.all(activeCrawls)
   } catch (e) {
-    logger.error('Crawler tick failed', e)
+    logger.error('Crawler tick failed', {details: e})
   }
 
   // queue next tick
@@ -165,7 +166,7 @@ exports.add = async function (url) {
     isDefault: users.length === 0,
     createdAt: Date.now()
   }
-  logger.verbose('Adding user', user)
+  logger.verbose('Adding user', {details: user})
   await db.run(
     `INSERT INTO users (url, isDefault, createdAt) VALUES (?, ?, ?)`,
     [user.url, Number(user.isDefault), user.createdAt]
@@ -189,7 +190,7 @@ exports.remove = async function (url) {
   if (!user) return
 
   // remove the user
-  logger.verbose('Removing user', user)
+  logger.verbose('Removing user', {details: user})
   users.splice(users.indexOf(user), 1)
   await db.run(`DELETE FROM users WHERE url = ?`, [user.url])
   /* dont await */crawler.unwatchSite(user.archive)
