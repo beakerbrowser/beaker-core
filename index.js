@@ -43,7 +43,7 @@ module.exports = {
     }
 
     // initiate log
-    logger.setup(join(opts.userDataPath, 'beaker.log'))
+    await logger.setup(join(opts.userDataPath, 'beaker.log'))
     debugLogger.setup(join(opts.userDataPath, 'debug.log'))
 
     // setup databases

@@ -83,7 +83,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         `, [crawlSource.id, changedPost.name])
         events.emit('post-removed', archive.url)
       } else {
-        // read 
+        // read
         let postString
         try {
           postString = await archive.pda.readFile(changedPost.name, 'utf8')
@@ -91,7 +91,7 @@ exports.crawlSite = async function (archive, crawlSource) {
           logger.warn('Failed to read post file, aborting', {url: archive.url, name: changedPost.name, err})
           return // abort indexing
         }
-        
+
         // parse and validate
         let post
         try {

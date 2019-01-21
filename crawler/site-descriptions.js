@@ -95,7 +95,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         `, [crawlSource.id, url])
         events.emit('description-removed', archive.url)
       } else {
-        // read 
+        // read
         let descString
         try {
           descString = await archive.pda.readFile(changedSiteDescription.name, 'utf8')
@@ -103,7 +103,7 @@ exports.crawlSite = async function (archive, crawlSource) {
           logger.warn('Failed to read dat.json file, aborting', {url: archive.url, name: changedSiteDescription.name, err})
           return // abort indexing
         }
-        
+
         // parse and validate
         let desc
         try {
