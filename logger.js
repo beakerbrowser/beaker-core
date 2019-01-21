@@ -96,7 +96,7 @@ exports.WEBAPI = {
   stream: opts => {
     opts = opts || {}
     var s2 = new Readable({
-      read() {},
+      read () {},
       objectMode: true
     })
     var s1 = stream(opts)
@@ -159,8 +159,8 @@ async function retireLogFile (num) {
 }
 
 /**
- * @param {any} readStream 
- * @param {LogQueryOpts} opts 
+ * @param {any} readStream
+ * @param {LogQueryOpts} opts
  * @returns {any}
  */
 function readPipeline (readStream, opts, nosplit = false) {
