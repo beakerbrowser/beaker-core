@@ -1,6 +1,7 @@
 const winston = require('winston')
 const fs = require('fs')
 const jetpack = require('fs-jetpack')
+const fsReverse = require('fs-reverse')
 const concat = require('concat-stream')
 const pump = require('pump')
 const split2 = require('split2')
@@ -13,8 +14,9 @@ const tailFile = require('./lib/tail-file')
 // =
 
 /**
- * @typedef {Object} LogStreamOpts
+ * @typedef {Object} LogQueryOpts
  * @prop {number} [logFile = 0] - Which logfile to read
+ * @prop {string} [sort = 'asc'] - Sort direction
  * @prop {number} [since] - Start time
  * @prop {number} [until] - End time
  * @prop {number} [offset] - Event-slice offset
@@ -62,15 +64,17 @@ exports.child = (arg) => logger.child(arg)
 
 /**
  * Query a slice of the log.
- * @param {LogStreamOpts} [opts]
+ * @param {LogQueryOpts} [opts]
  * @returns {Promise<Object[]>}
  */
 const query = exports.query = async (opts = {}) => {
   return new Promise((resolve, reject) => {
     opts.limit = opts.limit || 100
-    var readStream = fs.createReadStream(getLogPath(opts.logFile || 0), {encoding: 'utf8'})
+    var readFn = opts.sort === 'desc' ? fsReverse : fs.createReadStream
+    var readStream = readFn(getLogPath(opts.logFile || 0), {encoding: 'utf8'})
+    const nosplit = (readFn === fsReverse) // fs-reverse splits for us
     pump(
-      readPipeline(readStream, opts),
+      readPipeline(readStream, opts, nosplit),
       concat({encoding: 'object'}, res => resolve(/** @type any */(res))),
       reject
     )
@@ -79,7 +83,7 @@ const query = exports.query = async (opts = {}) => {
 
 /**
  * Create a read stream of the log.
- * @param {LogStreamOpts} [opts]
+ * @param {LogQueryOpts} [opts]
  * @returns {NodeJS.ReadStream}
  */
 const stream = exports.stream = (opts = {}) => {
@@ -156,19 +160,24 @@ async function retireLogFile (num) {
 
 /**
  * @param {any} readStream 
- * @param {LogStreamOpts} opts 
+ * @param {LogQueryOpts} opts 
  * @returns {any}
  */
-function readPipeline (readStream, opts) {
+function readPipeline (readStream, opts, nosplit = false) {
   var beforeOffset = 0
   var beforeLimit = 0
   var offset = opts.offset || 0
   var limit = opts.limit
   var filter = massageFilters(opts.filter)
-  return pump(
+  return pump([
     readStream,
-    split2(),
+    nosplit ? undefined : split2(),
     through2.obj(function (row, enc, cb) {
+      if (!row || !row.trim()) {
+        // skip empty
+        return cb()
+      }
+
       // offset filter
       if (beforeOffset < offset) {
         beforeOffset++
@@ -195,5 +204,5 @@ function readPipeline (readStream, opts) {
       if (limit && ++beforeLimit === limit) readStream.destroy()
       cb()
     })
-  )
+  ].filter(Boolean))
 }
