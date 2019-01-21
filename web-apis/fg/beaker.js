@@ -35,7 +35,7 @@ exports.setup = function (rpc) {
 
     // beaker.logger
     beaker.logger = {}
-    beaker.logger.stream = loggerRPC.stream
+    beaker.logger.stream = (opts) => fromEventStream(loggerRPC.stream(opts))
     beaker.logger.query = loggerRPC.query
 
     // beaker.archives

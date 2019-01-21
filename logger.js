@@ -5,7 +5,9 @@ const concat = require('concat-stream')
 const pump = require('pump')
 const split2 = require('split2')
 const through2 = require('through2')
+const {Readable} = require('stream')
 const {combine, timestamp, json, simple, colorize, padLevels} = winston.format
+const tailFile = require('./lib/tail-file')
 
 // typedefs
 // =
@@ -65,42 +67,10 @@ exports.child = (arg) => logger.child(arg)
  */
 const query = exports.query = async (opts = {}) => {
   return new Promise((resolve, reject) => {
-    var beforeOffset = 0
-    var beforeLimit = 0
-    var offset = opts.offset || 0
-    var limit = opts.limit || 100
-    var filter = massageFilters(opts.filter)
+    opts.limit = opts.limit || 100
     var readStream = fs.createReadStream(getLogPath(opts.logFile || 0), {encoding: 'utf8'})
-    return pump(
-      readStream,
-      split2(),
-      through2.obj(function (row, enc, cb) {
-        // offset filter
-        if (beforeOffset < offset) {
-          beforeOffset++
-          return cb()
-        }
-
-        // parse
-        row = JSON.parse(row)
-
-        // timestamp range filter
-        var ts = (opts.since || opts.until) ? (new Date(row.timestamp)).getTime() : null
-        if ('since' in opts && ts < opts.since) return cb()
-        if ('until' in opts && ts > opts.until) return cb()
-
-        // general string filters
-        if (filter) {
-          for (let k in filter) {
-            if (!filter[k].includes(row[k])) return cb()
-          }
-        }
-
-        // emit
-        if (beforeLimit < limit) this.push(row)
-        if (++beforeLimit === limit) readStream.destroy()
-        cb()
-      }),
+    pump(
+      readPipeline(readStream, opts),
       concat({encoding: 'object'}, res => resolve(/** @type any */(res))),
       reject
     )
@@ -113,25 +83,32 @@ const query = exports.query = async (opts = {}) => {
  * @returns {NodeJS.ReadStream}
  */
 const stream = exports.stream = (opts = {}) => {
-  var n = 0
-  var filter = massageFilters(opts.filter)
-  var logStream = logger.stream({start: opts.offset || undefined})
-  return logStream.pipe(through2.obj(function (row, enc, cb) {
-      var ts = (opts.since || opts.until) ? (new Date(row.timestamp)).getTime() : null
-      if ('since' in opts && ts < opts.since) return cb()
-      if ('until' in opts && ts > opts.until) return cb()
-      if (filter) {
-        for (let k in filter) {
-          if (!filter[k].includes(row[k])) return cb()
-        }
-      }
-      this.push(row)
-      if (opts.limit && ++n >= opts.limit) logStream.destroy()
-      cb()
-    }))
+  var readStream = tailFile(getLogPath(opts.logFile || 0))
+  return readPipeline(readStream, opts)
 }
 
-exports.WEBAPI = {stream, query}
+exports.WEBAPI = {
+  query,
+  stream: opts => {
+    opts = opts || {}
+    var s2 = new Readable({
+      read() {},
+      objectMode: true
+    })
+    var s1 = stream(opts)
+    // convert to the emit-stream form
+    s1.on('data', v => {
+      s2.push(['data', v])
+    })
+    s1.on('error', v => s2.push(['error', v]))
+    s1.on('close', v => {
+      s2.push(['close', v])
+      s2.destroy()
+    })
+    s2.on('close', () => s1.destroy())
+    return s2
+  }
+}
 
 // internal methods
 // =
@@ -175,4 +152,48 @@ async function retireLogFile (num) {
   } catch (err) {
     console.error('retireLogFile failed', num, err)
   }
+}
+
+/**
+ * @param {any} readStream 
+ * @param {LogStreamOpts} opts 
+ * @returns {any}
+ */
+function readPipeline (readStream, opts) {
+  var beforeOffset = 0
+  var beforeLimit = 0
+  var offset = opts.offset || 0
+  var limit = opts.limit
+  var filter = massageFilters(opts.filter)
+  return pump(
+    readStream,
+    split2(),
+    through2.obj(function (row, enc, cb) {
+      // offset filter
+      if (beforeOffset < offset) {
+        beforeOffset++
+        return cb()
+      }
+
+      // parse
+      row = JSON.parse(row)
+
+      // timestamp range filter
+      var ts = (opts.since || opts.until) ? (new Date(row.timestamp)).getTime() : null
+      if ('since' in opts && ts < opts.since) return cb()
+      if ('until' in opts && ts > opts.until) return cb()
+
+      // general string filters
+      if (filter) {
+        for (let k in filter) {
+          if (!filter[k].includes(row[k])) return cb()
+        }
+      }
+
+      // emit
+      if (!limit || beforeLimit < limit) this.push(row)
+      if (limit && ++beforeLimit === limit) readStream.destroy()
+      cb()
+    })
+  )
 }
