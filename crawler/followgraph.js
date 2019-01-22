@@ -68,7 +68,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       return
     }
 
-    logger.debug('Change detected to follows record', {details: {url: archive.url}})
+    logger.verbose('Change detected to follows record', {details: {url: archive.url}})
     emitProgressEvent(archive.url, 'crawl_followgraph', 0, 1)
 
     // read and validate

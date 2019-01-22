@@ -6,7 +6,8 @@ const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
 const _debounce = require('lodash.debounce')
 const mkdirp = require('mkdirp')
-const logger = require('../logger').child({category: 'dat', subcategory: 'library'})
+const baseLogger = require('../logger').get()
+const logger = baseLogger.child({category: 'dat', subcategory: 'library'})
 
 // dbs
 const siteData = require('../dbs/sitedata')
@@ -96,6 +97,12 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
   daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {proc: datDaemonProcess, timeout: false})
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
   daemonEvents = emitStream(daemon.createEventStream())
+
+  // pipe the log
+  var daemonLogEvents = emitStream(daemon.createLogStream())
+  daemonLogEvents.on('log', ({level, message, etc}) => {
+    baseLogger.log(level, message, etc)
+  })
 
   // wire up event handlers
   archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {

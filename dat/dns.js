@@ -1,12 +1,18 @@
 const {InvalidDomainName} = require('beaker-error-constants')
 const sitedataDb = require('../dbs/sitedata')
 const {DAT_HASH_REGEX} = require('../lib/const')
+const logger = require('../logger').child({category: 'dat', subcategory: 'dns'})
 
 // instantate a dns cache and export it
 const datDns = require('dat-dns')({
   persistentCache: {read, write}
 })
 module.exports = datDns
+
+// hook up log events
+datDns.on('resolved', details => logger.debug('Resolved', {details}))
+datDns.on('failed', details => logger.debug('Failed lookup', {details}))
+datDns.on('cache-flushed', details => logger.debug('Cache flushed'))
 
 // wrap resolveName() with a better error
 const resolveName = datDns.resolveName

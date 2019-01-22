@@ -72,7 +72,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       return
     }
 
-    logger.debug('Change detected to published-sites record', {details: {url: archive.url}})
+    logger.verbose('Change detected to published-sites record', {details: {url: archive.url}})
     emitProgressEvent(archive.url, 'crawl_published_sites', 0, 1)
 
     // read and validate

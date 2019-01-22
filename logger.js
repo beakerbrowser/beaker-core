@@ -51,7 +51,7 @@ exports.setup = async function (p) {
 
   // TODO if debug (pick an env var for this)
   logger.add(new winston.transports.Console({
-    level: 'debug',
+    level: 'verbose',
     format: combine(colorize(), padLevels(), simple())
   }))
 

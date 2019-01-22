@@ -45,7 +45,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
         messageId: details.message.id,
         message: renderDNSTraffic(details.message),
         peer: details.peer ? `${details.peer.address || details.peer.host}:${details.peer.port}` : undefined
-      })
+      }, 'silly')
     })
   })
   archiveSwarm.on('peer', (peer) => {
@@ -54,7 +54,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
     log(datEncoding.toStr(archive.key), {
       event: 'peer-found',
       peer: `${peer.address || peer.host}:${peer.port}`
-    })
+    }, 'silly')
   })
   archiveSwarm.on('peer-banned', (peer, details) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -63,7 +63,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       event: 'peer-banned',
       peer: `${peer.address || peer.host}:${peer.port}`,
       message: peerBannedReason(details.reason)
-    })
+    }, 'info')
   })
   archiveSwarm.on('peer-rejected', (peer, details) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -72,7 +72,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       event: 'peer-rejected',
       peer: `${peer.address || peer.host}:${peer.port}`,
       message: peerRejectedReason(details.reason)
-    })
+    }, 'silly')
   })
   archiveSwarm.on('drop', (peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -81,7 +81,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       event: 'peer-dropped',
       peer: `${peer.address || peer.host}:${peer.port}`,
       message: 'Too many failed connection attempts'
-    })
+    }, 'silly')
   })
   archiveSwarm.on('connecting', (peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -89,7 +89,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
     log(datEncoding.toStr(archive.key), {
       event: 'connecting',
       peer: `${peer.address || peer.host}:${peer.port}`
-    })
+    }, 'debug')
   })
   archiveSwarm.on('connect-failed', (peer, details) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -98,7 +98,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       event: 'connect-failed',
       peer: `${peer.address || peer.host}:${peer.port}`,
       message: connectFailedMessage(details)
-    })
+    }, 'debug')
   })
   archiveSwarm.on('handshaking', (conn, peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -109,7 +109,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       connectionId: conn._debugId,
       connectionType: peer.type,
       ts: 0
-    })
+    }, 'silly')
   })
   archiveSwarm.on('handshake-timeout', (conn, peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -120,7 +120,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       connectionId: conn._debugId,
       connectionType: peer.type,
       ts: Date.now() - conn._debugStartTime
-    })
+    }, 'silly')
   })
   archiveSwarm.on('connection', (conn, peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -132,7 +132,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       connectionType: peer.type,
       ts: Date.now() - conn._debugStartTime,
       message: 'Starting replication'
-    })
+    }, 'debug')
   })
   archiveSwarm.on('redundant-connection', (conn, peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -143,7 +143,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       connectionId: conn._debugId,
       connectionType: peer.type,
       ts: Date.now() - conn._debugStartTime
-    })
+    }, 'silly')
   })
   archiveSwarm.on('connection-closed', (conn, peer) => {
     let archive = archivesByDKey[findFullDiscoveryKey(archivesByDKey, peer.channel)]
@@ -154,7 +154,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
       connectionId: conn._debugId,
       connectionType: peer.type,
       ts: Date.now() - conn._debugStartTime
-    })
+    }, 'debug')
   })
 }
 

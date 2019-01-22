@@ -4,6 +4,7 @@
  * @typedef {Object} DatDaemon
  * @prop {function(DatDaemonSetupOpts): Promise<void>} setup
  * @prop {function(DatDaemonThrottleOpts): Promise<void>} setBandwidthThrottle
+ * @prop {function(): NodeJS.ReadableStream} createLogStream
  * @prop {function(): NodeJS.ReadableStream} createEventStream
  * @prop {function(): NodeJS.ReadableStream} createDebugStream
  * @prop {function(string): Promise<string>} getDebugLog
@@ -102,6 +103,7 @@ module.exports = {
 
   // event streams & debug
 
+  createLogStream: 'readable',
   createEventStream: 'readable',
   createDebugStream: 'readable',
   getDebugLog: 'promise',

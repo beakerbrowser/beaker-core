@@ -67,7 +67,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     // collect changed posts
     var changedPosts = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
     if (changedPosts.length) {
-      logger.debug('Collected new/changed post files', {details: {url: archive.url, changedPosts: changedPosts.map(p => p.name)}})
+      logger.verbose('Collected new/changed post files', {details: {url: archive.url, changedPosts: changedPosts.map(p => p.name)}})
     } else {
       logger.debug('No new post-files found', {details: {url: archive.url}})
     }

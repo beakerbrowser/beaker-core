@@ -86,7 +86,7 @@ async function tick () {
 
     // assemble the next set of crawl targets
     var crawlTargets = await selectNextCrawlTargets(user)
-    logger.verbose(`Selected ${crawlTargets.length} crawl targets`, {details: {urls: crawlTargets}})
+    logger.verbose(`Indexing ${crawlTargets.length} sites`, {details: {urls: crawlTargets}})
 
     // trigger the crawls on each
     var activeCrawls = crawlTargets.map(async (crawlTarget) => {
