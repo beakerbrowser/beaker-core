@@ -677,6 +677,6 @@ function log (key, data, logLevel = false) {
   }
   if (logLevel) {
     let message = data.event + (data.message ? `: ${data.message}` : '')
-    logger.log(logLevel, message, {details: {peer: data.peer}})
+    logger.log(logLevel, message, {details: {key, peer: data.peer}})
   }
 }

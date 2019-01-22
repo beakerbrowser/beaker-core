@@ -45,7 +45,7 @@ const addArchiveSwarmLogging = exports.addArchiveSwarmLogging = function ({archi
         messageId: details.message.id,
         message: renderDNSTraffic(details.message),
         peer: details.peer ? `${details.peer.address || details.peer.host}:${details.peer.port}` : undefined
-      }, 'silly')
+      })
     })
   })
   archiveSwarm.on('peer', (peer) => {
