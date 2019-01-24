@@ -57,24 +57,27 @@ CREATE TABLE crawl_posts (
   pathname TEXT NOT NULL,
   crawledAt INTEGER,
 
-  content TEXT,
+  url TEXT,
+  title TEXT,
+  description TEXT,
+  type TEXT, -- comma separated strings
   createdAt INTEGER,
   updatedAt INTEGER,
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
-CREATE VIRTUAL TABLE crawl_posts_fts_index USING fts5(content, content='crawl_posts');
+CREATE VIRTUAL TABLE crawl_posts_fts_index USING fts5(title, description, content='crawl_posts');
 
 -- triggers to keep crawl_posts_fts_index updated
 CREATE TRIGGER crawl_posts_ai AFTER INSERT ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(rowid, content) VALUES (new.rowid, new.content);
+  INSERT INTO crawl_posts_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 CREATE TRIGGER crawl_posts_ad AFTER DELETE ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, content) VALUES('delete', old.rowid, old.content);
+  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
 END;
 CREATE TRIGGER crawl_posts_au AFTER UPDATE ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, content) VALUES('delete', old.rowid, old.content);
-  INSERT INTO crawl_posts_fts_index(rowid, content) VALUES (new.rowid, new.content);
+  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_posts_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 
 -- crawled follows

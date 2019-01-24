@@ -2,12 +2,14 @@ const assert = require('assert')
 const _difference = require('lodash.difference')
 const Events = require('events')
 const {URL} = require('url')
+const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'followgraph'})
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
+const followsSchema = require('./json-schemas/follows')
 
 // constants
 // =
@@ -28,7 +30,9 @@ const JSON_PATH = '/data/follows.json'
 // globals
 // =
 
-var events = new Events()
+const events = new Events()
+const ajv = (new Ajv())
+const validateFollows = ajv.compile(followsSchema)
 
 // exported api
 // =
@@ -331,10 +335,8 @@ async function readFollowsFile (archive) {
     throw e
   }
   followsJson = JSON.parse(followsJson)
-  assert(typeof followsJson === 'object', 'File be an object')
-  assert(followsJson.type === JSON_TYPE, 'JSON type must be unwalled.garden/follows')
-  assert(Array.isArray(followsJson.urls), 'JSON .urls must be an array of strings')
-  followsJson.urls = followsJson.urls.filter(v => typeof v === 'string').map(toOrigin)
+  var valid = validateFollows(followsJson)
+  if (!valid) throw ajv.errorsText(validateFollows.errors)
   return followsJson
 }
 

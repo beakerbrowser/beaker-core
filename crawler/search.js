@@ -42,13 +42,10 @@ const BUILTIN_PAGES = [
  *
  * @typedef {Object} SearchResults
  * @prop {number} highlightNonce - A number used to create perimeters around text that should be highlighted.
- * @prop {(null|PeopleSearchResult[])} people
- * @prop {(null|PostSearchResult[])} posts
- * @prop {(null|PageSearchResult[])} pages
- * @prop {(null|PageSearchResult[])} images
- * @prop {(null|PageSearchResult[])} files
+ * @prop {Array<UserSearchResult|SiteSearchResult|PostSearchResult>} results
  *
- * @typedef {Object} PeopleSearchResult
+ * @typedef {Object} UserSearchResult
+ * @prop {string} resultType
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
@@ -59,13 +56,20 @@ const BUILTIN_PAGES = [
  * @prop {string} author.url
  *
  * @typedef {Object} PostSearchResult
+ * @prop {string} resultType
  * @prop {string} url
  * @prop {SiteDescription} author
- * @prop {string} content
+ * @prop {Object} content
+ * @prop {string} content.url
+ * @prop {string} content.title
+ * @prop {string} content.description
+ * @prop {Array<string>} content.type
+ * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
  *
- * @typedef {Object} PageSearchResult
+ * @typedef {Object} SiteSearchResult
+ * @prop {string} resultType
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
@@ -133,12 +137,7 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {string} opts.user - The current user's URL.
  * @param {string} [opts.query] - The search query.
  * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included?
- * @param {Object} [opts.types] - Content types to query. Defaults to all.
- * @param {boolean} [opts.types.people]
- * @param {boolean} [opts.types.posts]
- * @param {boolean} [opts.types.pages]
- * @param {boolean} [opts.types.images]
- * @param {boolean} [opts.types.files]
+ * @param {string} [opts.type] - Content type to query. Defaults to all except users.
  * @param {number} [opts.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.offset]
  * @param {number} [opts.limit = 20]
@@ -151,22 +150,10 @@ exports.listSearchResults = async function (opts) {
 
   var searchResults = {
     highlightNonce,
-    people: null,
-    posts: null,
-    pages: null,
-    images: null,
-    files: null
+    results: []
   }
-  var {user, query, hops, types, since, offset, limit} = opts
-  if (!types || typeof types !== 'object') {
-    types = {}
-    // default to all
-    for (var k in searchResults) {
-      if (k !== 'highlightNonce') {
-        types[k] = true
-      }
-    }
-  }
+  var {user, query, hops, type, since, offset, limit} = opts
+  type = type || 'all'
   since = since || 0
   offset = offset || 0
   limit = limit || 20
@@ -202,14 +189,17 @@ exports.listSearchResults = async function (opts) {
   }
 
   // run queries
-  if (types.people) {
+  if (type === 'all' || type === 'user') {
+    // FOLLOWS
+    let rows
     if (query) {
-      searchResults.people = await db.all(`
+      rows = await db.all(`
         SELECT
             desc.url AS url,
             descSrc.url AS authorUrl,
             SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-            SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description
+            SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
+            desc.crawledAt
           FROM crawl_site_descriptions_fts_index desc_fts
           INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
           LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.url
@@ -220,43 +210,54 @@ exports.listSearchResults = async function (opts) {
               fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
               OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
             )
-          ORDER BY rank
+            AND desc.crawledAt >= ?
+          ORDER BY desc.crawledAt
           LIMIT ?
           OFFSET ?;
-      `, [query, user, userCrawlSourceId, limit, offset])
+      `, [query, user, userCrawlSourceId, since, limit, offset])
     } else {
-      searchResults.people = await db.all(`
-        SELECT desc.url AS url, desc.title, desc.description, descSrc.url AS authorUrl
+      rows = await db.all(`
+        SELECT desc.url AS url, desc.title, desc.description, descSrc.url AS authorUrl, desc.crawledAt
           FROM crawl_site_descriptions desc
           LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.url
           INNER JOIN crawl_sources descSrc ON desc.crawlSourceId = descSrc.id
-          WHERE (
-            fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
-            OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
-          )
-          ORDER BY desc.title
+          WHERE 
+            (
+              fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
+              OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
+            )
+            AND desc.crawledAt >= ?
+          ORDER BY desc.crawledAt
           LIMIT ?
           OFFSET ?;
-      `, [user, userCrawlSourceId, limit, offset])
+      `, [user, userCrawlSourceId, since, limit, offset])
     }
-    searchResults.people = _uniqWith(searchResults.people, (a, b) => a.url === b.url) // remove duplicates
-    await Promise.all(searchResults.people.map(async (p) => {
+    rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
+    await Promise.all(rows.map(async (p) => {
       // fetch additional info
       p.followedBy = await followgraph.listFollowers(p.url, {includeDesc: true})
       p.followsUser = await followgraph.isAFollowingB(p.url, user)
 
       // massage attrs
+      p.resultType = 'user'
       p.thumbUrl = getSiteDescriptionThumbnailUrl(p.authorUrl, p.url)
       p.author = {url: p.authorUrl}
       delete p.authorUrl
     }))
+    searchResults.results = searchResults.results.concat(rows)
   }
-  if (types.posts) {
+  {
+    // POSTS
+    let rows
     if (query) {
-      searchResults.posts = await db.all(`
+      rows = await db.all(`
         SELECT
-            SNIPPET(crawl_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS content,
+            post.url,
+            SNIPPET(crawl_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
+            SNIPPET(crawl_posts_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
+            post.type,
             post.pathname,
+            post.crawledAt,
             post.createdAt,
             post.updatedAt,
             postSrc.url AS authorUrl
@@ -267,96 +268,113 @@ exports.listSearchResults = async function (opts) {
           WHERE
             crawl_posts_fts_index MATCH ?
             AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR post.crawlSourceId = ?)
-            AND post.createdAt >= ?
-          ORDER BY rank
+            AND post.crawledAt >= ?
+          ORDER BY post.crawledAt
           LIMIT ?
           OFFSET ?;
       `, [query, userCrawlSourceId, since, limit, offset])
     } else {
-      searchResults.posts = await db.all(`
-        SELECT post.content, post.pathname, post.createdAt, post.updatedAt, postSrc.url AS authorUrl
+      rows = await db.all(`
+        SELECT
+            post.url,
+            post.title,
+            post.description,
+            post.type,
+            post.pathname,
+            post.crawledAt,
+            post.createdAt,
+            post.updatedAt,
+            postSrc.url AS authorUrl
           FROM crawl_posts post
           INNER JOIN crawl_sources postSrc ON post.crawlSourceId = postSrc.id
           LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = postSrc.url 
           WHERE
             (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR post.crawlSourceId = ?)
-            AND post.createdAt >= ?
-          ORDER BY post.createdAt DESC
+            AND post.crawledAt >= ?
+          ORDER BY post.crawledAt DESC
           LIMIT ?
           OFFSET ?;
       `, [userCrawlSourceId, since, limit, offset])
     }
-    await Promise.all(searchResults.posts.map(async (p) => {
+    searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (p) => {
       // fetch additional info
-      p.author = await siteDescriptions.getBest({subject: p.authorUrl})
+      var author = await siteDescriptions.getBest({subject: p.authorUrl})
 
       // massage attrs
-      p.url = p.authorUrl + p.pathname
-      delete p.authorUrl
-      delete p.pathname
-    }))
+      return {
+        resultType: 'post',
+        url: p.authorUrl + p.pathname,
+        author,
+        content: {
+          url: p.url,
+          title: p.title,
+          description: p.description,
+          type: p.type.split(',')
+        },
+        crawledAt: p.crawledAt,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt
+      }
+    })))
   }
-  if (types.pages) {
-    searchResults.pages = await searchPublishedSites('web-page', {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds})
+  {
+    // SITES
+    let rows
+    if (query) {
+      rows = await db.all(`
+        SELECT
+            pub.url AS url,
+            pubSrc.url AS authorUrl,
+            SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
+            SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
+            desc.crawledAt
+          FROM crawl_site_descriptions_fts_index desc_fts
+          INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
+          INNER JOIN crawl_published_sites pub ON pub.url = desc.url
+          INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
+          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
+          WHERE
+            crawl_site_descriptions_fts_index MATCH ?
+            ${''/* TODO AND (',' || desc.type || ',') LIKE ?*/}
+            AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
+            AND desc.crawledAt >= ?
+          ORDER BY desc.crawledAt
+          LIMIT ?
+          OFFSET ?;
+      `, [query, /*TODO `%,${type},%`,*/ userCrawlSourceId, since, limit, offset])
+    } else {
+      rows = await db.all(`
+        SELECT pub.url AS url, pubSrc.url AS authorUrl, desc.crawledAt
+          FROM crawl_published_sites pub
+          INNER JOIN crawl_site_descriptions desc ON desc.url = pub.url
+          INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
+          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
+          WHERE 
+            ${''/* TODO (',' || desc.type || ',') LIKE ?
+            AND*/} (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
+            AND desc.crawledAt >= ?
+          ORDER BY pub.crawledAt
+          LIMIT ?
+          OFFSET ?;
+      `, [/* TODO `%,${type},%`,*/ userCrawlSourceId, since, limit, offset])
+    }
+    rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
+    searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (row) => {
+      // fetch full records
+      var result = /**@type SiteSearchResult*/(await siteDescriptions.getBest({subject: row.url, author: row.authorUrl}))
+      result.resultType = 'site'
+      result.author = await siteDescriptions.getBest({subject: row.authorUrl})
+
+      // overwrite title and description so that highlighting can be included
+      if (row.title) result.title = row.title
+      if (row.description) result.description = row.description
+      return result
+    })))
   }
-  if (types.images) {
-    searchResults.images = await searchPublishedSites('image-collection', {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds})
-  }
-  if (types.files) {
-    searchResults.files = await searchPublishedSites('file-shares', {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds})
-  }
+
+  // sort and apply limit again
+  searchResults.results.sort((a, b) => b.crawledAt - a.crawledAt)
+  searchResults.results = searchResults.results.slice(0, limit)
 
   return searchResults
-}
-
-// internal methods
-// =
-
-async function searchPublishedSites (type, {query, limit, offset, startHighlight, endHighlight, userCrawlSourceId, crawlSourceIds}) {
-  var rows
-  if (query) {
-    rows = await db.all(`
-      SELECT
-          pub.url AS url,
-          pubSrc.url AS authorUrl,
-          SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-          SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description
-        FROM crawl_site_descriptions_fts_index desc_fts
-        INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
-        INNER JOIN crawl_published_sites pub ON pub.url = desc.url
-        INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
-        LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
-        WHERE
-          crawl_site_descriptions_fts_index MATCH ?
-          AND (',' || desc.type || ',') LIKE ?
-          AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
-        ORDER BY rank
-        LIMIT ?
-        OFFSET ?;
-    `, [query, `%,${type},%`, userCrawlSourceId, limit, offset])
-  } else {
-    rows = await db.all(`
-      SELECT pub.url AS url, pubSrc.url AS authorUrl
-        FROM crawl_published_sites pub
-        INNER JOIN crawl_site_descriptions desc ON desc.url = pub.url
-        INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
-        LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
-        WHERE 
-          (',' || desc.type || ',') LIKE ?
-          AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
-        ORDER BY pub.crawledAt
-        LIMIT ?
-        OFFSET ?;
-    `, [`%,${type},%`, userCrawlSourceId, limit, offset])
-  }
-  rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
-  return Promise.all(rows.map(async (row) => {
-    // fetch full records
-    var result = /**@type PageSearchResult*/(await siteDescriptions.getBest({subject: row.url, author: row.authorUrl}))
-    result.author = await siteDescriptions.getBest({subject: row.authorUrl})
-    // overwrite title and description so that highlighting can be included
-    if (row.title) result.title = row.title
-    if (row.description) result.description = row.description
-    return result
-  }))
 }

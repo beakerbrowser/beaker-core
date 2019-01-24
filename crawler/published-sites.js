@@ -2,12 +2,14 @@ const assert = require('assert')
 const _difference = require('lodash.difference')
 const Events = require('events')
 const {URL} = require('url')
+const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'published-sites'})
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
+const publishedSitesSchema = require('./json-schemas/published-sites')
 
 // constants
 // =
@@ -32,7 +34,9 @@ const JSON_PATH = '/data/sites.json'
 // globals
 // =
 
-var events = new Events()
+const events = new Events()
+const ajv = (new Ajv())
+const validatePublishedSites = ajv.compile(publishedSitesSchema)
 
 // exported api
 // =
@@ -255,10 +259,8 @@ async function readSitesFile (archive) {
     throw e
   }
   sitesJson = JSON.parse(sitesJson)
-  assert(typeof sitesJson === 'object', 'File be an object')
-  assert(sitesJson.type === JSON_TYPE, 'JSON type must be unwalled.garden/published-sites')
-  assert(Array.isArray(sitesJson.urls), 'JSON .urls must be an array of strings')
-  sitesJson.urls = sitesJson.urls.filter(v => typeof v === 'string').map(toOrigin)
+  var valid = validatePublishedSites(sitesJson)
+  if (!valid) throw ajv.errorsText(validatePublishedSites.errors)
   return sitesJson
 }
 

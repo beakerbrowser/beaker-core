@@ -31,25 +31,23 @@ module.exports = {
     return post
   },
 
-  async create ({content} = {}) {
-    assert(typeof content === 'string', 'Create() must be provided a `content` string')
+  async create (content) {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    return postsCrawler.create(userArchive, {content})
+    return postsCrawler.create(userArchive, content)
   },
 
-  async edit (pathname, {content} = {}) {
+  async edit (pathname, content) {
     assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
-    assert(typeof content === 'string', 'Edit() must be provided a `content` string')
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    return postsCrawler.edit(userArchive, pathname, {content})
+    return postsCrawler.edit(userArchive, pathname, content)
   },
 
   async delete (pathname) {
-    assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
+    assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)

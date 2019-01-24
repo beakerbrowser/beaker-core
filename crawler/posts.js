@@ -1,11 +1,13 @@
 const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
+const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'posts'})
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
+const postSchema = require('./json-schemas/post')
 
 // constants
 // =
@@ -24,7 +26,11 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
  *
  * @typedef {Object} Post
  * @prop {string} pathname
- * @prop {string} content
+ * @prop {Object} content
+ * @prop {string} content.url
+ * @prop {string} content.title
+ * @prop {string} [content.description]
+ * @prop {string|string[]} [content.type]
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
@@ -34,7 +40,10 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 // globals
 // =
 
-var events = new Events()
+const events = new Events()
+const ajv = (new Ajv())
+const validatePost = ajv.compile(postSchema)
+const validatePostContent = ajv.compile(postSchema.properties.content)
 
 // exported api
 // =
@@ -100,35 +109,34 @@ exports.crawlSite = async function (archive, crawlSource) {
         let post
         try {
           post = JSON.parse(postString)
-          assert(typeof post === 'object', 'File be an object')
-          assert(post.type === 'unwalled.garden/post', 'JSON type must be unwalled.garden/post')
-          assert(typeof post.content === 'string', 'JSON content must be a string')
-          assert(typeof post.createdAt === 'string', 'JSON createdAt must be a date-time')
-          assert(!isNaN(Number(new Date(post.createdAt))), 'JSON createdAt must be a date-time')
+          let valid = validatePost(post)
+          if (!valid) throw ajv.errorsText(validatePost.errors)
         } catch (err) {
           logger.warn('Failed to parse post file, skipping', {details: {url: archive.url, name: changedPost.name, err}})
           continue // skip
         }
 
         // massage the post
+        post.content.description = post.content.description || '' // optional
+        post.content.type = (post.content.type || ['']).join(',') // optional
         post.createdAt = Number(new Date(post.createdAt))
         post.updatedAt = Number(new Date(post.updatedAt))
-        if (isNaN(post.updatedAt)) post.updatedAt = 0 // value is optional
+        if (isNaN(post.updatedAt)) post.updatedAt = 0 // optional
 
         // upsert
         let existingPost = await get(archive.url, changedPost.name)
         if (existingPost) {
           await db.run(`
             UPDATE crawl_posts
-              SET crawledAt = ?, content = ?, createdAt = ?, updatedAt = ?
+              SET crawledAt = ?, url = ?, title = ?, description = ?, type = ?, createdAt = ?, updatedAt = ?
               WHERE crawlSourceId = ? AND pathname = ?
-          `, [Date.now(), post.content, post.createdAt, post.updatedAt, crawlSource.id, changedPost.name])
+          `, [Date.now(), post.content.url, post.content.title, post.content.description, post.content.type, post.createdAt, post.updatedAt, crawlSource.id, changedPost.name])
           events.emit('post-updated', archive.url)
         } else {
           await db.run(`
-            INSERT INTO crawl_posts (crawlSourceId, pathname, crawledAt, content, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?)
-          `, [crawlSource.id, changedPost.name, Date.now(), post.content, post.createdAt, post.updatedAt])
+            INSERT INTO crawl_posts (crawlSourceId, pathname, crawledAt, url, title, description, type, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [crawlSource.id, changedPost.name, Date.now(), post.content.url, post.content.title, post.content.description, post.content.type, post.createdAt, post.updatedAt])
           events.emit('post-added', archive.url)
         }
       }
@@ -237,13 +245,17 @@ const get = exports.get = async function (url, pathname = undefined) {
  * Create a new post.
  *
  * @param {InternalDatArchive} archive - where to write the post to.
- * @param {Object} post
- * @param {string} post.content
+ * @param {Object} content
+ * @param {string} content.url
+ * @param {string} content.title
+ * @param {string} [content.description]
+ * @param {string|string[]} [content.type]
  * @returns {Promise}
  */
-exports.create = async function (archive, {content}) {
-  assert(typeof content === 'string', 'Create() must be provided a `content` string')
-  var filename = generateTimeFilename()
+exports.create = async function (archive, content) {
+  var valid = validatePostContent(content)
+  if (!valid) throw ajv.errorsText(validatePostContent.errors)
+    var filename = generateTimeFilename()
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/posts')
   await archive.pda.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
@@ -260,13 +272,16 @@ exports.create = async function (archive, {content}) {
  *
  * @param {InternalDatArchive} archive - where to write the post to.
  * @param {string} pathname - the pathname of the post.
- * @param {Object} post
- * @param {string} post.content
+ * @param {Object} content
+ * @param {string} content.url
+ * @param {string} content.title
+ * @param {string} [content.description]
+ * @param {string|string[]} [content.type]
  * @returns {Promise}
  */
-exports.edit = async function (archive, pathname, {content}) {
-  assert(typeof pathname === 'string', 'Edit() must be provided a valid URL string')
-  assert(typeof content === 'string', 'Edit() must be provided a `content` string')
+exports.edit = async function (archive, pathname, content) {
+  var valid = validatePostContent(content)
+  if (!valid) throw ajv.errorsText(validatePostContent.errors)
   var oldJson = JSON.parse(await archive.pda.readFile(pathname))
   await archive.pda.writeFile(pathname, JSON.stringify({
     type: JSON_TYPE,
@@ -327,9 +342,19 @@ async function ensureDirectory (archive, pathname) {
  */
 async function massagePostRow (row) {
   if (!row) return null
-  row.author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
-  if (!row.author) row.author = {url: row.crawlSourceUrl}
-  delete row.crawlSourceUrl
-  delete row.crawlSourceId
-  return row
+  var author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
+  if (!author) author = {url: row.crawlSourceUrl}
+  return {
+    pathname: row.pathname,
+    author,
+    content: {
+      url: row.url,
+      title: row.title,
+      description: row.description,
+      type: row.type.split(',')
+    },
+    crawledAt: row.crawledAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
 }
