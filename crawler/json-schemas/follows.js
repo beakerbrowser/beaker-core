@@ -1,30 +1,30 @@
 module.exports = {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "dat://unwalled.garden/follows.json",
-  "type": "object",
-  "title": "Follows",
-  "description": " A list of data subscriptions.",
-  "required": [
-    "type",
-    "urls"
+  '$schema': 'http://json-schema.org/draft-07/schema#',
+  '$id': 'dat://unwalled.garden/follows.json',
+  'type': 'object',
+  'title': 'Follows',
+  'description': ' A list of data subscriptions.',
+  'required': [
+    'type',
+    'urls'
   ],
-  "properties": {
-    "type": {
-      "type": "string",
-      "title": "The object's type",
-      "const": "unwalled.garden/follows"
+  'properties': {
+    'type': {
+      'type': 'string',
+      'title': "The object's type",
+      'const': 'unwalled.garden/follows'
     },
-    "urls": {
-      "type": "array",
-      "title": "The followed URLs",
-      "items": {
-        "type": "string",
-        "format": "uri",
-        "examples": [
-          "dat://beakerbrowser.com"
+    'urls': {
+      'type': 'array',
+      'title': 'The followed URLs',
+      'items': {
+        'type': 'string',
+        'format': 'uri',
+        'examples': [
+          'dat://beakerbrowser.com'
         ]
       }
     }
   },
-  "additionalProperties": false
+  'additionalProperties': false
 }
