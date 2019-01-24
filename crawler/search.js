@@ -246,7 +246,7 @@ exports.listSearchResults = async function (opts) {
     }))
     searchResults.results = searchResults.results.concat(rows)
   }
-  {
+  if (type !== 'user') {
     // POSTS
     let rows
     if (query) {
@@ -317,7 +317,7 @@ exports.listSearchResults = async function (opts) {
       }
     })))
   }
-  {
+  if (type !== 'user') {
     // SITES
     let rows
     if (query) {
