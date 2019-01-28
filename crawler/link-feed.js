@@ -255,7 +255,16 @@ const get = exports.get = async function (url, pathname = undefined) {
 exports.create = async function (archive, content) {
   var valid = validateLinkPostContent(content)
   if (!valid) throw ajv.errorsText(validateLinkPostContent.errors)
-    var filename = generateTimeFilename()
+
+  if (!content.type) {
+    // try to fetch type
+    let desc = await siteDescriptions.getBest({subject: content.url})
+    if (desc && desc.type) {
+      content.type = desc.type
+    }
+  }
+
+  var filename = generateTimeFilename()
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/link-feed')
   await archive.pda.writeFile(`/data/link-feed/${filename}.json`, JSON.stringify({
