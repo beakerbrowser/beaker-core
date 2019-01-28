@@ -375,8 +375,6 @@ function buildPublishedSitesSearchQuery ({query, crawlSourceIds, userCrawlSource
     .orderBy('crawl_site_descriptions.crawledAt')
     .limit(limit)
     .offset(offset)
-    // ${''/* TODO AND (',' || desc.type || ',') LIKE ?*/}
-    // /*TODO `%,${type},%`,*/
   if (query) {
     sql = sql
       .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
