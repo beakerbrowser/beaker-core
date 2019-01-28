@@ -1,22 +1,19 @@
 const assert = require('assert')
-const _difference = require('lodash.difference')
 const Events = require('events')
-const {URL} = require('url')
 const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'published-sites'})
-const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
-const publishedSitesSchema = require('./json-schemas/published-sites')
+const {doCrawl, doCheckpoint, emitProgressEvent, toOrigin, toHostname, ensureDirectory, getMatchingChangesInOrder} = require('./util')
+const publishedSiteSchema = require('./json-schemas/published-site')
 
 // constants
 // =
 
 const TABLE_VERSION = 1
-const JSON_TYPE = 'unwalled.garden/published-sites'
-const JSON_PATH = '/data/sites.json'
+const JSON_TYPE = 'unwalled.garden/published-site'
+const JSON_PATH_REGEX = /^\/data\/published-sites\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -29,6 +26,13 @@ const JSON_PATH = '/data/sites.json'
  * @typedef {Object} PublishedSites
  * @prop {SiteDescription} author
  * @prop {SiteDescription[]} sites
+ * 
+ * @typedef {Object} PublishedSite
+ * @prop {string} pathname
+ * @prop {string} url
+ * @prop {number} crawledAt
+ * @prop {number} createdAt
+ * @prop {SiteDescription} author
  */
 
 // globals
@@ -36,7 +40,7 @@ const JSON_PATH = '/data/sites.json'
 
 const events = new Events()
 const ajv = (new Ajv())
-const validatePublishedSites = ajv.compile(publishedSitesSchema)
+const validatePublishedSite = ajv.compile(publishedSiteSchema)
 
 // exported api
 // =
@@ -66,82 +70,91 @@ exports.crawlSite = async function (archive, crawlSource) {
       await doCheckpoint('crawl_published_sites', TABLE_VERSION, crawlSource, 0)
     }
 
-    // did sites.json change?
-    var change = changes.find(c => c.name === JSON_PATH)
-    if (!change) {
-      logger.debug('No change detected to published-sites record', {details: {url: archive.url}})
-      if (changes.length) {
-        await doCheckpoint('crawl_published_sites', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
-      }
-      return
+    // collect changed site-records
+    var changedSites = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
+    if (changedSites.length) {
+      logger.verbose('Collected new/changed published-site files', {details: {url: archive.url, changedSites: changedSites.map(p => p.name)}})
+    } else {
+      logger.debug('No new published-site files found', {details: {url: archive.url}})
     }
+    emitProgressEvent(archive.url, 'crawl_published_sites', 0, changedSites.length)
 
-    logger.verbose('Change detected to published-sites record', {details: {url: archive.url}})
-    emitProgressEvent(archive.url, 'crawl_published_sites', 0, 1)
-
-    // read and validate
-    try {
-      var sitesJson = await readSitesFile(archive)
-    } catch (err) {
-      logger.warn('Failed to read published-sites file', {details: {url: archive.url, err}})
-      return
-    }
-
-    // diff against the current sites
-    var currentPublishedSites = /** @type string[] */(await listPublishedSites(archive.url))
-    var newSites = sitesJson.urls
-    var adds = _difference(newSites, currentPublishedSites)
-    var removes = _difference(currentPublishedSites, newSites)
-    logger.silly(`Adding ${adds.length} sites and removing ${removes.length} sites`, {details: {url: archive.url}})
-
-    // write updates
-    for (let add of adds) {
-      try {
+    // read and apply each published-site in order
+    var progress = 0
+    for (let changedSite of changedSites) {
+      // TODO Currently the crawler will abort reading the feed if any published-site fails to load
+      //      this means that a single unreachable file can stop the forward progress of published-site indexing
+      //      to solve this, we need to find a way to tolerate unreachable published-site-files without losing our ability to efficiently detect new published-sites
+      //      -prf
+      if (changedSite.type === 'del') {
+        // delete
         await db.run(`
-          INSERT INTO crawl_published_sites (crawlSourceId, url, isConfirmedAuthor, crawledAt) VALUES (?, ?, ?, ?)
-        `, [crawlSource.id, add, 0, Date.now()])
-      } catch (e) {
-        if (e.code === 'SQLITE_CONSTRAINT') {
-          // uniqueness constraint probably failed, which means we got a duplicate somehow
-          // dont worry about it
-          logger.warn('Attempted to insert duplicate published-site record', {details: {url: archive.url, add}})
+          DELETE FROM crawl_published_sites WHERE crawlSourceId = ? AND pathname = ?
+        `, [crawlSource.id, changedSite.name])
+        events.emit('published-site-removed', archive.url)
+      } else {
+        // read
+        let publishedSiteStr
+        try {
+          publishedSiteStr = await archive.pda.readFile(changedSite.name, 'utf8')
+        } catch (err) {
+          logger.warn('Failed to read published-site file, aborting', {details: {url: archive.url, name: changedSite.name, err}})
+          return // abort indexing
+        }
+
+        // parse and validate
+        let publishedSite
+        try {
+          publishedSite = JSON.parse(publishedSiteStr)
+          let valid = validatePublishedSite(publishedSite)
+          if (!valid) throw ajv.errorsText(validatePublishedSite.errors)
+        } catch (err) {
+          logger.warn('Failed to parse post file, skipping', {details: {url: archive.url, name: changedSite.name, err}})
+          continue // skip
+        }
+
+        // massage the published-site
+        publishedSite.createdAt = Number(new Date(publishedSite.createdAt))
+
+        // upsert
+        let existingPost = await get(archive.url, changedSite.name)
+        if (existingPost) {
+          await db.run(`
+            UPDATE crawl_published_sites
+              SET crawledAt = ?, url = ?, createdAt = ?
+              WHERE crawlSourceId = ? AND pathname = ?
+          `, [Date.now(), publishedSite.url, publishedSite.createdAt, crawlSource.id, changedSite.name])
+          events.emit('published-site-updated', archive.url)
         } else {
-          throw e
+          await db.run(`
+            INSERT INTO crawl_published_sites (crawlSourceId, pathname, crawledAt, url, createdAt)
+              VALUES (?, ?, ?, ?, ?)
+          `, [crawlSource.id, changedSite.name, Date.now(), publishedSite.url, publishedSite.createdAt])
+          events.emit('published-site-added', archive.url)
         }
       }
-      if (!supressEvents) {
-        events.emit('published-site-added', archive.url, add)
-      }
-    }
-    for (let remove of removes) {
-      await db.run(`
-        DELETE FROM crawl_published_sites WHERE crawlSourceId = ? AND url = ?
-      `, [crawlSource.id, remove])
-      if (supressEvents) {
-        events.emit('published-site-removed', archive.url, remove)
-      }
-    }
 
-    // write checkpoint as success
-    logger.silly(`Finished crawling published sites`, {details: {url: archive.url}})
-    await doCheckpoint('crawl_published_sites', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
-    emitProgressEvent(archive.url, 'crawl_published_sites', 1, 1)
+      // checkpoint our progress
+      logger.silly(`Finished crawling published-sites`, {details: {url: archive.url}})
+      await doCheckpoint('crawl_published_sites', TABLE_VERSION, crawlSource, changedSite.version)
+      emitProgressEvent(archive.url, 'crawl_published_sites', ++progress, changedSites.length)
+    }
   })
 }
 
 /**
  * @description
- * List sites published by subject.
+ * List sites published by publisher.
  *
- * @param {string} subject - (URL)
+ * @param {string} publisher - (URL)
  * @param {Object} [opts]
  * @param {string} [opts.type] - filter to the given type.
  * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
  * @returns {Promise<Array<string|SiteDescription>>}
  */
-const listPublishedSites = exports.listPublishedSites = async function (subject, {type, includeDesc} = {}) {
+const listPublishedSites = exports.listPublishedSites = async function (publisher, {type, includeDesc} = {}) {
   var WHERE = ''
-  var queryParams = [subject]
+  var queryParams = [publisher]
   if (type) {
     WHERE = `WHERE (',' || type || ',') LIKE ?`
     queryParams.push(`%,${type},%`)
@@ -187,6 +200,36 @@ const isAPublishedByB = exports.isAPublishedByB = async function (a, b) {
 
 /**
  * @description
+ * Get crawled published-site.
+ *
+ * @param {string} url - The URL of the published-site or of the author (if pathname is provided).
+ * @param {string} [pathname] - The pathname of the published-site.
+ * @returns {Promise<PublishedSite>}
+ */
+const get = exports.get = async function (url, pathname = undefined) {
+  // validate & parse params
+  var urlParsed
+  if (url) {
+    try { urlParsed = new URL(url) }
+    catch (e) { throw new Error('Failed to parse published-site URL: ' + url) }
+  }
+  pathname = pathname || urlParsed.pathname
+
+  // execute query
+  return await massagePublishedSiteRow(await db.get(`
+    SELECT
+        crawl_published_sites.*, src.url AS crawlSourceUrl
+      FROM crawl_published_sites
+      INNER JOIN crawl_sources src
+        ON src.id = crawl_published_sites.crawlSourceId
+        AND src.url = ?
+      WHERE
+        crawl_published_sites.pathname = ?
+  `, [urlParsed.origin, pathname]))
+}
+
+/**
+ * @description
  * Add a published site to the given archive.
  *
  * @param {InternalDatArchive} archive
@@ -195,15 +238,18 @@ const isAPublishedByB = exports.isAPublishedByB = async function (a, b) {
  */
 exports.publishSite = async function (archive, siteUrl) {
   // normalize siteUrl
-  siteUrl = toOrigin(siteUrl)
-  assert(typeof siteUrl === 'string', 'publishSite() must be given a valid URL')
+  var siteOrigin = toOrigin(siteUrl)
+  var siteHostname = toHostname(siteUrl)
+  assert(typeof siteOrigin === 'string', 'publishSite() must be given a valid URL')
 
-  // write new follows.json
-  await updateSitesFile(archive, sitesJson => {
-    if (!sitesJson.urls.find(v => v === siteUrl)) {
-      sitesJson.urls.push(siteUrl)
-    }
-  })
+  await ensureDirectory(archive, '/data')
+  await ensureDirectory(archive, '/data/published-sites')
+  await archive.pda.writeFile(`/data/published-sites/${siteHostname}.json`, JSON.stringify({
+    type: JSON_TYPE,
+    url: siteOrigin,
+    createdAt: (new Date()).toISOString()
+  }))
+  await crawler.crawlSite(archive)
 
   // capture site description
   /* dont await */siteDescriptions.capture(archive, siteUrl)
@@ -219,84 +265,30 @@ exports.publishSite = async function (archive, siteUrl) {
  */
 exports.unpublishSite = async function (archive, siteUrl) {
   // normalize siteUrl
-  siteUrl = toOrigin(siteUrl)
-  assert(typeof siteUrl === 'string', 'unpublishSite() must be given a valid URL')
+  var siteHostname = toHostname(siteUrl)
+  assert(typeof siteHostname === 'string', 'unpublishSite() must be given a valid URL')
 
-  // write new follows.json
-  await updateSitesFile(archive, sitesJson => {
-    var i = sitesJson.urls.findIndex(v => v === siteUrl)
-    if (i !== -1) {
-      sitesJson.urls.splice(i, 1)
-    }
-  })
+  // remove the file
+  await archive.pda.unlink(`/data/published-sites/${siteHostname}.json`)
+  await crawler.crawlSite(archive)
 }
 
 // internal methods
 // =
 
 /**
- * @param {string} url
- * @returns {string}
+ * @param {Object} row
+ * @returns {Promise<PublishedSite>}
  */
-function toOrigin (url) {
-  try {
-    var urlParsed = new URL(url)
-    return urlParsed.protocol + '//' + urlParsed.hostname
-  } catch (e) {
-    return null
-  }
-}
-
-/**
- * @param {InternalDatArchive} archive
- * @returns {Promise<Object>}
- */
-async function readSitesFile (archive) {
-  try {
-    var sitesJson = await archive.pda.readFile(JSON_PATH, 'utf8')
-  } catch (e) {
-    if (e.notFound) return {type: JSON_TYPE, urls: []} // empty default when not found
-    throw e
-  }
-  sitesJson = JSON.parse(sitesJson)
-  var valid = validatePublishedSites(sitesJson)
-  if (!valid) throw ajv.errorsText(validatePublishedSites.errors)
-  return sitesJson
-}
-
-/**
- * @param {InternalDatArchive} archive
- * @param {function(Object): void} updateFn
- * @returns {Promise<void>}
- */
-async function updateSitesFile (archive, updateFn) {
-  var release = await lock('crawler:published-sites:' + archive.url)
-  try {
-    // read the follows file
-    try {
-      var sitesJson = await readSitesFile(archive)
-    } catch (err) {
-      if (err.notFound) {
-        // create new
-        sitesJson = {
-          type: JSON_TYPE,
-          urls: []
-        }
-      } else {
-        logger.warn('Failed to read published-sites file', {details: {url: archive.url, err}})
-        throw err
-      }
-    }
-
-    // apply update
-    updateFn(sitesJson)
-
-    // write the follows file
-    await archive.pda.writeFile(JSON_PATH, JSON.stringify(sitesJson), 'utf8')
-
-    // trigger crawl now
-    await crawler.crawlSite(archive)
-  } finally {
-    release()
+async function massagePublishedSiteRow (row) {
+  if (!row) return null
+  var author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
+  if (!author) author = {url: row.crawlSourceUrl}
+  return {
+    pathname: row.pathname,
+    author,
+    url: row.url,
+    crawledAt: row.crawledAt,
+    createdAt: row.createdAt
   }
 }

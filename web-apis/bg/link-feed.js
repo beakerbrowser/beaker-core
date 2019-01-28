@@ -4,7 +4,7 @@ const {Url} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const archivesDb = require('../../dbs/archives')
-const postsCrawler = require('../../crawler/posts')
+const linkFeedCrawler = require('../../crawler/link-feed')
 
 // exported api
 // =
@@ -18,7 +18,7 @@ module.exports = {
     assert(!reverse || typeof reverse === 'boolean', 'Reverse must be a boolean')
     assert(!author || typeof author === 'string', 'Author must be a string')
     assert(!authors || !Array.isArray(author), 'Authors must be an array of strings')
-    var posts = await postsCrawler.list({offset, limit, reverse, author, authors})
+    var posts = await linkFeedCrawler.list({offset, limit, reverse, author, authors})
     await Promise.all(posts.map(async (post) => {
       post.author.title = await getUserTitle(post.author)
     }))
@@ -26,7 +26,7 @@ module.exports = {
   },
 
   async get (origin, pathname = undefined) {
-    var post = await postsCrawler.get(origin, pathname)
+    var post = await linkFeedCrawler.get(origin, pathname)
     post.author.title = await getUserTitle(post.author)
     return post
   },
@@ -35,7 +35,7 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    return postsCrawler.create(userArchive, content)
+    return linkFeedCrawler.create(userArchive, content)
   },
 
   async edit (pathname, content) {
@@ -43,7 +43,7 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    return postsCrawler.edit(userArchive, pathname, content)
+    return linkFeedCrawler.edit(userArchive, pathname, content)
   },
 
   async delete (pathname) {
@@ -51,7 +51,7 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    return postsCrawler.delete(userArchive, pathname)
+    return linkFeedCrawler.delete(userArchive, pathname)
   }
 }
 

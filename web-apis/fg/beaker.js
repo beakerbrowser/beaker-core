@@ -11,7 +11,7 @@ const sitedataManifest = require('../manifests/internal/sitedata')
 const watchlistManifest = require('../manifests/internal/watchlist')
 const templatesManifest = require('../manifests/internal/templates')
 const crawlerManifest = require('../manifests/internal/crawler')
-const postsManifest = require('../manifests/internal/posts')
+const linkFeedManifest = require('../manifests/internal/link-feed')
 const followgraphManifest = require('../manifests/internal/followgraph')
 
 exports.setup = function (rpc) {
@@ -30,7 +30,7 @@ exports.setup = function (rpc) {
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
     const templatesRPC = rpc.importAPI('templates', templatesManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
-    const postsRPC = rpc.importAPI('posts', postsManifest, opts)
+    const linkFeedRPC = rpc.importAPI('link-feed', linkFeedManifest, opts)
     const followgraphRPC = rpc.importAPI('followgraph', followgraphManifest, opts)
 
     // beaker.logger
@@ -183,13 +183,13 @@ exports.setup = function (rpc) {
     beaker.crawler.resetSite = crawlerRPC.resetSite
     beaker.crawler.createEventsStream = () => fromEventStream(crawlerRPC.createEventsStream())
 
-    // beaker.posts
-    beaker.posts = {}
-    beaker.posts.list = postsRPC.list
-    beaker.posts.get = postsRPC.get
-    beaker.posts.create = postsRPC.create
-    beaker.posts.edit = postsRPC.edit
-    beaker.posts.delete = postsRPC.delete
+    // beaker.linkFeed
+    beaker.linkFeed = {}
+    beaker.linkFeed.list = linkFeedRPC.list
+    beaker.linkFeed.get = linkFeedRPC.get
+    beaker.linkFeed.create = linkFeedRPC.create
+    beaker.linkFeed.edit = linkFeedRPC.edit
+    beaker.linkFeed.delete = linkFeedRPC.delete
 
     // beaker.followgraph
     beaker.followgraph = {}

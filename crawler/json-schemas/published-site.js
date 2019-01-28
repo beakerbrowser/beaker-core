@@ -13,7 +13,7 @@ module.exports = {
     'type': {
       'type': 'string',
       'title': "The object's type",
-      'const': 'unwalled.garden/published-sites'
+      'const': 'unwalled.garden/published-site'
     },
     'url': {
       'type': 'string',

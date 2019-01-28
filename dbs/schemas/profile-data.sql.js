@@ -155,8 +155,8 @@ CREATE TRIGGER crawl_site_descriptions_au AFTER UPDATE ON crawl_site_description
   INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 
--- crawled posts
-CREATE TABLE crawl_posts (
+-- crawled link-posts
+CREATE TABLE crawl_link_posts (
   crawlSourceId INTEGER NOT NULL,
   pathname TEXT NOT NULL,
   crawledAt INTEGER,
@@ -170,18 +170,18 @@ CREATE TABLE crawl_posts (
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
-CREATE VIRTUAL TABLE crawl_posts_fts_index USING fts5(title, description, content='crawl_posts');
+CREATE VIRTUAL TABLE crawl_link_posts_fts_index USING fts5(title, description, content='crawl_link_posts');
 
--- triggers to keep crawl_posts_fts_index updated
-CREATE TRIGGER crawl_posts_ai AFTER INSERT ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+-- triggers to keep crawl_link_posts_fts_index updated
+CREATE TRIGGER crawl_link_posts_ai AFTER INSERT ON crawl_link_posts BEGIN
+  INSERT INTO crawl_link_posts_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
-CREATE TRIGGER crawl_posts_ad AFTER DELETE ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+CREATE TRIGGER crawl_link_posts_ad AFTER DELETE ON crawl_link_posts BEGIN
+  INSERT INTO crawl_link_posts_fts_index(crawl_link_posts_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
 END;
-CREATE TRIGGER crawl_posts_au AFTER UPDATE ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
-  INSERT INTO crawl_posts_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+CREATE TRIGGER crawl_link_posts_au AFTER UPDATE ON crawl_link_posts BEGIN
+  INSERT INTO crawl_link_posts_fts_index(crawl_link_posts_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_link_posts_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 
 -- crawled follows
@@ -198,9 +198,12 @@ CREATE TABLE crawl_followgraph (
 -- crawled site publications
 CREATE TABLE crawl_published_sites (
   crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
   crawledAt INTEGER,
   
   url TEXT NOT NULL,
+  createdAt INTEGER,
+  
   isConfirmedAuthor INTEGER DEFAULT 0,
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE

@@ -13,7 +13,7 @@ const sitedataManifest = require('./manifests/internal/sitedata')
 const watchlistManifest = require('./manifests/internal/watchlist')
 const templatesManifest = require('./manifests/internal/templates')
 const crawlerManifest = require('./manifests/internal/crawler')
-const postsManifest = require('./manifests/internal/posts')
+const linkFeedManifest = require('./manifests/internal/link-feed')
 const followgraphManifest = require('./manifests/internal/followgraph')
 
 // internal apis
@@ -25,7 +25,7 @@ const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const watchlistAPI = require('./bg/watchlist')
 const templatesAPI = require('./bg/templates')
 const crawlerAPI = require('../crawler').WEBAPI
-const postsAPI = require('./bg/posts')
+const linkFeedAPI = require('./bg/link-feed')
 const followgraphAPI = require('./bg/followgraph')
 
 // external manifests
@@ -63,7 +63,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
   globals.rpcAPI.exportAPI('templates', templatesManifest, templatesAPI, internalOnly)
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
-  globals.rpcAPI.exportAPI('posts', postsManifest, postsAPI, internalOnly)
+  globals.rpcAPI.exportAPI('link-feed', linkFeedManifest, linkFeedAPI, internalOnly)
   globals.rpcAPI.exportAPI('followgraph', followgraphManifest, followgraphAPI, internalOnly)
 
   // external apis

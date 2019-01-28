@@ -141,6 +141,30 @@ exports.toHostname = function (url) {
 }
 
 /**
+ * @param {string} url
+ * @returns {string}
+ */
+const toOrigin =
+exports.toOrigin = function (url) {
+  try {
+    var urlParsed = new URL(url)
+    return urlParsed.protocol + '//' + urlParsed.hostname
+  } catch (e) {
+    return null
+  }
+}
+
+/**
+ * @param {InternalDatArchive} archive
+ * @param {string} pathname
+ * @returns {Promise}
+ */
+exports.ensureDirectory = async function (archive, pathname) {
+  try { await archive.pda.mkdir(pathname) }
+  catch (e) { /* ignore */ }
+}
+
+/**
  * @description Helper to determine the thumbUrl for a site description.
  * @param {string} author - (URL) the author of the site description.
  * @param {string} subject - (URL) the site being described.

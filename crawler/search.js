@@ -253,20 +253,20 @@ exports.listSearchResults = async function (opts) {
       rows = await db.all(`
         SELECT
             post.url,
-            SNIPPET(crawl_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-            SNIPPET(crawl_posts_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
+            SNIPPET(crawl_link_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
+            SNIPPET(crawl_link_posts_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
             post.type,
             post.pathname,
             post.crawledAt,
             post.createdAt,
             post.updatedAt,
             postSrc.url AS authorUrl
-          FROM crawl_posts_fts_index post_fts
-          INNER JOIN crawl_posts post ON post.rowid = post_fts.rowid
+          FROM crawl_link_posts_fts_index post_fts
+          INNER JOIN crawl_link_posts post ON post.rowid = post_fts.rowid
           INNER JOIN crawl_sources postSrc ON post.crawlSourceId = postSrc.id
           LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = postSrc.url 
           WHERE
-            crawl_posts_fts_index MATCH ?
+            crawl_link_posts_fts_index MATCH ?
             AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR post.crawlSourceId = ?)
             AND post.crawledAt >= ?
           ORDER BY post.crawledAt
@@ -285,7 +285,7 @@ exports.listSearchResults = async function (opts) {
             post.createdAt,
             post.updatedAt,
             postSrc.url AS authorUrl
-          FROM crawl_posts post
+          FROM crawl_link_posts post
           INNER JOIN crawl_sources postSrc ON post.crawlSourceId = postSrc.id
           LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = postSrc.url 
           WHERE

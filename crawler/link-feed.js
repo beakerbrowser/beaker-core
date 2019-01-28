@@ -2,19 +2,19 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'posts'})
+const logger = require('../logger').child({category: 'crawler', dataset: 'link-posts'})
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename} = require('./util')
-const postSchema = require('./json-schemas/post')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, toOrigin} = require('./util')
+const linkPostSchema = require('./json-schemas/link-post')
 
 // constants
 // =
 
 const TABLE_VERSION = 1
-const JSON_TYPE = 'unwalled.garden/post'
-const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
+const JSON_TYPE = 'unwalled.garden/link-post'
+const JSON_PATH_REGEX = /^\/data\/link-feed\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -42,8 +42,8 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 
 const events = new Events()
 const ajv = (new Ajv())
-const validatePost = ajv.compile(postSchema)
-const validatePostContent = ajv.compile(postSchema.properties.content)
+const validateLinkPost = ajv.compile(linkPostSchema)
+const validateLinkPostContent = ajv.compile(linkPostSchema.properties.content)
 
 // exported api
 // =
@@ -61,16 +61,16 @@ exports.removeListener = events.removeListener.bind(events)
  * @returns {Promise}
  */
 exports.crawlSite = async function (archive, crawlSource) {
-  return doCrawl(archive, crawlSource, 'crawl_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
+  return doCrawl(archive, crawlSource, 'crawl_link_posts', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
     logger.silly('Crawling posts', {details: {url: archive.url, numChanges: changes.length, resetRequired}})
     if (resetRequired) {
       // reset all data
       logger.debug('Resetting dataset', {details: {url: archive.url}})
       await db.run(`
-        DELETE FROM crawl_posts WHERE crawlSourceId = ?
+        DELETE FROM crawl_link_posts WHERE crawlSourceId = ?
       `, [crawlSource.id])
-      await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, 0)
+      await doCheckpoint('crawl_link_posts', TABLE_VERSION, crawlSource, 0)
     }
 
     // collect changed posts
@@ -80,7 +80,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     } else {
       logger.debug('No new post-files found', {details: {url: archive.url}})
     }
-    emitProgressEvent(archive.url, 'crawl_posts', 0, changedPosts.length)
+    emitProgressEvent(archive.url, 'crawl_link_posts', 0, changedPosts.length)
 
     // read and apply each post in order
     var progress = 0
@@ -92,7 +92,7 @@ exports.crawlSite = async function (archive, crawlSource) {
       if (changedPost.type === 'del') {
         // delete
         await db.run(`
-          DELETE FROM crawl_posts WHERE crawlSourceId = ? AND pathname = ?
+          DELETE FROM crawl_link_posts WHERE crawlSourceId = ? AND pathname = ?
         `, [crawlSource.id, changedPost.name])
         events.emit('post-removed', archive.url)
       } else {
@@ -109,8 +109,8 @@ exports.crawlSite = async function (archive, crawlSource) {
         let post
         try {
           post = JSON.parse(postString)
-          let valid = validatePost(post)
-          if (!valid) throw ajv.errorsText(validatePost.errors)
+          let valid = validateLinkPost(post)
+          if (!valid) throw ajv.errorsText(validateLinkPost.errors)
         } catch (err) {
           logger.warn('Failed to parse post file, skipping', {details: {url: archive.url, name: changedPost.name, err}})
           continue // skip
@@ -127,14 +127,14 @@ exports.crawlSite = async function (archive, crawlSource) {
         let existingPost = await get(archive.url, changedPost.name)
         if (existingPost) {
           await db.run(`
-            UPDATE crawl_posts
+            UPDATE crawl_link_posts
               SET crawledAt = ?, url = ?, title = ?, description = ?, type = ?, createdAt = ?, updatedAt = ?
               WHERE crawlSourceId = ? AND pathname = ?
           `, [Date.now(), post.content.url, post.content.title, post.content.description, post.content.type, post.createdAt, post.updatedAt, crawlSource.id, changedPost.name])
           events.emit('post-updated', archive.url)
         } else {
           await db.run(`
-            INSERT INTO crawl_posts (crawlSourceId, pathname, crawledAt, url, title, description, type, createdAt, updatedAt)
+            INSERT INTO crawl_link_posts (crawlSourceId, pathname, crawledAt, url, title, description, type, createdAt, updatedAt)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [crawlSource.id, changedPost.name, Date.now(), post.content.url, post.content.title, post.content.description, post.content.type, post.createdAt, post.updatedAt])
           events.emit('post-added', archive.url)
@@ -143,8 +143,8 @@ exports.crawlSite = async function (archive, crawlSource) {
 
       // checkpoint our progress
       logger.silly(`Finished crawling posts`, {details: {url: archive.url}})
-      await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
-      emitProgressEvent(archive.url, 'crawl_posts', ++progress, changedPosts.length)
+      await doCheckpoint('crawl_link_posts', TABLE_VERSION, crawlSource, changedPost.version)
+      emitProgressEvent(archive.url, 'crawl_link_posts', ++progress, changedPosts.length)
     }
   })
 }
@@ -180,8 +180,8 @@ exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
 
   // build query
   var query = `
-    SELECT crawl_posts.*, src.url AS crawlSourceUrl FROM crawl_posts
-      INNER JOIN crawl_sources src ON src.id = crawl_posts.crawlSourceId
+    SELECT crawl_link_posts.*, src.url AS crawlSourceUrl FROM crawl_link_posts
+      INNER JOIN crawl_sources src ON src.id = crawl_link_posts.crawlSourceId
   `
   var values = []
   if (authors) {
@@ -230,13 +230,13 @@ const get = exports.get = async function (url, pathname = undefined) {
   // execute query
   return await massagePostRow(await db.get(`
     SELECT
-        crawl_posts.*, src.url AS crawlSourceUrl
-      FROM crawl_posts
+        crawl_link_posts.*, src.url AS crawlSourceUrl
+      FROM crawl_link_posts
       INNER JOIN crawl_sources src
-        ON src.id = crawl_posts.crawlSourceId
+        ON src.id = crawl_link_posts.crawlSourceId
         AND src.url = ?
       WHERE
-        crawl_posts.pathname = ?
+        crawl_link_posts.pathname = ?
   `, [urlParsed.origin, pathname]))
 }
 
@@ -253,12 +253,12 @@ const get = exports.get = async function (url, pathname = undefined) {
  * @returns {Promise}
  */
 exports.create = async function (archive, content) {
-  var valid = validatePostContent(content)
-  if (!valid) throw ajv.errorsText(validatePostContent.errors)
+  var valid = validateLinkPostContent(content)
+  if (!valid) throw ajv.errorsText(validateLinkPostContent.errors)
     var filename = generateTimeFilename()
   await ensureDirectory(archive, '/data')
-  await ensureDirectory(archive, '/data/posts')
-  await archive.pda.writeFile(`/data/posts/${filename}.json`, JSON.stringify({
+  await ensureDirectory(archive, '/data/link-feed')
+  await archive.pda.writeFile(`/data/link-feed/${filename}.json`, JSON.stringify({
     type: JSON_TYPE,
     content,
     createdAt: (new Date()).toISOString()
@@ -280,8 +280,8 @@ exports.create = async function (archive, content) {
  * @returns {Promise}
  */
 exports.edit = async function (archive, pathname, content) {
-  var valid = validatePostContent(content)
-  if (!valid) throw ajv.errorsText(validatePostContent.errors)
+  var valid = validateLinkPostContent(content)
+  if (!valid) throw ajv.errorsText(validateLinkPostContent.errors)
   var oldJson = JSON.parse(await archive.pda.readFile(pathname))
   await archive.pda.writeFile(pathname, JSON.stringify({
     type: JSON_TYPE,
@@ -315,25 +315,6 @@ exports.delete = async function (archive, pathname) {
  */
 function isString (v) {
   return typeof v === 'string'
-}
-
-/**
- * @param {string} url
- * @returns {string}
- */
-function toOrigin (url) {
-  var urlParsed = new URL(url)
-  return urlParsed.protocol + '//' + urlParsed.hostname
-}
-
-/**
- * @param {InternalDatArchive} archive
- * @param {string} pathname
- * @returns {Promise}
- */
-async function ensureDirectory (archive, pathname) {
-  try { await archive.pda.mkdir(pathname) }
-  catch (e) { /* ignore */ }
 }
 
 /**
