@@ -8,6 +8,7 @@ const followgraph = require('./followgraph')
 const siteDescriptions = require('./site-descriptions')
 const {getBasicType} = require('../lib/dat')
 const {getSiteDescriptionThumbnailUrl} = require('./util')
+const knex = require('../lib/knex')
 
 /** @type {Array<Object>} */
 const BUILTIN_PAGES = [
@@ -137,7 +138,8 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {string} opts.user - The current user's URL.
  * @param {string} [opts.query] - The search query.
  * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included?
- * @param {string} [opts.type] - Content type to query. Defaults to all except users.
+ * @param {string[]} [opts.datasets] - Datasets to query. Defaults to all. Valid values: 'followgraph', 'link_posts', 'published_sites'.
+ * @param {string[]} [opts.siteTypes] - Site types to query. Defaults to all.
  * @param {number} [opts.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.offset]
  * @param {number} [opts.limit = 20]
@@ -152,12 +154,13 @@ exports.listSearchResults = async function (opts) {
     highlightNonce,
     results: []
   }
-  var {user, query, hops, type, since, offset, limit} = opts
-  type = type || 'all'
+  var {user, query, hops, datasets, siteTypes, since, offset, limit} = opts
   since = since || 0
   offset = offset || 0
   limit = limit || 20
   hops = Math.min(Math.max(Math.floor(hops), 1), 2) // clamp to [1, 2] for now
+  if (typeof datasets === 'string') datasets = [datasets]
+  if (typeof siteTypes === 'string') siteTypes = [siteTypes]
 
   // prep search terms
   if (query && typeof query === 'string') {
@@ -189,49 +192,20 @@ exports.listSearchResults = async function (opts) {
   }
 
   // run queries
-  if (type === 'all' || type === 'user') {
-    // FOLLOWS
-    let rows
-    if (query) {
-      rows = await db.all(`
-        SELECT
-            desc.url AS url,
-            descSrc.url AS authorUrl,
-            SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-            SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
-            desc.crawledAt
-          FROM crawl_site_descriptions_fts_index desc_fts
-          INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.url
-          INNER JOIN crawl_sources descSrc ON desc.crawlSourceId = descSrc.id
-          WHERE
-            crawl_site_descriptions_fts_index MATCH ?
-            AND (
-              fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
-              OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
-            )
-            AND desc.crawledAt >= ?
-          ORDER BY desc.crawledAt
-          LIMIT ?
-          OFFSET ?;
-      `, [query, user, userCrawlSourceId, since, limit, offset])
-    } else {
-      rows = await db.all(`
-        SELECT desc.url AS url, desc.title, desc.description, descSrc.url AS authorUrl, desc.crawledAt
-          FROM crawl_site_descriptions desc
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = desc.url
-          INNER JOIN crawl_sources descSrc ON desc.crawlSourceId = descSrc.id
-          WHERE 
-            (
-              fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) -- description by a followed user
-              OR (desc.url = ? AND desc.crawlSourceId = ?) -- description by me about me
-            )
-            AND desc.crawledAt >= ?
-          ORDER BY desc.crawledAt
-          LIMIT ?
-          OFFSET ?;
-      `, [user, userCrawlSourceId, since, limit, offset])
-    }
+  if (!datasets || datasets.includes('followgraph')) {
+    // FOLLOWGRAPH
+    let rows = await db.all(buildFollowGraphSearchQuery({
+      query,
+      crawlSourceIds,
+      user,
+      userCrawlSourceId,
+      siteTypes,
+      since,
+      limit,
+      offset,
+      startHighlight,
+      endHighlight
+    }))
     rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
     await Promise.all(rows.map(async (p) => {
       // fetch additional info
@@ -246,56 +220,19 @@ exports.listSearchResults = async function (opts) {
     }))
     searchResults.results = searchResults.results.concat(rows)
   }
-  if (type !== 'user') {
-    // POSTS
-    let rows
-    if (query) {
-      rows = await db.all(`
-        SELECT
-            post.url,
-            SNIPPET(crawl_link_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-            SNIPPET(crawl_link_posts_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
-            post.type,
-            post.pathname,
-            post.crawledAt,
-            post.createdAt,
-            post.updatedAt,
-            postSrc.url AS authorUrl
-          FROM crawl_link_posts_fts_index post_fts
-          INNER JOIN crawl_link_posts post ON post.rowid = post_fts.rowid
-          INNER JOIN crawl_sources postSrc ON post.crawlSourceId = postSrc.id
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = postSrc.url 
-          WHERE
-            crawl_link_posts_fts_index MATCH ?
-            AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR post.crawlSourceId = ?)
-            AND post.crawledAt >= ?
-          ORDER BY post.crawledAt
-          LIMIT ?
-          OFFSET ?;
-      `, [query, userCrawlSourceId, since, limit, offset])
-    } else {
-      rows = await db.all(`
-        SELECT
-            post.url,
-            post.title,
-            post.description,
-            post.type,
-            post.pathname,
-            post.crawledAt,
-            post.createdAt,
-            post.updatedAt,
-            postSrc.url AS authorUrl
-          FROM crawl_link_posts post
-          INNER JOIN crawl_sources postSrc ON post.crawlSourceId = postSrc.id
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = postSrc.url 
-          WHERE
-            (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR post.crawlSourceId = ?)
-            AND post.crawledAt >= ?
-          ORDER BY post.crawledAt DESC
-          LIMIT ?
-          OFFSET ?;
-      `, [userCrawlSourceId, since, limit, offset])
-    }
+  if (!datasets || datasets.includes('link_posts')) {
+    // LINK_POSTS
+    let rows = await db.all(buildLinkPostsSearchQuery({
+      query,
+      crawlSourceIds,
+      userCrawlSourceId,
+      siteTypes,
+      since,
+      limit,
+      offset,
+      startHighlight,
+      endHighlight
+    }))
     searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (p) => {
       // fetch additional info
       var author = await siteDescriptions.getBest({subject: p.authorUrl})
@@ -317,47 +254,19 @@ exports.listSearchResults = async function (opts) {
       }
     })))
   }
-  if (type !== 'user') {
-    // SITES
-    let rows
-    if (query) {
-      rows = await db.all(`
-        SELECT
-            pub.url AS url,
-            pubSrc.url AS authorUrl,
-            SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title,
-            SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description,
-            desc.crawledAt
-          FROM crawl_site_descriptions_fts_index desc_fts
-          INNER JOIN crawl_site_descriptions desc ON desc.rowid = desc_fts.rowid
-          INNER JOIN crawl_published_sites pub ON pub.url = desc.url
-          INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
-          WHERE
-            crawl_site_descriptions_fts_index MATCH ?
-            ${''/* TODO AND (',' || desc.type || ',') LIKE ?*/}
-            AND (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
-            AND desc.crawledAt >= ?
-          ORDER BY desc.crawledAt
-          LIMIT ?
-          OFFSET ?;
-      `, [query, /*TODO `%,${type},%`,*/ userCrawlSourceId, since, limit, offset])
-    } else {
-      rows = await db.all(`
-        SELECT pub.url AS url, pubSrc.url AS authorUrl, desc.crawledAt
-          FROM crawl_published_sites pub
-          INNER JOIN crawl_site_descriptions desc ON desc.url = pub.url
-          INNER JOIN crawl_sources pubSrc ON pub.crawlSourceId = pubSrc.id
-          LEFT JOIN crawl_followgraph fgraph ON fgraph.destUrl = pubSrc.url
-          WHERE 
-            ${''/* TODO (',' || desc.type || ',') LIKE ?
-            AND*/} (fgraph.crawlSourceId IN (${crawlSourceIds.join(',')}) OR pubSrc.id = ?) -- site published by a me or a followed user
-            AND desc.crawledAt >= ?
-          ORDER BY pub.crawledAt
-          LIMIT ?
-          OFFSET ?;
-      `, [/* TODO `%,${type},%`,*/ userCrawlSourceId, since, limit, offset])
-    }
+  if (!datasets || datasets.includes('published_sites')) {
+    // PUBLISHED_SITES
+    let rows = await db.all(buildPublishedSitesSearchQuery({
+      query,
+      crawlSourceIds,
+      userCrawlSourceId,
+      siteTypes,
+      since,
+      limit,
+      offset,
+      startHighlight,
+      endHighlight
+    }))
     rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
     searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (row) => {
       // fetch full records
@@ -377,4 +286,123 @@ exports.listSearchResults = async function (opts) {
   searchResults.results = searchResults.results.slice(0, limit)
 
   return searchResults
+}
+
+// internal methods
+// =
+
+function buildFollowGraphSearchQuery ({query, crawlSourceIds, user, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_site_descriptions_fts_index' : 'crawl_site_descriptions')
+    .select('crawl_site_descriptions.url AS url')
+    .select('crawl_sources.url AS authorUrl')
+    .select('crawl_site_descriptions.crawledAt')
+    .where(builder => builder
+      .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // description by a followed user
+      .orWhere(builder => builder
+        .where('crawl_site_descriptions.url', user) // about me and...
+        .andWhere('crawl_site_descriptions.crawlSourceId', userCrawlSourceId) // by me
+      )
+    )
+    .where('crawl_site_descriptions.crawledAt', '>=', since)
+    .orderBy('crawl_site_descriptions.crawledAt')
+    .limit(limit)
+    .offset(offset)
+  if (query) {
+    sql = sql
+      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
+      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
+      .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.rowid', '=', 'crawl_site_descriptions_fts_index.rowid')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_site_descriptions.url')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
+      .whereRaw('crawl_site_descriptions_fts_index MATCH ?', [query])
+  } else {
+    sql = sql
+      .select('crawl_site_descriptions.title')
+      .select('crawl_site_descriptions.description')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_site_descriptions.url')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
+  }
+  sql = addSiteTypesClause(sql, siteTypes, 'crawl_site_descriptions')
+  return sql
+}
+
+function buildLinkPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_link_posts_fts_index' : 'crawl_link_posts')
+    .select('crawl_link_posts.url')
+    .select('crawl_link_posts.type')
+    .select('crawl_link_posts.pathname')
+    .select('crawl_link_posts.crawledAt')
+    .select('crawl_link_posts.createdAt')
+    .select('crawl_link_posts.updatedAt')
+    .select('crawl_sources.url AS authorUrl')
+    .where(builder => builder
+      .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
+      .orWhere('crawl_link_posts.crawlSourceId', userCrawlSourceId) // or by me
+    )
+    .andWhere('crawl_link_posts.crawledAt', '>=', since)
+    .orderBy('crawl_link_posts.crawledAt')
+    .limit(limit)
+    .offset(offset)
+  if (query) {
+    sql = sql
+      .select(knex.raw(`SNIPPET(crawl_link_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
+      .select(knex.raw(`SNIPPET(crawl_link_posts_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
+      .innerJoin('crawl_link_posts', 'crawl_link_posts.rowid', '=', 'crawl_link_posts_fts_index.rowid')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_link_posts.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
+      .whereRaw('crawl_link_posts_fts_index MATCH ?', [query])
+  } else {
+    sql = sql
+      .select('crawl_link_posts.title')
+      .select('crawl_link_posts.description')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_link_posts.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_link_posts.url')
+  }
+  sql = addSiteTypesClause(sql, siteTypes, 'crawl_link_posts')
+  return sql
+}
+
+function buildPublishedSitesSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_site_descriptions_fts_index' : 'crawl_published_sites')
+    .select('crawl_published_sites.url')
+    .select('crawl_sources.url AS authorUrl')
+    .select('crawl_site_descriptions.crawledAt')
+    .where(builder => builder
+      .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
+      .orWhere('crawl_published_sites.crawlSourceId', userCrawlSourceId) // or by me
+    )
+    .andWhere('crawl_published_sites.crawledAt', '>=', since)
+    .orderBy('crawl_site_descriptions.crawledAt')
+    .limit(limit)
+    .offset(offset)
+    // ${''/* TODO AND (',' || desc.type || ',') LIKE ?*/}
+    // /*TODO `%,${type},%`,*/
+  if (query) {
+    sql = sql
+      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
+      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
+      .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.rowid', '=', 'crawl_site_descriptions_fts_index.rowid')
+      .innerJoin('crawl_published_sites', 'crawl_published_sites.url', '=', 'crawl_site_descriptions.url')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_published_sites.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
+      .whereRaw('crawl_site_descriptions_fts_index MATCH ?', [query])
+  } else {
+    sql = sql
+      .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.url', '=', 'crawl_published_sites.url')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_published_sites.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
+  }
+  sql = addSiteTypesClause(sql, siteTypes, 'crawl_site_descriptions')
+  return sql
+}
+
+function addSiteTypesClause (sql, siteTypes, table) {
+  if (siteTypes && siteTypes.length) {
+    sql = sql.where(builder => {
+      for (let t of siteTypes) {
+        builder = builder.orWhereRaw(`(',' || ${table}.type || ',') LIKE ?`, `%,${t},%`)
+      }
+    })
+  }
+  return sql
 }

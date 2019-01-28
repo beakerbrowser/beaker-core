@@ -51,6 +51,7 @@
     "hyperdrive-network-speed": "^2.1.0",
     "identify-filetype": "^1.0.0",
     "into-stream": "^3.1.0",
+    "knex": "^0.16.3",
     "lodash.debounce": "^4.0.8",
     "lodash.difference": "^4.5.0",
     "lodash.get": "^4.4.2",

@@ -26,7 +26,7 @@ const JSON_PATH_REGEX = /^\/data\/published-sites\/([^/]+)\.json$/i
  * @typedef {Object} PublishedSites
  * @prop {SiteDescription} author
  * @prop {SiteDescription[]} sites
- * 
+ *
  * @typedef {Object} PublishedSite
  * @prop {string} pathname
  * @prop {string} url

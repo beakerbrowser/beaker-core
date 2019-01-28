@@ -1,8 +1,7 @@
 const sqlite3 = require('sqlite3')
 const path = require('path')
-const fs = require('fs')
 const {cbPromise} = require('../lib/functions')
-const {setupSqliteDB} = require('../lib/db')
+const {setupSqliteDB, handleQueryBuilder} = require('../lib/db')
 
 // typedefs
 // =
@@ -34,29 +33,32 @@ exports.setup = function (opts) {
 }
 
 /**
- * @param {...(string | number | boolean | Array<string | number | boolean>)} args
+ * @param {...(any)} args
  * @return {Promise<any>}
  */
 exports.get = async function (...args) {
   await setupPromise
+  args = handleQueryBuilder(args)
   return cbPromise(cb => db.get(...args, cb))
 }
 
 /**
- * @param {...(string | number | boolean | Array<string | number | boolean>)} args
+ * @param {...(any)} args
  * @return {Promise<Array<any>>}
  */
 exports.all = async function (...args) {
   await setupPromise
+  args = handleQueryBuilder(args)
   return cbPromise(cb => db.all(...args, cb))
 }
 
 /**
- * @param {...(string | number | boolean | Array<string | number | boolean>)} args
+ * @param {...(any)} args
  * @return {Promise<SQLiteResult>}
  */
 exports.run = async function (...args) {
   await setupPromise
+  args = handleQueryBuilder(args)
   return cbPromise(cb => db.run(...args, function (err) {
     if (err) cb(err)
     else cb(null, {lastID: this.lastID})
