@@ -133,9 +133,15 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @param {Object} [opts]
  * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
  * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
+ * @param {boolean} [opts.includeFollowers] - include .followedBy in the result. Requires includeDesc to be true.
+ * @param {number} [opts.limit]
+ * @param {number} [opts.offset]
  * @returns {Promise<Array<string|SiteDescription>>}
  */
-const listFollowers = exports.listFollowers = async function (subject, {followedBy, includeDesc} = {}) {
+const listFollowers = exports.listFollowers = async function (subject, {followedBy, includeDesc, includeFollowers, offset, limit} = {}) {
+  offset = offset || 0
+  limit = limit || -1
+
   var rows
   if (followedBy) {
     rows = await db.all(`
@@ -147,7 +153,9 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
               INNER JOIN crawl_sources ON crawl_sources.id = crawl_followgraph.crawlSourceId
               WHERE crawl_sources.url = ?
           ))
-    `, [subject, followedBy, followedBy])
+        LIMIT ?
+        OFFSET ?
+    `, [subject, followedBy, followedBy, limit, offset])
   } else {
     rows = await db.all(`
       SELECT f.url
@@ -155,7 +163,9 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
         INNER JOIN crawl_followgraph
           ON crawl_followgraph.crawlSourceId = f.id
           AND crawl_followgraph.destUrl = ?
-    `, [subject])
+        LIMIT ?
+        OFFSET ?
+    `, [subject, limit, offset])
   }
   if (!includeDesc) {
     return rows.map(row => toOrigin(row.url))
@@ -166,6 +176,9 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
     desc.url = url
     if (followedBy) {
       desc.followsUser = await isAFollowingB(url, followedBy)
+    }
+    if (includeFollowers) {
+      desc.followedBy = /** @type Array<SiteDescription> */ (await listFollowers(url, {followedBy, includeDesc: true}))
     }
     return desc
   }))
@@ -180,16 +193,23 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
  * @param {string} [opts.followedBy] - (URL) filter results to those followed by the site specified with this param. Causes .followsUser boolean to be set.
  * @param {boolean} [opts.includeDesc] - output a site description instead of a simple URL.
  * @param {boolean} [opts.includeFollowers] - include .followedBy in the result. Requires includeDesc to be true.
+ * @param {number} [opts.limit]
+ * @param {number} [opts.offset]
  * @returns {Promise<Array<SiteDescription | string>>}
  */
-const listFollows = exports.listFollows = async function (subject, {followedBy, includeDesc, includeFollowers} = {}) {
+const listFollows = exports.listFollows = async function (subject, {followedBy, includeDesc, includeFollowers, offset, limit} = {}) {
+  offset = offset || 0
+  limit = limit || -1
+
   var rows = await db.all(`
     SELECT crawl_followgraph.destUrl
       FROM crawl_followgraph
       INNER JOIN crawl_sources
         ON crawl_followgraph.crawlSourceId = crawl_sources.id
         AND crawl_sources.url = ?
-  `, [subject])
+      LIMIT ?
+      OFFSET ?
+  `, [subject, limit, offset])
   if (!includeDesc) {
     return rows.map(row => toOrigin(row.destUrl))
   }
