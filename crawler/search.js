@@ -46,7 +46,7 @@ const BUILTIN_PAGES = [
  * @prop {Array<UserSearchResult|SiteSearchResult|PostSearchResult>} results
  *
  * @typedef {Object} UserSearchResult
- * @prop {string} resultType
+ * @prop {string} recordType
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
@@ -57,9 +57,10 @@ const BUILTIN_PAGES = [
  * @prop {string} author.url
  *
  * @typedef {Object} PostSearchResult
- * @prop {string} resultType
+ * @prop {string} recordType
  * @prop {string} url
  * @prop {SiteDescription} author
+ * @prop {string} recordFilepath
  * @prop {Object} content
  * @prop {string} content.url
  * @prop {string} content.title
@@ -70,7 +71,7 @@ const BUILTIN_PAGES = [
  * @prop {number} updatedAt
  *
  * @typedef {Object} SiteSearchResult
- * @prop {string} resultType
+ * @prop {string} recordType
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
@@ -79,6 +80,7 @@ const BUILTIN_PAGES = [
  * @prop {Object} descAuthor
  * @prop {string} descAuthor.url
  * @prop {SiteDescription} author
+ * @prop {string} recordFilepath
  */
 
 // exported api
@@ -213,7 +215,7 @@ exports.listSearchResults = async function (opts) {
       p.followsUser = await followgraph.isAFollowingB(p.url, user)
 
       // massage attrs
-      p.resultType = 'user'
+      p.recordType = 'user'
       p.thumbUrl = getSiteDescriptionThumbnailUrl(p.authorUrl, p.url)
       p.author = {url: p.authorUrl}
       delete p.authorUrl
@@ -239,7 +241,8 @@ exports.listSearchResults = async function (opts) {
 
       // massage attrs
       return {
-        resultType: 'post',
+        recordType: 'link-post',
+        recordFilepath: p.recordFilepath,
         url: p.authorUrl + p.pathname,
         author,
         content: {
@@ -271,7 +274,8 @@ exports.listSearchResults = async function (opts) {
     searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (row) => {
       // fetch full records
       var result = /**@type SiteSearchResult*/(await siteDescriptions.getBest({subject: row.url, author: row.authorUrl}))
-      result.resultType = 'site'
+      result.recordType = 'published-site'
+      result.recordFilepath = row.recordFilepath
       result.author = await siteDescriptions.getBest({subject: row.authorUrl})
 
       // overwrite title and description so that highlighting can be included
@@ -334,6 +338,7 @@ function buildLinkPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
     .select('crawl_link_posts.crawledAt')
     .select('crawl_link_posts.createdAt')
     .select('crawl_link_posts.updatedAt')
+    .select('crawl_link_posts.pathname AS recordFilepath')
     .select('crawl_sources.url AS authorUrl')
     .where(builder => builder
       .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
@@ -365,6 +370,7 @@ function buildLinkPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
 function buildPublishedSitesSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
   let sql = knex(query ? 'crawl_site_descriptions_fts_index' : 'crawl_published_sites')
     .select('crawl_published_sites.url')
+    .select('crawl_published_sites.pathname AS recordFilepath')
     .select('crawl_sources.url AS authorUrl')
     .select('crawl_site_descriptions.crawledAt')
     .where(builder => builder
