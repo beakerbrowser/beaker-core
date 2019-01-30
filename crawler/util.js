@@ -173,5 +173,5 @@ exports.ensureDirectory = async function (archive, pathname) {
 exports.getSiteDescriptionThumbnailUrl = function (author, subject) {
   return author === subject
     ? `${subject}/thumb` // self-description, use their own thumb
-    : `${author}/data/known_sites/${toHostname(subject)}/thumb` // use captured thumb
+    : `${author}/data/known-sites/${toHostname(subject)}/thumb` // use captured thumb
 }

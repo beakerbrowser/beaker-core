@@ -18,7 +18,7 @@ const {
 // =
 
 const TABLE_VERSION = 1
-const JSON_PATH_REGEX = /^\/(dat\.json|data\/known_sites\/([^/]+)\/dat\.json)$/i
+const JSON_PATH_REGEX = /^\/(dat\.json|data\/known-sites\/([^/]+)\/dat\.json)$/i
 
 // typedefs
 // =
@@ -245,7 +245,7 @@ exports.getBest = async function ({subject, author} = {}) {
 
 /**
  * @description
- * Capture a site description into the archive's known_sites cache.
+ * Capture a site description into the archive's known-sites cache.
  *
  * @param {InternalDatArchive} archive - where to write the capture to.
  * @param {(InternalDatArchive|string)} subject - which archive to capture.
@@ -262,8 +262,8 @@ exports.capture = async function (archive, subject) {
   // create directory
   var hostname = toHostname(subjectArchive.url)
   await ensureDirectory(archive, '/data')
-  await ensureDirectory(archive, '/data/known_sites')
-  await ensureDirectory(archive, `/data/known_sites/${hostname}`)
+  await ensureDirectory(archive, '/data/known-sites')
+  await ensureDirectory(archive, `/data/known-sites/${hostname}`)
 
   // capture dat.json
   try {
@@ -272,13 +272,13 @@ exports.capture = async function (archive, subject) {
     logger.warn('Failed to read dat.json of subject archive', {details: {err}})
     throw new Error('Unabled to read subject dat.json')
   }
-  await archive.pda.writeFile(`/data/known_sites/${hostname}/dat.json`, JSON.stringify(datJson))
+  await archive.pda.writeFile(`/data/known-sites/${hostname}/dat.json`, JSON.stringify(datJson))
 
   // capture thumb
   for (let ext of ['jpg', 'jpeg', 'png']) {
     let thumbPath = `/thumb.${ext}`
     if (await fileExists(subjectArchive, thumbPath)) {
-      let targetPath = `/data/known_sites/${hostname}/thumb.${ext}`
+      let targetPath = `/data/known-sites/${hostname}/thumb.${ext}`
       await archive.pda.writeFile(targetPath, await subjectArchive.pda.readFile(thumbPath, 'binary'), 'binary')
       break
     }
@@ -287,7 +287,7 @@ exports.capture = async function (archive, subject) {
 
 /**
  * @description
- * Delete a captured site description in the given archive's known_sites cache.
+ * Delete a captured site description in the given archive's known-sites cache.
  *
  * @param {InternalDatArchive} archive - where to remove the capture from.
  * @param {(InternalDatArchive|string)} subject - which archive's capture to remove.
@@ -302,7 +302,7 @@ exports.deleteCapture = async function (archive, subject) {
   }
   assert(typeof subjectUrl === 'string', 'Delete() must be provided a valid URL string')
   var hostname = toHostname(subjectUrl)
-  await archive.pda.rmdir(`/data/known_sites/${hostname}`, {recursive: true})
+  await archive.pda.rmdir(`/data/known-sites/${hostname}`, {recursive: true})
   await crawler.crawlSite(archive)
 }
 
@@ -333,7 +333,7 @@ function toOrigin (url) {
  */
 function getUrlFromDescriptionPath (archive, name) {
   if (name === '/dat.json') return archive.url
-  var parts = name.split('/') // '/data/known_sites/{hostname}/dat.json' -> ['', 'data', 'known_sites', hostname, 'dat.json']
+  var parts = name.split('/') // '/data/known-sites/{hostname}/dat.json' -> ['', 'data', 'known-sites', hostname, 'dat.json']
   return 'dat://' + parts[3]
 }
 
