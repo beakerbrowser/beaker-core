@@ -38,9 +38,9 @@ var daemon
 // exported API
 // =
 
-exports.setup = async function setup ({rpcAPI, datDaemonWc, disallowedSavePaths}) {
+exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSavePaths}) {
   // connect to the daemon
-  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {wc: datDaemonWc, timeout: false})
+  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {proc: datDaemonProcess, timeout: false})
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
   daemonEvents = emitStream(daemon.createEventStream())
 
