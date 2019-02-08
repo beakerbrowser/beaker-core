@@ -6,6 +6,7 @@ const logger = require('../logger').child({category: 'dat', subcategory: 'dat-se
 const intoStream = require('into-stream')
 const {toZipStream} = require('../lib/zip')
 const slugify = require('slugify')
+const markdown = require('../lib/markdown')
 
 const datDns = require('./dns')
 const datLibrary = require('./library')
@@ -316,6 +317,27 @@ exports.electronHandler = async function (request, respond) {
     }
   }
 
+  Object.assign(headers, {
+    'Content-Security-Policy': cspHeader,
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-cache'
+  })
+
+  // markdown rendering
+  if (!range && entry.path.endsWith('.md') && mime.acceptHeaderMarkdownToHtml(request.headers.Accept)) {
+    let nav = false
+    try { nav = await checkoutFS.pda.readFile('/nav.md', 'utf8') }
+    catch (e) {/* ignore */}
+    let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
+    return respond({
+      statusCode: 200,
+      headers: Object.assign(headers, {
+        'Content-Type': 'text/html'
+      }),
+      data: intoStream(markdown.render(nav, content))
+    })
+  }
+
   // fetch the entry and stream the response
   fileReadStream = checkoutFS.createReadStream(entry.path, range)
   var dataStream = fileReadStream
@@ -326,10 +348,7 @@ exports.electronHandler = async function (request, respond) {
       // send headers, now that we can identify the data
       headersSent = true
       Object.assign(headers, {
-        'Content-Type': mimeType,
-        'Content-Security-Policy': cspHeader,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-cache'
+        'Content-Type': mimeType
       })
       // TODO
       // Electron is being really aggressive about caching and not following the headers correctly

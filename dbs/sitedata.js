@@ -1,10 +1,9 @@
 const sqlite3 = require('sqlite3')
 const path = require('path')
-const url = require('url')
+const parseDatUrl = require('parse-dat-url')
 const { cbPromise } = require('../lib/functions')
 const { setupSqliteDB } = require('../lib/db')
 const datDns = require('../dat/dns')
-const datLibrary = require('../dat/library')
 
 // globals
 // =
@@ -246,7 +245,7 @@ exports.WEBAPI = {
  * @returns {Promise<string>}
  */
 async function extractOrigin (originURL) {
-  var urlp = url.parse(originURL)
+  var urlp = parseDatUrl(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return
   if (urlp.protocol === 'dat:') {
     urlp.host = await datDns.resolveName(urlp.host)
