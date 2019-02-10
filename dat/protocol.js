@@ -46,15 +46,20 @@ exports.electronHandler = async function (request, respond) {
       errorPageInfo.validatedURL = request.url
       errorPageInfo.errorCode = code
     }
-    respond({
-      statusCode: code,
-      headers: {
-        'Content-Type': 'text/html',
-        'Content-Security-Policy': "default-src 'unsafe-inline' beaker:;",
-        'Access-Control-Allow-Origin': '*'
-      },
-      data: intoStream(errorPage(errorPageInfo || (code + ' ' + status)))
-    })
+    var accept = request.headers.Accept || ''
+    if (accept.includes('text/html')) {
+      respond({
+        statusCode: code,
+        headers: {
+          'Content-Type': 'text/html',
+          'Content-Security-Policy': "default-src 'unsafe-inline' beaker:;",
+          'Access-Control-Allow-Origin': '*'
+        },
+        data: intoStream(errorPage(errorPageInfo || (code + ' ' + status)))
+      })
+    } else {
+      respond({statusCode: code})
+    }
   }
   var fileReadStream
   var headersSent = false
