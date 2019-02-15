@@ -1,6 +1,7 @@
 const DatArchive = require('./fg/dat-archive')
 const beaker = require('./fg/beaker')
 const experimental = require('./fg/experimental')
+const navigatorImport = require('./fg/navigator-import')
 
 exports.setup = function ({rpcAPI}) {
   // setup APIs
@@ -11,5 +12,6 @@ exports.setup = function ({rpcAPI}) {
   if (['beaker:', 'dat:'].includes(window.location.protocol)) {
     window.beaker = beaker.setup(rpcAPI)
     window.experimental = experimental.setup(rpcAPI)
+    navigator.importSystemAPI = navigatorImport.setup(rpcAPI)
   }
 }

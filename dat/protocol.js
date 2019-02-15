@@ -332,7 +332,7 @@ exports.electronHandler = async function (request, respond) {
   if (!range && entry.path.endsWith('.md') && mime.acceptHeaderMarkdownToHtml(request.headers.Accept)) {
     let nav = false
     try { nav = await checkoutFS.pda.readFile('/nav.md', 'utf8') }
-    catch (e) {/* ignore */}
+    catch (e) { /* ignore */ }
     let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
     return respond({
       statusCode: 200,

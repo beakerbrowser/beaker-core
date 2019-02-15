@@ -4,7 +4,6 @@ const errors = require('beaker-error-constants')
 const loggerManifest = require('../manifests/internal/logger')
 const archivesManifest = require('../manifests/internal/archives')
 const beakerBrowserManifest = require('../manifests/internal/browser')
-const bookmarksManifest = require('../manifests/internal/bookmarks')
 const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
@@ -24,7 +23,6 @@ exports.setup = function (rpc) {
     const loggerRPC = rpc.importAPI('logger', loggerManifest, opts)
     const archivesRPC = rpc.importAPI('archives', archivesManifest, opts)
     const beakerBrowserRPC = rpc.importAPI('beaker-browser', beakerBrowserManifest, opts)
-    const bookmarksRPC = rpc.importAPI('bookmarks', bookmarksManifest, opts)
     const downloadsRPC = rpc.importAPI('downloads', downloadsManifest, opts)
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
@@ -112,21 +110,6 @@ exports.setup = function (rpc) {
     beaker.browser.doWebcontentsCmd = beakerBrowserRPC.doWebcontentsCmd
     beaker.browser.doTest = beakerBrowserRPC.doTest
     beaker.browser.closeModal = beakerBrowserRPC.closeModal
-
-    // beaker.bookmarks
-    beaker.bookmarks = {}
-    beaker.bookmarks.getBookmark = bookmarksRPC.getBookmark
-    beaker.bookmarks.isBookmarked = bookmarksRPC.isBookmarked
-    beaker.bookmarks.bookmarkPublic = bookmarksRPC.bookmarkPublic
-    beaker.bookmarks.unbookmarkPublic = bookmarksRPC.unbookmarkPublic
-    beaker.bookmarks.listPublicBookmarks = bookmarksRPC.listPublicBookmarks
-    beaker.bookmarks.setBookmarkPinned = bookmarksRPC.setBookmarkPinned
-    beaker.bookmarks.setBookmarkPinOrder = bookmarksRPC.setBookmarkPinOrder
-    beaker.bookmarks.listPinnedBookmarks = bookmarksRPC.listPinnedBookmarks
-    beaker.bookmarks.bookmarkPrivate = bookmarksRPC.bookmarkPrivate
-    beaker.bookmarks.unbookmarkPrivate = bookmarksRPC.unbookmarkPrivate
-    beaker.bookmarks.listPrivateBookmarks = bookmarksRPC.listPrivateBookmarks
-    beaker.bookmarks.listBookmarkTags = bookmarksRPC.listBookmarkTags
 
     // beaker.downloads
     beaker.downloads = {}

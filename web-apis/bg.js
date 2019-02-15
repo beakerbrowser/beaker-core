@@ -6,7 +6,6 @@ const SECURE_ORIGIN_REGEX = /^(beaker:|dat:|https:|http:\/\/localhost(\/|:))/i
 const loggerManifest = require('./manifests/internal/logger')
 const archivesManifest = require('./manifests/internal/archives')
 const beakerBrowserManifest = require('./manifests/internal/browser')
-const bookmarksManifest = require('./manifests/internal/bookmarks')
 const downloadsManifest = require('./manifests/internal/downloads')
 const historyManifest = require('./manifests/internal/history')
 const sitedataManifest = require('./manifests/internal/sitedata')
@@ -20,7 +19,6 @@ const followgraphManifest = require('./manifests/internal/followgraph')
 // internal apis
 const loggerAPI = require('../logger').WEBAPI
 const archivesAPI = require('./bg/archives')
-const bookmarksAPI = require('./bg/bookmarks')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const domainNamesAPI = require('../dbs/domain-names')
@@ -33,10 +31,12 @@ const followgraphAPI = require('./bg/followgraph')
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')
 const spellCheckerManifest = require('./manifests/external/spell-checker')
+const bookmarksManifest = require('./manifests/external/bookmarks')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
 const spellCheckerAPI = require('./bg/spell-checker')
+const bookmarksAPI = require('./bg/bookmarks')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
@@ -58,7 +58,6 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('logger', loggerManifest, loggerAPI, internalOnly)
   globals.rpcAPI.exportAPI('archives', archivesManifest, archivesAPI, internalOnly)
   globals.rpcAPI.exportAPI('beaker-browser', beakerBrowserManifest, globals.browserWebAPI, internalOnly)
-  globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, internalOnly)
   globals.rpcAPI.exportAPI('downloads', downloadsManifest, globals.downloadsWebAPI, internalOnly)
   globals.rpcAPI.exportAPI('history', historyManifest, historyAPI, internalOnly)
   globals.rpcAPI.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
@@ -72,6 +71,7 @@ exports.setup = function () {
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
   globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
+  globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, secureOnly)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)

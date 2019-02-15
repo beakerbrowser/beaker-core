@@ -1,10 +1,13 @@
+const assert = require('assert')
 const db = require('./profile-data-db')
 const normalizeUrl = require('normalize-url')
 const lock = require('../lib/lock')
+const knex = require('../lib/knex')
 
 const NORMALIZE_OPTS = {
   stripFragment: false,
   stripWWW: false,
+  removeQueryParameters: false,
   removeTrailingSlash: false
 }
 
@@ -13,14 +16,10 @@ const NORMALIZE_OPTS = {
 
 /**
  * @typedef {Object} Bookmark
- * @prop {boolean} _origin
- * @prop {boolean} _url
- * @prop {boolean} private
  * @prop {number} createdAt
  * @prop {string} href
  * @prop {string} title
  * @prop {string[]} tags
- * @prop {string} notes
  * @prop {boolean} pinned
  * @prop {number} pinOrder
  */
@@ -30,33 +29,31 @@ const NORMALIZE_OPTS = {
 
 /**
  * @param {number} profileId
- * @param {string} url
  * @param {Object} values
- * @param {string} values.title
- * @param {string | string[]} values.tags
- * @param {string} values.notes
- * @param {number} values.pinOrder
+ * @param {string} [values.href]
+ * @param {string} [values.title]
+ * @param {string | string[]} [values.tags]
+ * @param {boolean} [values.pinned]
  * @returns {Promise<void>}
  */
-exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder}) {
-  var tagsStr = tagsToString(tags)
-  var release = await lock(`bookmark:${url}`)
-  try {
-    // read old bookmark and fallback to old values as needed
-    var oldBookmark = await db.get(`SELECT url, title, pinned, pinOrder FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
-    oldBookmark = oldBookmark || {}
-    const pinned = oldBookmark.pinned ? 1 : 0
-    title = typeof title === 'undefined' ? oldBookmark.title : title
-    tagsStr = typeof tagsStr === 'undefined' ? oldBookmark.tags : tagsStr
-    notes = typeof notes === 'undefined' ? oldBookmark.notes : notes
-    pinOrder = typeof pinOrder === 'undefined' ? oldBookmark.pinOrder : pinOrder
+exports.addBookmark = async function (profileId, {href, title, tags, pinned} = {}) {
+  // validate
+  assertValidHref(href)
+  assertValidTitle(title)
+  if (tags) assertValidTags(tags)
 
-    // update record
+  // massage values
+  href = normalizeUrl(href, NORMALIZE_OPTS)
+  var tagsStr = tagsToString(tags)
+
+  // update record
+  var release = await lock(`bookmarksdb`)
+  try {
     await db.run(`
       INSERT OR REPLACE
-        INTO bookmarks (profileId, url, title, tags, notes, pinned, pinOrder)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [profileId, url, title, tagsStr, notes, pinned, pinOrder])
+        INTO bookmarks (profileId, url, title, tags, pinned)
+        VALUES (?, ?, ?, ?, ?)
+    `, [profileId, href, title, tagsStr, Number(pinned)])
   } finally {
     release()
   }
@@ -64,21 +61,66 @@ exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder
 
 /**
  * @param {number} profileId
- * @param {string} url
+ * @param {string} bookmarkHref
+ * @param {Object} values
+ * @param {string} [values.href]
+ * @param {string} [values.title]
+ * @param {string | string[]} [values.tags]
+ * @param {boolean} [values.pinned]
  * @returns {Promise<void>}
  */
-exports.unbookmark = async function (profileId, url) {
-  await db.run(`DELETE FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
+exports.editBookmark = async function (profileId, bookmarkHref, {href, title, tags, pinned} = {}) {
+  // validate
+  assertValidHref(bookmarkHref)
+  if (href) assertValidHref(href)
+  if (title) assertValidTitle(title)
+  if (tags) assertValidTags(tags)
+
+  // massage values
+  bookmarkHref = normalizeUrl(bookmarkHref, NORMALIZE_OPTS)
+  href = href ? normalizeUrl(href, NORMALIZE_OPTS) : undefined
+  var tagsStr = tags ? tagsToString(tags) : undefined
+
+  // read, update, store
+  var release = await lock(`bookmarksdb`)
+  try {
+    var oldBookmark = await db.get(`SELECT url, title, pinned, pinOrder FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, bookmarkHref])
+
+    if (oldBookmark) {
+      // update record
+      let sql = knex('bookmarks')
+        .where({profileId, url: bookmarkHref})
+      if (typeof href !== 'undefined') sql = sql.update('url', href)
+      if (typeof title !== 'undefined') sql = sql.update('title', title)
+      if (typeof tagsStr !== 'undefined') sql = sql.update('tags', tagsStr)
+      if (typeof pinned !== 'undefined') sql = sql.update('pinned', Number(pinned))
+      await db.run(sql)
+    } else {
+      // insert record
+      await db.run(`
+        INSERT OR REPLACE
+          INTO bookmarks (profileId, url, title, tags, pinned)
+          VALUES (?, ?, ?, ?, ?)
+      `, [profileId, href, title, tagsStr, Number(pinned)])
+    }
+  } finally {
+    release()
+  }
 }
 
 /**
  * @param {number} profileId
- * @param {string} url
- * @param {boolean} pinned
+ * @param {string} href
  * @returns {Promise<void>}
  */
-exports.setBookmarkPinned = async function (profileId, url, pinned) {
-  await db.run(`UPDATE bookmarks SET pinned = ? WHERE profileId = ? AND url = ?`, [pinned ? 1 : 0, profileId, url])
+exports.removeBookmark = async function (profileId, href) {
+  href = normalizeUrl(href, NORMALIZE_OPTS)
+  var release = await lock(`bookmarksdb`)
+  try {
+    await db.run(`DELETE FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, href])
+  } finally {
+    release()
+  }
 }
 
 /**
@@ -88,9 +130,14 @@ exports.setBookmarkPinned = async function (profileId, url, pinned) {
  */
 exports.setBookmarkPinOrder = async function (profileId, urls) {
   var len = urls.length
-  await Promise.all(urls.map((url, i) => (
-    db.run(`UPDATE bookmarks SET pinOrder = ? WHERE profileId = ? AND url = ?`, [len - i, profileId, url])
-  )))
+  var release = await lock(`bookmarksdb`)
+  try {
+    await Promise.all(urls.map((url, i) => (
+      db.run(`UPDATE bookmarks SET pinOrder = ? WHERE profileId = ? AND url = ?`, [len - i, profileId, url])
+    )))
+  } finally {
+    release()
+  }
 }
 
 /**
@@ -98,41 +145,48 @@ exports.setBookmarkPinOrder = async function (profileId, urls) {
  * @param {string} url
  * @returns {Promise<Bookmark>}
  */
-exports.getBookmark = async function (profileId, url) {
-  return toNewFormat(await db.get(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url]))
+exports.getBookmark = async function (profileId, href) {
+  href = normalizeUrl(href, NORMALIZE_OPTS)
+  return toNewFormat(await db.get(`SELECT url, title, tags, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, href]))
 }
 
 /**
  * @param {number} profileId
  * @param {Object} [opts]
- * @param {string} [opts.tag]
+ * @param {Object} [opts.filters]
+ * @param {string|string[]} [opts.filters.tag]
+ * @param {boolean} [opts.filters.isPinned]
  * @returns {Promise<Array<Bookmark>>}
  */
-exports.listBookmarks = async function (profileId, {tag} = {}) {
-  var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? ORDER BY createdAt DESC`, [profileId])
+exports.listBookmarks = async function (profileId, {filters} = {}) {
+  let sql = knex('bookmarks')
+    .select('url')
+    .select('title')
+    .select('tags')
+    .select('pinned')
+    .select('pinOrder')
+    .select('createdAt')
+    .where('profileId', '=', profileId)
+    .orderBy('createdAt', 'DESC')
+  if (filters && filters.isPinned) {
+    sql = sql.where('pinned', '=', '1')
+  }
+
+  var bookmarks = await db.all(sql)
   bookmarks = bookmarks.map(toNewFormat)
 
   // apply tag filter
-  if (tag) {
-    if (Array.isArray(tag)) {
+  if (filters && filters.tag) {
+    if (Array.isArray(filters.tag)) {
       bookmarks = bookmarks.filter(b => {
-        return tag.reduce((agg, t) => agg & b.tags.includes(t), true)
+        return /** @type string[] */(filters.tag).reduce((agg, t) => agg && b.tags.includes(t), true)
       })
     } else {
-      bookmarks = bookmarks.filter(b => b.tags.includes(tag))
+      bookmarks = bookmarks.filter(b => b.tags.includes(filters.tag))
     }
   }
 
   return bookmarks
-}
-
-/**
- * @param {number} profileId
- * @returns {Promise<Array<Bookmark>>}
- */
-exports.listPinnedBookmarks = async function (profileId) {
-  var bookmarks = await db.all(`SELECT url, title, tags, notes, pinned, pinOrder, createdAt FROM bookmarks WHERE profileId = ? AND pinned = 1 ORDER BY pinOrder DESC`, [profileId])
-  return bookmarks.map(toNewFormat)
 }
 
 /**
@@ -148,22 +202,6 @@ exports.listBookmarkTags = async function (profileId) {
     }
   })
   return Array.from(tagSet)
-}
-
-/**
- * @description
- * TEMP
- * apply normalization to old bookmarks
- * (can probably remove this in 2018 or so)
- * -prf
- * @returns {Promise<void>}
- */
-exports.fixOldBookmarks = async function () {
-  var bookmarks = await db.all(`SELECT url FROM bookmarks`)
-  bookmarks.forEach(b => {
-    let newUrl = normalizeUrl(b.url, NORMALIZE_OPTS)
-    db.run(`UPDATE bookmarks SET url = ? WHERE url = ?`, [newUrl, b.url])
-  })
 }
 
 /**
@@ -184,15 +222,39 @@ function tagsToString (v) {
 function toNewFormat (b) {
   if (!b) return null
   return {
-    _origin: false,
-    _url: false,
-    private: true,
     createdAt: b.createdAt * 1e3, // convert to ms
     href: b.url,
     title: b.title,
     tags: b.tags ? b.tags.split(' ').filter(Boolean) : [],
-    notes: b.notes,
     pinned: !!b.pinned,
     pinOrder: b.pinOrder
+  }
+}
+
+/**
+ * @param {string} v
+ * @returns {void}
+ */
+function assertValidHref (v) {
+  assert(v && typeof v === 'string', 'href must be a valid URL')
+}
+
+/**
+ * @param {string} v
+ * @returns {void}
+ */
+function assertValidTitle (v) {
+  assert(v && typeof v === 'string', 'title must be a non-empty string')
+}
+
+/**
+ * @param {string|string[]} v
+ * @returns {void}
+ */
+function assertValidTags (v) {
+  if (Array.isArray(v)) {
+    assert(v.every(item => typeof item === 'string'), 'tags must be a string or array or strings')
+  } else {
+    assert(typeof v === 'string', 'tags must be a string or array or strings')
   }
 }

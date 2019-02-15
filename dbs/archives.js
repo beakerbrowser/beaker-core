@@ -144,7 +144,7 @@ exports.deleteArchive = async function (key) {
     jetpack.removeAsync(path),
     jetpack.removeAsync(getInternalLocalSyncPath(key))
   ])
-  return info.size
+  return info ? info.size : 0
 }
 
 exports.on = events.on.bind(events)
