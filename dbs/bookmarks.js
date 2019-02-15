@@ -52,7 +52,7 @@ exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder
     pinOrder = typeof pinOrder === 'undefined' ? oldBookmark.pinOrder : pinOrder
 
     // update record
-    return db.run(`
+    await db.run(`
       INSERT OR REPLACE
         INTO bookmarks (profileId, url, title, tags, notes, pinned, pinOrder)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -67,8 +67,8 @@ exports.bookmark = async function (profileId, url, {title, tags, notes, pinOrder
  * @param {string} url
  * @returns {Promise<void>}
  */
-exports.unbookmark = function (profileId, url) {
-  return db.run(`DELETE FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
+exports.unbookmark = async function (profileId, url) {
+  await db.run(`DELETE FROM bookmarks WHERE profileId = ? AND url = ?`, [profileId, url])
 }
 
 /**
@@ -77,8 +77,8 @@ exports.unbookmark = function (profileId, url) {
  * @param {boolean} pinned
  * @returns {Promise<void>}
  */
-exports.setBookmarkPinned = function (profileId, url, pinned) {
-  return db.run(`UPDATE bookmarks SET pinned = ? WHERE profileId = ? AND url = ?`, [pinned ? 1 : 0, profileId, url])
+exports.setBookmarkPinned = async function (profileId, url, pinned) {
+  await db.run(`UPDATE bookmarks SET pinned = ? WHERE profileId = ? AND url = ?`, [pinned ? 1 : 0, profileId, url])
 }
 
 /**

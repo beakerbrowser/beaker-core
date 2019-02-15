@@ -112,6 +112,13 @@ CREATE TABLE templates (
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
+-- user-assigned relative domain names
+CREATE TABLE domain_names (
+  name TEXT NOT NULL,
+  value TEXT NOT NULL,
+  updatedAt INTEGER DEFAULT (strftime('%s', 'now'))
+);
+
 -- list of sites being crawled
 CREATE TABLE crawl_sources (
   id INTEGER PRIMARY KEY NOT NULL,

@@ -1,5 +1,6 @@
 const {InvalidDomainName} = require('beaker-error-constants')
 const sitedataDb = require('../dbs/sitedata')
+const domainNamesDb = require('../dbs/domain-names')
 const {DAT_HASH_REGEX} = require('../lib/const')
 const logger = require('../logger').child({category: 'dat', subcategory: 'dns'})
 
@@ -26,7 +27,18 @@ datDns.resolveName = function () {
 // persistent cache methods
 const sitedataDbOpts = {dontExtractOrigin: true}
 async function read (name, err) {
-  var key = await sitedataDb.get('dat:' + name, 'dat-key', sitedataDbOpts)
+  var key
+  const isRelativeName = !name.includes('.')
+  if (isRelativeName) {
+    // check local mapping
+    let record = await domainNamesDb.get(name)
+    if (record) {
+      key = record.value
+    }
+  } else {
+    // check the cache
+    key = await sitedataDb.get('dat:' + name, 'dat-key', sitedataDbOpts)
+  }
   if (!key) throw err
   return key
 }
