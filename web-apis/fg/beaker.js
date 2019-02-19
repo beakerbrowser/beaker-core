@@ -11,8 +11,6 @@ const domainNamesManifest = require('../manifests/internal/domain-names')
 const watchlistManifest = require('../manifests/internal/watchlist')
 const templatesManifest = require('../manifests/internal/templates')
 const crawlerManifest = require('../manifests/internal/crawler')
-const feedManifest = require('../manifests/internal/feed')
-const followgraphManifest = require('../manifests/internal/followgraph')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -30,8 +28,6 @@ exports.setup = function (rpc) {
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
     const templatesRPC = rpc.importAPI('templates', templatesManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
-    const feedRPC = rpc.importAPI('feed', feedManifest, opts)
-    const followgraphRPC = rpc.importAPI('followgraph', followgraphManifest, opts)
 
     // beaker.logger
     beaker.logger = {}
@@ -173,23 +169,6 @@ exports.setup = function (rpc) {
     beaker.crawler.crawlSite = crawlerRPC.crawlSite
     beaker.crawler.resetSite = crawlerRPC.resetSite
     beaker.crawler.createEventsStream = () => fromEventStream(crawlerRPC.createEventsStream())
-
-    // beaker.feed
-    beaker.feed = {}
-    beaker.feed.list = feedRPC.list
-    beaker.feed.get = feedRPC.get
-    beaker.feed.create = feedRPC.create
-    beaker.feed.edit = feedRPC.edit
-    beaker.feed.delete = feedRPC.delete
-
-    // beaker.followgraph
-    beaker.followgraph = {}
-    beaker.followgraph.listFollowers = followgraphRPC.listFollowers
-    beaker.followgraph.listFollows = followgraphRPC.listFollows
-    beaker.followgraph.listFoaFs = followgraphRPC.listFoaFs
-    beaker.followgraph.isAFollowingB = followgraphRPC.isAFollowingB
-    beaker.followgraph.follow = followgraphRPC.follow
-    beaker.followgraph.unfollow = followgraphRPC.unfollow
   }
 
   return beaker

@@ -13,8 +13,8 @@ const domainNamesManifest = require('./manifests/internal/domain-names')
 const watchlistManifest = require('./manifests/internal/watchlist')
 const templatesManifest = require('./manifests/internal/templates')
 const crawlerManifest = require('./manifests/internal/crawler')
-const feedManifest = require('./manifests/internal/feed')
-const followgraphManifest = require('./manifests/internal/followgraph')
+// const feedManifest = require('./manifests/internal/feed')
+// const followgraphManifest = require('./manifests/internal/followgraph')
 
 // internal apis
 const loggerAPI = require('../logger').WEBAPI
@@ -32,23 +32,23 @@ const followgraphAPI = require('./bg/followgraph')
 const datArchiveManifest = require('./manifests/external/dat-archive')
 const spellCheckerManifest = require('./manifests/external/spell-checker')
 const bookmarksManifest = require('./manifests/external/bookmarks')
+const libraryManifest = require('./manifests/external/library')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
 const spellCheckerAPI = require('./bg/spell-checker')
 const bookmarksAPI = require('./bg/bookmarks')
+const libraryAPI = require('./bg/library')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
 const experimentalDatPeersManifest = require('./manifests/external/experimental/dat-peers')
 const experimentalGlobalFetchManifest = require('./manifests/external/experimental/global-fetch')
-const experimentalLibraryManifest = require('./manifests/external/experimental/library')
 
 // experimental apis
 const experimentalCapturePageAPI = require('./bg/experimental/capture-page')
 const experimentalDatPeersAPI = require('./bg/experimental/dat-peers')
 const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
-const experimentalLibraryAPI = require('./bg/experimental/library')
 
 // exported api
 // =
@@ -65,19 +65,19 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
   globals.rpcAPI.exportAPI('templates', templatesManifest, templatesAPI, internalOnly)
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
-  globals.rpcAPI.exportAPI('feed', feedManifest, feedAPI, internalOnly)
-  globals.rpcAPI.exportAPI('followgraph', followgraphManifest, followgraphAPI, internalOnly)
+  // globals.rpcAPI.exportAPI('feed', feedManifest, feedAPI, internalOnly)
+  // globals.rpcAPI.exportAPI('followgraph', followgraphManifest, followgraphAPI, internalOnly)
 
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
   globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
   globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, secureOnly)
+  globals.rpcAPI.exportAPI('library', libraryManifest, libraryAPI, secureOnly)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-dat-peers', experimentalDatPeersManifest, experimentalDatPeersAPI, secureOnly)
   globals.rpcAPI.exportAPI('experimental-global-fetch', experimentalGlobalFetchManifest, experimentalGlobalFetchAPI, secureOnly)
-  globals.rpcAPI.exportAPI('experimental-library', experimentalLibraryManifest, experimentalLibraryAPI, secureOnly)
 }
 
 function internalOnly (event, methodName, args) {
