@@ -119,7 +119,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         if (isNaN(post.updatedAt)) post.updatedAt = 0 // optional
 
         // upsert
-        let existingPost = await get(archive.url, changedPost.name)
+        let existingPost = await getPost(archive.url, changedPost.name)
         if (existingPost) {
           await db.run(`
             UPDATE crawl_posts
@@ -148,29 +148,29 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @description
  * List crawled posts.
  *
- * @param {Object} [opts]
- * @param {string} [opts.author] - (URL) filter descriptions to those created by this author.
- * @param {Array<string>} [opts.authors] - (URL) filter descriptions to those created by these authors.
- * @param {number} [opts.offset]
- * @param {number} [opts.limit]
- * @param {boolean} [opts.reverse]
+  * @param {Object} [opts]
+  * @param {Object} [opts.filters]
+  * @param {string|string[]} [opts.filters.authors]
+  * @param {number} [opts.offset=0]
+  * @param {number} [opts.limit]
+  * @param {boolean} [opts.reverse]
  * @returns {Promise<Array<Post>>}
  */
-exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
+exports.query = async function (opts) {
   // validate & parse params
-  assert(!offset || typeof offset === 'number', 'Offset must be a number')
-  assert(!limit || typeof limit === 'number', 'Limit must be a number')
-  assert(!reverse || typeof reverse === 'boolean', 'Reverse must be a boolean')
-  assert(!author || typeof author === 'string', 'Author must be a string')
-  assert(!authors || (Array.isArray(authors) && authors.every(isString)), 'Authors must be an array of strings')
-
-  if (author) {
-    authors = authors || []
-    authors.push(author)
-  }
-  if (authors) {
-    try { authors = authors.map(toOrigin) }
-    catch (e) { throw new Error('Author/authors must contain valid URLs') }
+  if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+  if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+  if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+  if (opts && opts.filters) {
+    if ('authors' in opts.filters) {
+      if (Array.isArray(opts.filters.authors)) {
+        assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
+        opts.filters.authors = [opts.filters.authors]
+      }
+      opts.filters.authors = opts.filters.authors.map(toAuthorOrigin)
+    }
   }
 
   // build query
@@ -179,25 +179,25 @@ exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
       INNER JOIN crawl_sources src ON src.id = crawl_posts.crawlSourceId
   `
   var values = []
-  if (authors) {
+  if (opts && opts.filters && opts.filters.authors) {
     let op = 'WHERE'
-    for (let a of authors) {
+    for (let a of opts.filters.authors) {
       query += ` ${op} src.url = ?`
       op = 'OR'
       values.push(a)
     }
   }
   query += ` ORDER BY createdAt`
-  if (reverse) {
+  if (opts && opts.reverse) {
     query += ` DESC`
   }
-  if (limit) {
+  if (opts && opts.limit) {
     query += ` LIMIT ?`
-    values.push(limit)
+    values.push(opts.limit)
   }
-  if (offset) {
+  if (opts && opts.offset) {
     query += ` OFFSET ?`
-    values.push(offset)
+    values.push(opts.offset)
   }
 
   // execute query
@@ -209,18 +209,16 @@ exports.list = async function ({offset, limit, reverse, author, authors} = {}) {
  * @description
  * Get crawled post.
  *
- * @param {string} url - The URL of the post or of the author (if pathname is provided).
- * @param {string} [pathname] - The pathname of the post.
+ * @param {string} url - The URL of the post
  * @returns {Promise<Post>}
  */
-const get = exports.get = async function (url, pathname = undefined) {
+const getPost = exports.getPost = async function (url) {
   // validate & parse params
   var urlParsed
   if (url) {
     try { urlParsed = new URL(url) }
-    catch (e) { throw new Error('Failed to parse post URL: ' + url) }
+    catch (e) { throw new Error('Invalid URL: ' + url) }
   }
-  pathname = pathname || urlParsed.pathname
 
   // execute query
   return await massagePostRow(await db.get(`
@@ -232,7 +230,7 @@ const get = exports.get = async function (url, pathname = undefined) {
         AND src.url = ?
       WHERE
         crawl_posts.pathname = ?
-  `, [urlParsed.origin, pathname]))
+  `, [urlParsed.origin, urlParsed.pathname]))
 }
 
 /**
@@ -244,7 +242,7 @@ const get = exports.get = async function (url, pathname = undefined) {
  * @param {string} content.body
  * @returns {Promise}
  */
-exports.create = async function (archive, content) {
+exports.addPost = async function (archive, content) {
   var valid = validatePostContent(content)
   if (!valid) throw ajv.errorsText(validatePostContent.errors)
 
@@ -269,7 +267,7 @@ exports.create = async function (archive, content) {
  * @param {string} content.body
  * @returns {Promise}
  */
-exports.edit = async function (archive, pathname, content) {
+exports.editPost = async function (archive, pathname, content) {
   var valid = validatePostContent(content)
   if (!valid) throw ajv.errorsText(validatePostContent.errors)
   var oldJson = JSON.parse(await archive.pda.readFile(pathname))
@@ -290,7 +288,7 @@ exports.edit = async function (archive, pathname, content) {
  * @param {string} pathname - the pathname of the post.
  * @returns {Promise}
  */
-exports.delete = async function (archive, pathname) {
+exports.deletePost = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
   await crawler.crawlSite(archive)
@@ -300,11 +298,16 @@ exports.delete = async function (archive, pathname) {
 // =
 
 /**
- * @param {string} v
- * @returns {boolean}
+ * @param {string} url
+ * @returns {string}
  */
-function isString (v) {
-  return typeof v === 'string'
+function toAuthorOrigin (url) {
+  try {
+    var urlParsed = new URL(url)
+    return urlParsed.protocol + '//' + urlParsed.hostname
+  } catch (e) {
+    throw new Error('Invalid URL: ' + url)
+  }
 }
 
 /**

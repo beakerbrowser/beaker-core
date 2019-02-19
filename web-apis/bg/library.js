@@ -1,5 +1,4 @@
 const globals = require('../../globals')
-const _pick = require('lodash.pick')
 const through2 = require('through2')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')

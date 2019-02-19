@@ -7,7 +7,7 @@ const {PermissionsError} = require('beaker-error-constants')
 
 /**
  * @typedef {import('../../dbs/archives').LibraryArchiveRecord} LibraryArchiveRecord
- * 
+ *
  * @typedef {Object} ProfilesPublicAPIRecord
  * @prop {string} url
  * @prop {string} title

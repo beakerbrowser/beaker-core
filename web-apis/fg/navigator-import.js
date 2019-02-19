@@ -37,8 +37,18 @@ const APIs = {
       }
       return api
     }
+  },
+  'unwalled-garden-feed': {
+    manifest: require('../manifests/external/unwalled-garden-feed'),
+    create (rpc) {
+      var feedRPC = rpc.importAPI('unwalled-garden-feed', APIs['unwalled-garden-feed'].manifest, RPC_OPTS)
+      var api = {}
+      for (let method in APIs['unwalled-garden-feed'].manifest) {
+        api[method] = feedRPC[method].bind(api)
+      }
+      return api
+    }
   }
-  // TODO 'unwalled-garden-feed': require('../manifests/external/unwalled-garden-feed'),
   // TODO 'unwalled-garden-followgraph': require('../manifests/external/unwalled-garden-followgraph')
 }
 
