@@ -470,6 +470,8 @@ exports.updateSizeTracking = function updateSizeTracking (archive) {
 exports.queryArchives = async function queryArchives (query) {
   // run the query
   var archiveInfos = await archivesDb.query(0, query)
+  var isArray = Array.isArray(archiveInfos)
+  if (!isArray) archiveInfos = [archiveInfos]
 
   if (query && ('inMemory' in query)) {
     archiveInfos = archiveInfos.filter(archiveInfo => isArchiveLoaded(archiveInfo.key) === query.inMemory)
@@ -490,7 +492,7 @@ exports.queryArchives = async function queryArchives (query) {
       archiveInfo.peerHistory = []
     }
   }))
-  return archiveInfos
+  return isArray ? archiveInfos : archiveInfos[0]
 }
 
 exports.getArchiveInfo = async function getArchiveInfo (key) {

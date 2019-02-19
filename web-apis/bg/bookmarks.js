@@ -40,7 +40,7 @@ module.exports = {
   },
 
   /**
-   * @param {string} href 
+   * @param {string} href
    * @returns {Promise<BookmarkPublicAPIRecord>}
    */
   async get (href) {
@@ -49,7 +49,7 @@ module.exports = {
   },
 
   /**
-   * @param {string} href 
+   * @param {string} href
    * @returns {Promise<boolean>}
    */
   async has (href) {
@@ -99,7 +99,7 @@ module.exports = {
   },
 
   /**
-   * @param {Object} opts 
+   * @param {Object} opts
    * @param {string[]} [opts.pins]
    * @returns {Promise<void>}
    */

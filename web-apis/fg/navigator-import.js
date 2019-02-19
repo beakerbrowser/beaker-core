@@ -3,7 +3,17 @@ const {EventTargetFromStream} = require('./event-target')
 
 const RPC_OPTS = { timeout: false, errors }
 const APIs = {
-  bookmarks: require('../manifests/external/bookmarks'),
+  bookmarks: {
+    manifest: require('../manifests/external/bookmarks'),
+    create (rpc) {
+      var bookmarksRPC = rpc.importAPI('bookmarks', APIs.bookmarks.manifest, RPC_OPTS)
+      var api = {}
+      for (let method in APIs.bookmarks.manifest) {
+        api[method] = bookmarksRPC[method].bind(api)
+      }
+      return api
+    }
+  },
   library: {
     manifest: require('../manifests/external/library'),
     create (rpc) {
@@ -16,8 +26,18 @@ const APIs = {
       }
       return api
     }
+  },
+  profiles: {
+    manifest: require('../manifests/external/profiles'),
+    create (rpc) {
+      var profilesRPC = rpc.importAPI('profiles', APIs.profiles.manifest, RPC_OPTS)
+      var api = {}
+      for (let method in APIs.profiles.manifest) {
+        api[method] = profilesRPC[method].bind(api)
+      }
+      return api
+    }
   }
-  // TODO profiles: require('../manifests/external/profiles'),
   // TODO 'unwalled-garden-feed': require('../manifests/external/unwalled-garden-feed'),
   // TODO 'unwalled-garden-followgraph': require('../manifests/external/unwalled-garden-followgraph')
 }
@@ -29,7 +49,7 @@ exports.setup = function (rpc) {
     if (name in cache) return cache[name]
     if (name in APIs) {
       const API = APIs[name]
-      cache[name] = API.create ? API.create(rpc) : rpc.importAPI(name, APIs[name], RPC_OPTS)
+      cache[name] = API.create(rpc)
       return cache[name]
     }
     throw new Error(`Unknown API: ${name}`)

@@ -33,12 +33,14 @@ const datArchiveManifest = require('./manifests/external/dat-archive')
 const spellCheckerManifest = require('./manifests/external/spell-checker')
 const bookmarksManifest = require('./manifests/external/bookmarks')
 const libraryManifest = require('./manifests/external/library')
+const profilesManifest = require('./manifests/external/profiles')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
 const spellCheckerAPI = require('./bg/spell-checker')
 const bookmarksAPI = require('./bg/bookmarks')
 const libraryAPI = require('./bg/library')
+const profilesAPI = require('./bg/profiles')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
@@ -73,6 +75,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
   globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, secureOnly)
   globals.rpcAPI.exportAPI('library', libraryManifest, libraryAPI, secureOnly)
+  globals.rpcAPI.exportAPI('profiles', profilesManifest, profilesAPI, secureOnly)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)
