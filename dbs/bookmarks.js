@@ -155,7 +155,7 @@ exports.getBookmark = async function (profileId, href) {
  * @param {Object} [opts]
  * @param {Object} [opts.filters]
  * @param {string|string[]} [opts.filters.tag]
- * @param {boolean} [opts.filters.isPinned]
+ * @param {boolean} [opts.filters.pinned]
  * @returns {Promise<Array<Bookmark>>}
  */
 exports.listBookmarks = async function (profileId, {filters} = {}) {
@@ -168,7 +168,7 @@ exports.listBookmarks = async function (profileId, {filters} = {}) {
     .select('createdAt')
     .where('profileId', '=', profileId)
     .orderBy('createdAt', 'DESC')
-  if (filters && filters.isPinned) {
+  if (filters && filters.pinned) {
     sql = sql.where('pinned', '=', '1')
   }
 
