@@ -83,6 +83,14 @@ function remove (isRequest) {
 }
 
 module.exports = {
+  /**
+   * @param {Object} [opts]
+   * @param {Object} [opts.filters]
+   * @param {string|string[]} [opts.filters.type]
+   * @param {boolean} [opts.filters.owner]
+   * @param {boolean} [opts.filters.saved]
+   * @returns {Promise<LibraryPublicAPIRecord[]>}
+   */
   async list (opts = {}) {
     await assertPermission(this.sender, 'dangerousAppControl')
 
@@ -107,6 +115,10 @@ module.exports = {
     return archives.map(massageArchiveRecord)
   },
 
+  /**
+   * @param {string} url
+   * @returns {Promise<LibraryPublicAPIRecord>}
+   */
   async get (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var key = datLibrary.fromURLToKey(url)
@@ -116,9 +128,31 @@ module.exports = {
     }
   },
 
+  /**
+   * @param {string} url
+   * @param {Object} [opts]
+   * @param {string} [opts.localPath]
+   * @param {boolean} [opts.preview]
+   * @returns {Promise<void>}
+   */
   add: add(false),
+
+  /**
+   * @param {string} url
+   * @param {Object} [opts]
+   * @param {string} [opts.localPath]
+   * @param {boolean} [opts.preview]
+   * @returns {Promise<void>}
+   */
   requestAdd: add(true),
 
+  /**
+   * @param {string} url
+   * @param {Object} [opts]
+   * @param {string} [opts.localPath]
+   * @param {boolean} [opts.preview]
+   * @returns {Promise<void>}
+   */
   async edit (url, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var key = datLibrary.fromURLToKey(url)
@@ -132,9 +166,22 @@ module.exports = {
     await archivesDb.setUserSettings(0, key, settings)
   },
 
+  /**
+   * @param {string} url
+   * @returns {Promise<void>}
+   */
   remove: remove(false),
+
+  /**
+   * @param {string} url
+   * @returns {Promise<void>}
+   */
   requestRemove: remove(true),
 
+  /**
+   * @param {string} url
+   * @returns {Promise<void>}
+   */
   async uncache (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
     await datLibrary.clearFileCache(datLibrary.fromURLToKey(url))
@@ -242,7 +289,6 @@ async function validateLocalPath (key, v) {
 }
 
 /**
- *
  * @param {LibraryArchiveRecord} a
  * @returns {LibraryPublicAPIRecord}
  */
