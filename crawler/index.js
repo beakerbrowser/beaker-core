@@ -7,7 +7,7 @@ const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
 
 const {crawlerEvents, toHostname} = require('./util')
-const linkFeed = require('./link-feed')
+const feed = require('./feed')
 const followgraph = require('./followgraph')
 const siteDescriptions = require('./site-descriptions')
 
@@ -19,7 +19,7 @@ var watches = {}
 // exported api
 // =
 
-exports.linkFeed = linkFeed
+exports.feed = feed
 exports.followgraph = followgraph
 exports.siteDescriptions = siteDescriptions
 const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
@@ -78,7 +78,7 @@ exports.crawlSite = async function (archive) {
 
     // crawl individual sources
     await Promise.all([
-      linkFeed.crawlSite(archive, crawlSource),
+      feed.crawlSite(archive, crawlSource),
       followgraph.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource)
     ])

@@ -5,11 +5,8 @@ const rimraf = require('rimraf')
 
 const SCHEMAS = [
   'comment',
-  'content',
   'follows',
-  'link-post',
-  'micro-post',
-  'published-site'
+  'post'
 ]
 
 console.log('')

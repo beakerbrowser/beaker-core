@@ -140,7 +140,7 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {string} opts.user - The current user's URL.
  * @param {string} [opts.query] - The search query.
  * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included?
- * @param {string[]} [opts.datasets] - Datasets to query. Defaults to all. Valid values: 'followgraph', 'link_posts'.
+ * @param {string[]} [opts.datasets] - Datasets to query. Defaults to all. Valid values: 'followgraph', 'posts'.
  * @param {string[]} [opts.siteTypes] - Site types to query. Defaults to all.
  * @param {number} [opts.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.offset]
@@ -222,9 +222,9 @@ exports.listSearchResults = async function (opts) {
     }))
     searchResults.results = searchResults.results.concat(rows)
   }
-  if (!datasets || datasets.includes('link_posts')) {
-    // LINK_POSTS
-    let rows = await db.all(buildLinkPostsSearchQuery({
+  if (!datasets || datasets.includes('posts')) {
+    // POSTS
+    let rows = await db.all(buildPostsSearchQuery({
       query,
       crawlSourceIds,
       userCrawlSourceId,
@@ -241,7 +241,7 @@ exports.listSearchResults = async function (opts) {
 
       // massage attrs
       return {
-        recordType: 'link-post',
+        recordType: 'post',
         recordFilepath: p.recordFilepath,
         url: p.authorUrl + p.pathname,
         author,
@@ -303,40 +303,36 @@ function buildFollowGraphSearchQuery ({query, crawlSourceIds, user, userCrawlSou
   return sql
 }
 
-function buildLinkPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
-  let sql = knex(query ? 'crawl_link_posts_fts_index' : 'crawl_link_posts')
-    .select('crawl_link_posts.url')
-    .select('crawl_link_posts.type')
-    .select('crawl_link_posts.pathname')
-    .select('crawl_link_posts.crawledAt')
-    .select('crawl_link_posts.createdAt')
-    .select('crawl_link_posts.updatedAt')
-    .select('crawl_link_posts.pathname AS recordFilepath')
+function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_posts_fts_index' : 'crawl_posts')
+    .select('crawl_posts.pathname')
+    .select('crawl_posts.crawledAt')
+    .select('crawl_posts.createdAt')
+    .select('crawl_posts.updatedAt')
+    .select('crawl_posts.pathname AS recordFilepath')
     .select('crawl_sources.url AS authorUrl')
     .where(builder => builder
       .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
-      .orWhere('crawl_link_posts.crawlSourceId', userCrawlSourceId) // or by me
+      .orWhere('crawl_posts.crawlSourceId', userCrawlSourceId) // or by me
     )
-    .andWhere('crawl_link_posts.crawledAt', '>=', since)
-    .orderBy('crawl_link_posts.crawledAt')
+    .andWhere('crawl_posts.crawledAt', '>=', since)
+    .orderBy('crawl_posts.crawledAt')
     .limit(limit)
     .offset(offset)
   if (query) {
     sql = sql
-      .select(knex.raw(`SNIPPET(crawl_link_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
-      .select(knex.raw(`SNIPPET(crawl_link_posts_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
-      .innerJoin('crawl_link_posts', 'crawl_link_posts.rowid', '=', 'crawl_link_posts_fts_index.rowid')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_link_posts.crawlSourceId')
+      .select(knex.raw(`SNIPPET(crawl_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS body`))
+      .innerJoin('crawl_posts', 'crawl_posts.rowid', '=', 'crawl_posts_fts_index.rowid')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
       .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
-      .whereRaw('crawl_link_posts_fts_index MATCH ?', [query])
+      .whereRaw('crawl_posts_fts_index MATCH ?', [query])
   } else {
     sql = sql
-      .select('crawl_link_posts.title')
-      .select('crawl_link_posts.description')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_link_posts.crawlSourceId')
-      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_link_posts.url')
+      .select('crawl_posts.body')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_posts.url')
   }
-  sql = addSiteTypesClause(sql, siteTypes, 'crawl_link_posts')
+  sql = addSiteTypesClause(sql, siteTypes, 'crawl_posts')
   return sql
 }
 
