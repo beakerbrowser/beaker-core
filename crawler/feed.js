@@ -255,7 +255,7 @@ exports.create = async function (archive, content) {
     type: JSON_TYPE,
     content,
     createdAt: (new Date()).toISOString()
-  }))
+  }, null, 2))
   await crawler.crawlSite(archive)
 }
 
@@ -278,7 +278,7 @@ exports.edit = async function (archive, pathname, content) {
     content,
     createdAt: oldJson.createdAt,
     updatedAt: (new Date()).toISOString()
-  }))
+  }, null, 2))
   await crawler.crawlSite(archive)
 }
 

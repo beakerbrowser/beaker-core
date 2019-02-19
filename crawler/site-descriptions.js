@@ -272,7 +272,7 @@ exports.capture = async function (archive, subject) {
     logger.warn('Failed to read dat.json of subject archive', {details: {err}})
     throw new Error('Unabled to read subject dat.json')
   }
-  await archive.pda.writeFile(`/data/known-sites/${hostname}/dat.json`, JSON.stringify(datJson))
+  await archive.pda.writeFile(`/data/known-sites/${hostname}/dat.json`, JSON.stringify(datJson, null, 2))
 
   // capture thumb
   for (let ext of ['jpg', 'jpeg', 'png']) {

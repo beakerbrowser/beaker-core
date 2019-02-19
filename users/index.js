@@ -9,7 +9,6 @@ const archivesDb = require('../dbs/archives')
 // constants
 // =
 
-const SITE_TYPE = 'unwalled.garden/user'
 const CRAWL_TICK_INTERVAL = 5e3
 const NUM_SIMULTANEOUS_CRAWLS = 10
 
@@ -291,9 +290,6 @@ async function validateUserUrl (url) {
   ])
   if (!meta.isOwner) {
     throw new Error('User dat is not owned by this device')
-  }
-  if (!meta.type.includes(SITE_TYPE)) {
-    throw new Error('User dat is not the correct type')
   }
   if (!userSettings.isSaved) {
     throw new Error('User dat has been deleted')
