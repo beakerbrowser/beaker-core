@@ -2,7 +2,6 @@ const Events = require('events')
 const logger = require('../logger').category('crawler')
 const dat = require('../dat')
 const crawler = require('../crawler')
-const publishedSites = require('../crawler/published-sites')
 const followgraph = require('../crawler/followgraph')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
@@ -216,8 +215,7 @@ async function isUser (url) {
  *
  *  1. Self
  *  2. Followed sites
- *  3. Published sites
- *  4. FoaFs
+ *  3. FoaFs
  *
  * The sites will be ordered by these priorities and then iterated linearly. The ordering within
  * the priority groupings will be according to URL for a deterministic but effectively random ordering.
@@ -235,14 +233,8 @@ async function selectNextCrawlTargets (user) {
   // get followed sites
   rows = rows.concat(await followgraph.listFollows(user.url))
 
-  // get sites published
-  rows = rows.concat(await publishedSites.listPublishedSites(user.url))
-
   // get sites followed by followed sites
   rows = rows.concat(await followgraph.listFoaFs(user.url))
-
-  // get sites published by followed sites
-  // TODO
 
   // assemble into list
   var start = user.crawlSelectorCursor || 0

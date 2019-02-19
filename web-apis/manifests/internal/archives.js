@@ -5,8 +5,6 @@ module.exports = {
   // local cache management and querying
   setUserSettings: 'promise',
   add: 'promise',
-  publish: 'promise',
-  unpublish: 'promise',
   remove: 'promise',
   bulkRemove: 'promise',
   delete: 'promise',

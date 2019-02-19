@@ -140,7 +140,7 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {string} opts.user - The current user's URL.
  * @param {string} [opts.query] - The search query.
  * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included?
- * @param {string[]} [opts.datasets] - Datasets to query. Defaults to all. Valid values: 'followgraph', 'link_posts', 'published_sites'.
+ * @param {string[]} [opts.datasets] - Datasets to query. Defaults to all. Valid values: 'followgraph', 'link_posts'.
  * @param {string[]} [opts.siteTypes] - Site types to query. Defaults to all.
  * @param {number} [opts.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.offset]
@@ -257,33 +257,6 @@ exports.listSearchResults = async function (opts) {
       }
     })))
   }
-  if (!datasets || datasets.includes('published_sites')) {
-    // PUBLISHED_SITES
-    let rows = await db.all(buildPublishedSitesSearchQuery({
-      query,
-      crawlSourceIds,
-      userCrawlSourceId,
-      siteTypes,
-      since,
-      limit,
-      offset,
-      startHighlight,
-      endHighlight
-    }))
-    rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
-    searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (row) => {
-      // fetch full records
-      var result = /**@type SiteSearchResult*/(await siteDescriptions.getBest({subject: row.url, author: row.authorUrl}))
-      result.recordType = 'published-site'
-      result.recordFilepath = row.recordFilepath
-      result.author = await siteDescriptions.getBest({subject: row.authorUrl})
-
-      // overwrite title and description so that highlighting can be included
-      if (row.title) result.title = row.title
-      if (row.description) result.description = row.description
-      return result
-    })))
-  }
 
   // sort and apply limit again
   searchResults.results.sort((a, b) => b.crawledAt - a.crawledAt)
@@ -364,39 +337,6 @@ function buildLinkPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_link_posts.url')
   }
   sql = addSiteTypesClause(sql, siteTypes, 'crawl_link_posts')
-  return sql
-}
-
-function buildPublishedSitesSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
-  let sql = knex(query ? 'crawl_site_descriptions_fts_index' : 'crawl_published_sites')
-    .select('crawl_published_sites.url')
-    .select('crawl_published_sites.pathname AS recordFilepath')
-    .select('crawl_sources.url AS authorUrl')
-    .select('crawl_site_descriptions.crawledAt')
-    .where(builder => builder
-      .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
-      .orWhere('crawl_published_sites.crawlSourceId', userCrawlSourceId) // or by me
-    )
-    .andWhere('crawl_published_sites.crawledAt', '>=', since)
-    .orderBy('crawl_site_descriptions.crawledAt')
-    .limit(limit)
-    .offset(offset)
-  if (query) {
-    sql = sql
-      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
-      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
-      .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.rowid', '=', 'crawl_site_descriptions_fts_index.rowid')
-      .innerJoin('crawl_published_sites', 'crawl_published_sites.url', '=', 'crawl_site_descriptions.url')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_published_sites.crawlSourceId')
-      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
-      .whereRaw('crawl_site_descriptions_fts_index MATCH ?', [query])
-  } else {
-    sql = sql
-      .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.url', '=', 'crawl_published_sites.url')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_published_sites.crawlSourceId')
-      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
-  }
-  sql = addSiteTypesClause(sql, siteTypes, 'crawl_site_descriptions')
   return sql
 }
 
