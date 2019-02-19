@@ -87,18 +87,18 @@ module.exports = {
     await assertPermission(this.sender, 'dangerousAppControl')
 
     var query = {}
-    if (opts.filter && typeof opts.filter === 'object') {
-      if ('type' in opts.filter) {
-        validateTypeFilter(opts.filter.type)
-        query.type = opts.filter.type
+    if (opts.filters && typeof opts.filters === 'object') {
+      if ('type' in opts.filters) {
+        validateTypeFilter(opts.filters.type)
+        query.type = opts.filters.type
       }
-      if ('owner' in opts.filter) {
-        validateOwnerFilter(opts.filter.owner)
-        query.isOwner = opts.filter.owner
+      if ('owner' in opts.filters) {
+        validateOwnerFilter(opts.filters.owner)
+        query.isOwner = opts.filters.owner
       }
-      if ('saved' in opts.filter) {
-        validateSavedFilter(opts.filter.saved)
-        query.isSaved = opts.filter.saved
+      if ('saved' in opts.filters) {
+        validateSavedFilter(opts.filters.saved)
+        query.isSaved = opts.filters.saved
       }
     }
 
