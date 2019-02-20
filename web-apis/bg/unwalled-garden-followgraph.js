@@ -21,7 +21,7 @@ const followgraphCrawler = require('../../crawler/followgraph')
 
 module.exports = {
   /**
-   * @param {string} url 
+   * @param {string} url
    * @param {Object} [opts]
    * @param {Object} [opts.filters]
    * @param {string} [opts.filters.followedBy]
@@ -50,13 +50,13 @@ module.exports = {
         query.followedBy = opts.filters.followedBy
       }
     }
-    
+
     query.includeDesc = true
     return (await followgraphCrawler.listFollowers(url, opts)).map(massageSiteRecord)
   },
 
   /**
-   * @param {string} url 
+   * @param {string} url
    * @param {Object} [opts]
    * @param {Object} [opts.filters]
    * @param {string} [opts.filters.followedBy]
@@ -85,7 +85,7 @@ module.exports = {
         query.followedBy = opts.filters.followedBy
       }
     }
-    
+
     query.includeDesc = true
     return (await followgraphCrawler.listFollows(url, query)).map(massageSiteRecord)
   },
@@ -116,11 +116,11 @@ module.exports = {
 
     url = normalizeFollowUrl(url)
     assert(url, 'The `url` parameter must be a valid URL')
-    
+
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    
+
     await followgraphCrawler.follow(userArchive, url)
   },
 
@@ -137,7 +137,7 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
-    
+
     await followgraphCrawler.unfollow(userArchive, url)
   }
 }

@@ -1,4 +1,5 @@
 module.exports = {
   getCurrentUser: 'promise',
-  get: 'promise'
+  get: 'promise',
+  openProfileEditor: 'promise'
 }
