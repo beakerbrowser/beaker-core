@@ -48,8 +48,18 @@ const APIs = {
       }
       return api
     }
+  },
+  'unwalled-garden-followgraph': {
+    manifest: require('../manifests/external/unwalled-garden-followgraph'),
+    create (rpc) {
+      var feedRPC = rpc.importAPI('unwalled-garden-followgraph', APIs['unwalled-garden-followgraph'].manifest, RPC_OPTS)
+      var api = {}
+      for (let method in APIs['unwalled-garden-followgraph'].manifest) {
+        api[method] = feedRPC[method].bind(api)
+      }
+      return api
+    }
   }
-  // TODO 'unwalled-garden-followgraph': require('../manifests/external/unwalled-garden-followgraph')
 }
 
 var cache = {}

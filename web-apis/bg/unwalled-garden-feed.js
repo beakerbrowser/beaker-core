@@ -3,7 +3,6 @@ const assert = require('assert')
 const {URL} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
-const archivesDb = require('../../dbs/archives')
 const feedCrawler = require('../../crawler/feed')
 
 // typedefs
@@ -14,8 +13,8 @@ const feedCrawler = require('../../crawler/feed')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type 
- * 
+ * @prop {Array<string>} type
+ *
  * @typedef {Object} FeedPostPublicAPIRecord
  * @prop {string} url
  * @prop {Object} content
@@ -68,7 +67,7 @@ module.exports = {
   },
 
   /**
-   * @param {Object} post 
+   * @param {Object} post
    * @param {Object} post.content
    * @param {string} post.content.body
    * @returns {Promise<void>}
@@ -82,14 +81,14 @@ module.exports = {
 
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
-    
+
     var userArchive = dat.library.getArchive(userSession.url)
     await feedCrawler.addPost(userArchive, post.content)
   },
 
   /**
    * @param {string} url
-   * @param {Object} post 
+   * @param {Object} post
    * @param {Object} post.content
    * @param {string} post.content.body
    * @returns {Promise<void>}
@@ -141,7 +140,7 @@ async function assertPermission (sender, perm) {
 
 /**
  * Tries to parse the URL and return the pathname. If fails, assumes the string was a pathname.
- * @param {string} url 
+ * @param {string} url
  * @returns {string}
  */
 function urlToPathname (url) {

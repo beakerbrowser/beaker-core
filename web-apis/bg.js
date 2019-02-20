@@ -13,7 +13,6 @@ const domainNamesManifest = require('./manifests/internal/domain-names')
 const watchlistManifest = require('./manifests/internal/watchlist')
 const templatesManifest = require('./manifests/internal/templates')
 const crawlerManifest = require('./manifests/internal/crawler')
-// const followgraphManifest = require('./manifests/internal/followgraph')
 
 // internal apis
 const loggerAPI = require('../logger').WEBAPI
@@ -24,7 +23,6 @@ const domainNamesAPI = require('../dbs/domain-names')
 const watchlistAPI = require('./bg/watchlist')
 const templatesAPI = require('./bg/templates')
 const crawlerAPI = require('../crawler').WEBAPI
-const followgraphAPI = require('./bg/followgraph')
 
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')
@@ -33,6 +31,7 @@ const bookmarksManifest = require('./manifests/external/bookmarks')
 const libraryManifest = require('./manifests/external/library')
 const profilesManifest = require('./manifests/external/profiles')
 const feedManifest = require('./manifests/external/unwalled-garden-feed')
+const followgraphManifest = require('./manifests/external/unwalled-garden-followgraph')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
@@ -41,6 +40,7 @@ const bookmarksAPI = require('./bg/bookmarks')
 const libraryAPI = require('./bg/library')
 const profilesAPI = require('./bg/profiles')
 const feedAPI = require('./bg/unwalled-garden-feed')
+const followgraphAPI = require('./bg/unwalled-garden-followgraph')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
@@ -67,7 +67,6 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
   globals.rpcAPI.exportAPI('templates', templatesManifest, templatesAPI, internalOnly)
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
-  // globals.rpcAPI.exportAPI('followgraph', followgraphManifest, followgraphAPI, internalOnly)
 
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
@@ -76,6 +75,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('library', libraryManifest, libraryAPI, secureOnly)
   globals.rpcAPI.exportAPI('profiles', profilesManifest, profilesAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-feed', feedManifest, feedAPI, secureOnly)
+  globals.rpcAPI.exportAPI('unwalled-garden-followgraph', followgraphManifest, followgraphAPI, secureOnly)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)
