@@ -50,13 +50,13 @@ const BUILTIN_PAGES = [
  * @prop {string} title
  * @prop {string} description
  * @prop {Array<string>} type
- * 
+ *
  * @typedef {Object} SearchResultRecord
  * @prop {string} type
  * @prop {string} url
  * @prop {number} crawledAt
  * @prop {SearchResultAuthor} author
- * 
+ *
  * @typedef {Object} SiteSearchResult
  * @prop {SearchResultRecord} record
  * @prop {string} url
@@ -226,7 +226,7 @@ exports.query = async function (user, opts) {
   }
 
   // sort and apply limit again
-  searchResults.results.sort((a, b) => b.crawledAt - a.crawledAt)
+  searchResults.results.sort((a, b) => b.record.crawledAt - a.record.crawledAt)
   searchResults.results = searchResults.results.slice(0, limit)
 
   return searchResults

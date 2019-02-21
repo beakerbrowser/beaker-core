@@ -15,13 +15,13 @@ const crawler = require('../../crawler/search')
  * @prop {string} title
  * @prop {string} description
  * @prop {Array<string>} type
- * 
+ *
  * @typedef {Object} SearchPublicAPIResultRecord
  * @prop {string} type
  * @prop {string} url
  * @prop {number} crawledAt
  * @prop {SearchPublicAPIResultAuthor} author
- * 
+ *
  * @typedef {Object} SearchPublicAPISiteResult
  * @prop {SearchPublicAPIResultRecord} record
  * @prop {string} url
