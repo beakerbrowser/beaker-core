@@ -43,44 +43,34 @@ const BUILTIN_PAGES = [
  *
  * @typedef {Object} SearchResults
  * @prop {number} highlightNonce - A number used to create perimeters around text that should be highlighted.
- * @prop {Array<UserSearchResult|SiteSearchResult|PostSearchResult>} results
+ * @prop {Array<SiteSearchResult|PostSearchResult>} results
  *
- * @typedef {Object} UserSearchResult
- * @prop {string} recordType
- * @prop {string} url
- * @prop {string} title
- * @prop {string} description
- * @prop {Array<SiteDescription>} followedBy
- * @prop {bool} followsUser
- * @prop {string} thumbUrl
- * @prop {Object} author
- * @prop {string} author.url
- *
- * @typedef {Object} PostSearchResult
- * @prop {string} recordType
- * @prop {string} url
- * @prop {SiteDescription} author
- * @prop {string} recordFilepath
- * @prop {Object} content
- * @prop {string} content.url
- * @prop {string} content.title
- * @prop {string} content.description
- * @prop {Array<string>} content.type
- * @prop {number} crawledAt
- * @prop {number} createdAt
- * @prop {number} updatedAt
- *
- * @typedef {Object} SiteSearchResult
- * @prop {string} recordType
+ * @typedef {Object} SearchResultAuthor
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
  * @prop {Array<string>} type
- * @prop {string} thumbUrl
- * @prop {Object} descAuthor
- * @prop {string} descAuthor.url
- * @prop {SiteDescription} author
- * @prop {string} recordFilepath
+ * 
+ * @typedef {Object} SearchResultRecord
+ * @prop {string} type
+ * @prop {string} url
+ * @prop {number} crawledAt
+ * @prop {SearchResultAuthor} author
+ * 
+ * @typedef {Object} SiteSearchResult
+ * @prop {SearchResultRecord} record
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {Array<string>} type
+ *
+ * @typedef {Object} PostSearchResult
+ * @prop {SearchResultRecord} record
+ * @prop {string} url
+ * @prop {Object} content
+ * @prop {string} content.body
+ * @prop {number} createdAt
+ * @prop {number} updatedAt
  */
 
 // exported api
@@ -136,18 +126,18 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @description
  * Run a search query against crawled data.
  *
+ * @param {string} user - The current user's URL.
  * @param {Object} opts
- * @param {string} opts.user - The current user's URL.
  * @param {string} [opts.query] - The search query.
- * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included?
- * @param {string[]} [opts.datasets] - Datasets to query. Defaults to all. Valid values: 'followgraph', 'posts'.
- * @param {string[]} [opts.siteTypes] - Site types to query. Defaults to all.
- * @param {number} [opts.since] - Filter results to items created since the given timestamp.
+ * @param {Object} [opts.filters]
+ * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/post'.
+ * @param {number} [opts.filters.since] - Filter results to items created since the given timestamp.
+ * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included? Valid values: 1, 2.
  * @param {number} [opts.offset]
  * @param {number} [opts.limit = 20]
  * @returns {Promise<SearchResults>}
  */
-exports.listSearchResults = async function (opts) {
+exports.query = async function (user, opts) {
   const highlightNonce =  (Math.random() * 1e3)|0
   const startHighlight = `{${highlightNonce}}`
   const endHighlight = `{/${highlightNonce}}`
@@ -156,13 +146,21 @@ exports.listSearchResults = async function (opts) {
     highlightNonce,
     results: []
   }
-  var {user, query, hops, datasets, siteTypes, since, offset, limit} = opts
-  since = since || 0
-  offset = offset || 0
-  limit = limit || 20
+  var {query, hops, filters, offset, limit} = Object.assign({}, {
+    query: undefined,
+    hops: 1,
+    filters: {},
+    offset: 0,
+    limit: 20
+  }, opts)
+  var {datasets, since} = Object.assign({}, {
+    datasets: 'all',
+    since: 0
+  }, filters)
   hops = Math.min(Math.max(Math.floor(hops), 1), 2) // clamp to [1, 2] for now
-  if (typeof datasets === 'string') datasets = [datasets]
-  if (typeof siteTypes === 'string') siteTypes = [siteTypes]
+  var datasetValues = (typeof datasets === 'undefined')
+    ? ['all']
+    : Array.isArray(datasets) ? datasets : [datasets]
 
   // prep search terms
   if (query && typeof query === 'string') {
@@ -194,14 +192,13 @@ exports.listSearchResults = async function (opts) {
   }
 
   // run queries
-  if (!datasets || datasets.includes('followgraph')) {
-    // FOLLOWGRAPH
-    let rows = await db.all(buildFollowGraphSearchQuery({
+  if (datasetValues.includes('all') || datasetValues.includes('sites')) {
+    // SITES
+    let rows = await db.all(buildSitesSearchQuery({
       query,
       crawlSourceIds,
       user,
       userCrawlSourceId,
-      siteTypes,
       since,
       limit,
       offset,
@@ -209,53 +206,23 @@ exports.listSearchResults = async function (opts) {
       endHighlight
     }))
     rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
-    await Promise.all(rows.map(async (p) => {
-      // fetch additional info
-      p.followedBy = await followgraph.listFollowers(p.url, {includeDesc: true})
-      p.followsUser = await followgraph.isAFollowingB(p.url, user)
-
-      // massage attrs
-      p.recordType = 'user'
-      p.thumbUrl = getSiteDescriptionThumbnailUrl(p.authorUrl, p.url)
-      p.author = {url: p.authorUrl}
-      delete p.authorUrl
-    }))
+    rows = await Promise.all(rows.map(massageSiteSearchResult))
     searchResults.results = searchResults.results.concat(rows)
   }
-  if (!datasets || datasets.includes('posts')) {
+  if (datasetValues.includes('all') || datasets.includes('unwalled.garden/post')) {
     // POSTS
     let rows = await db.all(buildPostsSearchQuery({
       query,
       crawlSourceIds,
       userCrawlSourceId,
-      siteTypes,
       since,
       limit,
       offset,
       startHighlight,
       endHighlight
     }))
-    searchResults.results = searchResults.results.concat(await Promise.all(rows.map(async (p) => {
-      // fetch additional info
-      var author = await siteDescriptions.getBest({subject: p.authorUrl})
-
-      // massage attrs
-      return {
-        recordType: 'post',
-        recordFilepath: p.recordFilepath,
-        url: p.authorUrl + p.pathname,
-        author,
-        content: {
-          url: p.url,
-          title: p.title,
-          description: p.description,
-          type: p.type.split(',')
-        },
-        crawledAt: p.crawledAt,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt
-      }
-    })))
+    rows = await Promise.all(rows.map(massagePostSearchResult))
+    searchResults.results = searchResults.results.concat(rows)
   }
 
   // sort and apply limit again
@@ -268,7 +235,7 @@ exports.listSearchResults = async function (opts) {
 // internal methods
 // =
 
-function buildFollowGraphSearchQuery ({query, crawlSourceIds, user, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
+function buildSitesSearchQuery ({query, crawlSourceIds, user, userCrawlSourceId, since, limit, offset, startHighlight, endHighlight}) {
   let sql = knex(query ? 'crawl_site_descriptions_fts_index' : 'crawl_site_descriptions')
     .select('crawl_site_descriptions.url AS url')
     .select('crawl_sources.url AS authorUrl')
@@ -299,17 +266,15 @@ function buildFollowGraphSearchQuery ({query, crawlSourceIds, user, userCrawlSou
       .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_site_descriptions.url')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
   }
-  sql = addSiteTypesClause(sql, siteTypes, 'crawl_site_descriptions')
   return sql
 }
 
-function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteTypes, since, limit, offset, startHighlight, endHighlight}) {
+function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since, limit, offset, startHighlight, endHighlight}) {
   let sql = knex(query ? 'crawl_posts_fts_index' : 'crawl_posts')
     .select('crawl_posts.pathname')
     .select('crawl_posts.crawledAt')
     .select('crawl_posts.createdAt')
     .select('crawl_posts.updatedAt')
-    .select('crawl_posts.pathname AS recordFilepath')
     .select('crawl_sources.url AS authorUrl')
     .where(builder => builder
       .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
@@ -330,19 +295,64 @@ function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, siteT
     sql = sql
       .select('crawl_posts.body')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
-      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_posts.url')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
   }
-  sql = addSiteTypesClause(sql, siteTypes, 'crawl_posts')
   return sql
 }
 
-function addSiteTypesClause (sql, siteTypes, table) {
-  if (siteTypes && siteTypes.length) {
-    sql = sql.where(builder => {
-      for (let t of siteTypes) {
-        builder = builder.orWhereRaw(`(',' || ${table}.type || ',') LIKE ?`, `%,${t},%`)
-      }
-    })
+/**
+ * @param {Object} row
+ * @returns {Promise<SiteSearchResult>}
+ */
+async function massageSiteSearchResult (row) {
+  // fetch additional info
+  var author = await siteDescriptions.getBest({subject: row.authorUrl})
+
+  // massage attrs
+  return {
+    record: {
+      type: 'site',
+      url: row.url,
+      author: {
+        url: author.url,
+        title: author.title,
+        description: author.description,
+        type: author.type
+      },
+      crawledAt: row.crawledAt,
+    },
+    url: row.url,
+    title: row.title,
+    description: row.description,
+    type: row.type
   }
-  return sql
+}
+
+/**
+ * @param {Object} row
+ * @returns {Promise<PostSearchResult>}
+ */
+async function massagePostSearchResult (row) {
+  // fetch additional info
+  var author = await siteDescriptions.getBest({subject: row.authorUrl})
+
+  // massage attrs
+  var url = row.authorUrl + row.pathname
+  return {
+    record: {
+      type: 'unwalled.garden/post',
+      url,
+      author: {
+        url: author.url,
+        title: author.title,
+        description: author.description,
+        type: author.type
+      },
+      crawledAt: row.crawledAt,
+    },
+    url,
+    content: {body: row.body},
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
 }

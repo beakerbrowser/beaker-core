@@ -52,7 +52,8 @@ module.exports = {
     }
 
     query.includeDesc = true
-    return (await followgraphCrawler.listFollowers(url, opts)).map(massageSiteRecord)
+    var followers = await followgraphCrawler.listFollowers(url, opts)
+    return followers.map(massageSiteRecord)
   },
 
   /**
@@ -87,7 +88,9 @@ module.exports = {
     }
 
     query.includeDesc = true
-    return (await followgraphCrawler.listFollows(url, query)).map(massageSiteRecord)
+    var follows = await followgraphCrawler.listFollows(url, query)
+    console.log(follows, follows.map(massageSiteRecord))
+    return follows.map(massageSiteRecord)
   },
 
   /**

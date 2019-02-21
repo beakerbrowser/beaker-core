@@ -30,6 +30,7 @@ const spellCheckerManifest = require('./manifests/external/spell-checker')
 const bookmarksManifest = require('./manifests/external/bookmarks')
 const libraryManifest = require('./manifests/external/library')
 const profilesManifest = require('./manifests/external/profiles')
+const searchManifest = require('./manifests/external/search')
 const feedManifest = require('./manifests/external/unwalled-garden-feed')
 const followgraphManifest = require('./manifests/external/unwalled-garden-followgraph')
 
@@ -39,6 +40,7 @@ const spellCheckerAPI = require('./bg/spell-checker')
 const bookmarksAPI = require('./bg/bookmarks')
 const libraryAPI = require('./bg/library')
 const profilesAPI = require('./bg/profiles')
+const searchAPI = require('./bg/search')
 const feedAPI = require('./bg/unwalled-garden-feed')
 const followgraphAPI = require('./bg/unwalled-garden-followgraph')
 
@@ -74,6 +76,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, secureOnly)
   globals.rpcAPI.exportAPI('library', libraryManifest, libraryAPI, secureOnly)
   globals.rpcAPI.exportAPI('profiles', profilesManifest, profilesAPI, secureOnly)
+  globals.rpcAPI.exportAPI('search', searchManifest, searchAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-feed', feedManifest, feedAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-followgraph', followgraphManifest, followgraphAPI, secureOnly)
 

@@ -5,14 +5,7 @@ const RPC_OPTS = { timeout: false, errors }
 const APIs = {
   bookmarks: {
     manifest: require('../manifests/external/bookmarks'),
-    create (rpc) {
-      var bookmarksRPC = rpc.importAPI('bookmarks', APIs.bookmarks.manifest, RPC_OPTS)
-      var api = {}
-      for (let method in APIs.bookmarks.manifest) {
-        api[method] = bookmarksRPC[method].bind(api)
-      }
-      return api
-    }
+    create: makeCreateFn('bookmarks')
   },
   library: {
     manifest: require('../manifests/external/library'),
@@ -29,36 +22,19 @@ const APIs = {
   },
   profiles: {
     manifest: require('../manifests/external/profiles'),
-    create (rpc) {
-      var profilesRPC = rpc.importAPI('profiles', APIs.profiles.manifest, RPC_OPTS)
-      var api = {}
-      for (let method in APIs.profiles.manifest) {
-        api[method] = profilesRPC[method].bind(api)
-      }
-      return api
-    }
+    create: makeCreateFn('profiles')
+  },
+  search: {
+    manifest: require('../manifests/external/search'),
+    create: makeCreateFn('search')
   },
   'unwalled-garden-feed': {
     manifest: require('../manifests/external/unwalled-garden-feed'),
-    create (rpc) {
-      var feedRPC = rpc.importAPI('unwalled-garden-feed', APIs['unwalled-garden-feed'].manifest, RPC_OPTS)
-      var api = {}
-      for (let method in APIs['unwalled-garden-feed'].manifest) {
-        api[method] = feedRPC[method].bind(api)
-      }
-      return api
-    }
+    create: makeCreateFn('unwalled-garden-feed')
   },
   'unwalled-garden-followgraph': {
     manifest: require('../manifests/external/unwalled-garden-followgraph'),
-    create (rpc) {
-      var feedRPC = rpc.importAPI('unwalled-garden-followgraph', APIs['unwalled-garden-followgraph'].manifest, RPC_OPTS)
-      var api = {}
-      for (let method in APIs['unwalled-garden-followgraph'].manifest) {
-        api[method] = feedRPC[method].bind(api)
-      }
-      return api
-    }
+    create: makeCreateFn('unwalled-garden-followgraph')
   }
 }
 
@@ -73,5 +49,16 @@ exports.setup = function (rpc) {
       return cache[name]
     }
     throw new Error(`Unknown API: ${name}`)
+  }
+}
+
+function makeCreateFn (name) {
+  return rpc => {
+    var rpcInst = rpc.importAPI(name, APIs[name].manifest, RPC_OPTS)
+    var api = {}
+    for (let method in APIs[name].manifest) {
+      api[method] = rpcInst[method].bind(api)
+    }
+    return api
   }
 }
