@@ -65,7 +65,7 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, '@BeakerBrowser
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Hashbase', 'https://hashbase.io', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Documentation', 'dat://beakerbrowser.com/docs', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issue', 'https://github.com/beakerbrowser/beaker/issues', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Explore the p2p Web', 'dat://taravancil.com/explore-the-p2p-web.md', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Explore the P2P Web', 'dat://explore.beakerbrowser.com/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
 
 PRAGMA user_version = 1;
