@@ -6,7 +6,6 @@ const historyDb = require('../dbs/history')
 const datLibrary = require('../dat/library')
 const followgraph = require('./followgraph')
 const siteDescriptions = require('./site-descriptions')
-const {getBasicType} = require('../lib/dat')
 const {getSiteDescriptionThumbnailUrl} = require('./util')
 const knex = require('../lib/knex')
 
@@ -95,7 +94,7 @@ exports.listSuggestions = async function (query = '', opts = {}) {
   // library
   var libraryResults = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
   libraryResults = libraryResults.filter(filterFn)
-  var libraryResultsGrouped = _groupBy(libraryResults, a => getBasicType(a.type))
+  var libraryResultsGrouped = _groupBy(libraryResults, a => 'todo') //getBasicType(a.type))
   suggestions.people = libraryResultsGrouped.user
   suggestions.webPages = libraryResultsGrouped['web-page']
   suggestions.fileShares = libraryResultsGrouped['file-share']
