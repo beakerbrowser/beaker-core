@@ -1,7 +1,6 @@
 const parseDatURL = require('parse-dat-url')
 const {InvalidDomainName} = require('beaker-error-constants')
 const sitedataDb = require('../dbs/sitedata')
-const domainNamesDb = require('../dbs/domain-names')
 const {DAT_HASH_REGEX} = require('../lib/const')
 const logger = require('../logger').child({category: 'dat', subcategory: 'dns'})
 
@@ -19,17 +18,6 @@ datDns.on('cache-flushed', details => logger.debug('Cache flushed'))
 // wrap resolveName() with a better error
 const resolveName = datDns.resolveName
 datDns.resolveName = async function (name, opts, cb) {
-  var nameParsed = parseDatURL(name)
-  var hostname = nameParsed.hostname || nameParsed.pathname
-  const isRelativeName = !hostname.includes('.')
-  if (isRelativeName) {
-    // check local mapping
-    let record = await domainNamesDb.get(hostname)
-    if (record) {
-      return record.value
-    }
-  }
-
   return resolveName.apply(datDns, arguments)
     .catch(_ => {
       throw new InvalidDomainName()
