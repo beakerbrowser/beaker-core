@@ -7,7 +7,6 @@ const beakerBrowserManifest = require('../manifests/internal/browser')
 const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
-const domainNamesManifest = require('../manifests/internal/domain-names')
 const watchlistManifest = require('../manifests/internal/watchlist')
 const templatesManifest = require('../manifests/internal/templates')
 const crawlerManifest = require('../manifests/internal/crawler')
@@ -24,7 +23,6 @@ exports.setup = function (rpc) {
     const downloadsRPC = rpc.importAPI('downloads', downloadsManifest, opts)
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
-    const domainNamesRPC = rpc.importAPI('domain-names', domainNamesManifest, opts)
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
     const templatesRPC = rpc.importAPI('templates', templatesManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
@@ -137,14 +135,6 @@ exports.setup = function (rpc) {
     beaker.sitedata.setAppPermissions = sitedataRPC.setAppPermissions
     beaker.sitedata.clearPermission = sitedataRPC.clearPermission
     beaker.sitedata.clearPermissionAllOrigins = sitedataRPC.clearPermissionAllOrigins
-
-    // beaker.domainNames
-    beaker.domainNames = {
-      set: domainNamesRPC.set,
-      delete: domainNamesRPC.delete,
-      get: domainNamesRPC.get,
-      list: domainNamesRPC.list
-    }
 
     // beaker.watchlist
     beaker.watchlist = {}

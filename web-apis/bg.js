@@ -9,7 +9,6 @@ const beakerBrowserManifest = require('./manifests/internal/browser')
 const downloadsManifest = require('./manifests/internal/downloads')
 const historyManifest = require('./manifests/internal/history')
 const sitedataManifest = require('./manifests/internal/sitedata')
-const domainNamesManifest = require('./manifests/internal/domain-names')
 const watchlistManifest = require('./manifests/internal/watchlist')
 const templatesManifest = require('./manifests/internal/templates')
 const crawlerManifest = require('./manifests/internal/crawler')
@@ -19,7 +18,6 @@ const loggerAPI = require('../logger').WEBAPI
 const archivesAPI = require('./bg/archives')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
-const domainNamesAPI = require('../dbs/domain-names')
 const watchlistAPI = require('./bg/watchlist')
 const templatesAPI = require('./bg/templates')
 const crawlerAPI = require('../crawler').WEBAPI
@@ -65,7 +63,6 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('downloads', downloadsManifest, globals.downloadsWebAPI, internalOnly)
   globals.rpcAPI.exportAPI('history', historyManifest, historyAPI, internalOnly)
   globals.rpcAPI.exportAPI('sitedata', sitedataManifest, sitedataAPI, internalOnly)
-  globals.rpcAPI.exportAPI('domain-names', domainNamesManifest, domainNamesAPI, internalOnly)
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
   globals.rpcAPI.exportAPI('templates', templatesManifest, templatesAPI, internalOnly)
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
