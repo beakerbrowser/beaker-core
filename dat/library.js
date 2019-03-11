@@ -540,7 +540,7 @@ exports.clearFileCache = async function clearFileCache (key) {
 // helpers
 // =
 
-const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
+const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url, lookupDns = false) {
   if (Buffer.isBuffer(url)) {
     return url
   }
@@ -556,8 +556,10 @@ const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
     throw new InvalidURLError('URL must be a dat: scheme')
   }
   if (!DAT_HASH_REGEX.test(urlp.host)) {
-    // TODO- support dns lookup?
-    throw new InvalidURLError('Hostname is not a valid hash')
+    if (!lookupDns) {
+      throw new InvalidURLError('Hostname is not a valid hash')
+    }
+    return require('./dns').resolveName(urlp.host)
   }
 
   return urlp.host

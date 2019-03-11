@@ -47,7 +47,7 @@ const {PermissionsError} = require('beaker-error-constants')
 function add (isRequest) {
   return async function (url, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
     if (opts && 'localPath' in opts) await validateLocalPath(key, opts.localPath)
     if (opts && 'preview' in opts) validatePreview(opts.preview)
 
@@ -70,7 +70,7 @@ function add (isRequest) {
 function remove (isRequest) {
   return async function (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
 
     if (isRequest) {
       await checkIsntOwner(key)
@@ -120,7 +120,7 @@ module.exports = {
    */
   async get (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
     var archive = /** @type LibraryArchiveRecord */(await datLibrary.queryArchives({key}))
     if (archive) {
       return massageArchiveRecord(archive)
@@ -154,7 +154,7 @@ module.exports = {
    */
   async edit (url, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
     if (opts && 'localPath' in opts) await validateLocalPath(key, opts.localPath)
     if (opts && 'preview' in opts) validatePreview(opts.preview)
 
@@ -183,7 +183,7 @@ module.exports = {
    */
   async uncache (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    await datLibrary.clearFileCache(datLibrary.fromURLToKey(url))
+    await datLibrary.clearFileCache(await datLibrary.fromURLToKey(url, true))
   },
 
   async createEventStream () {
