@@ -1,5 +1,6 @@
 const globals = require('../../globals')
 const datLibrary = require('../../dat/library')
+const crawler = require('../../crawler')
 const {PermissionsError} = require('beaker-error-constants')
 
 // typedefs
@@ -47,6 +48,16 @@ module.exports = {
    */
   async get (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
+    return get(url)
+  },
+
+  /**
+   * @param {string} url
+   * @returns {Promise<ProfilesPublicAPIRecord>}
+   */
+  async index (url) {
+    await assertPermission(this.sender, 'dangerousAppControl')
+    await crawler.crawlSite(url)
     return get(url)
   },
 

@@ -65,6 +65,9 @@ exports.unwatchSite = async function (url) {
 
 const crawlSite =
 exports.crawlSite = async function (archive) {
+  if (typeof archive === 'string') {
+    archive = await dat.library.getOrLoadArchive(archive)
+  }
   logger.silly('Crawling site', {details: {url: archive.url}})
   crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
