@@ -470,6 +470,7 @@ exports.updateSizeTracking = function updateSizeTracking (archive) {
 exports.queryArchives = async function queryArchives (query) {
   // run the query
   var archiveInfos = await archivesDb.query(0, query)
+  if (!archiveInfos) return undefined
   var isArray = Array.isArray(archiveInfos)
   if (!isArray) archiveInfos = [archiveInfos]
 

@@ -313,7 +313,7 @@ function toAuthorOrigin (url) {
 }
 
 /**
- * @param {string} origin 
+ * @param {string} origin
  * @param {string} pathname
  * @returns {string}
  */

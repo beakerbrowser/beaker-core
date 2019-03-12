@@ -19,7 +19,7 @@ const {PermissionsError} = require('beaker-error-constants')
 // =
 
 async function get (url) {
-  var key = datLibrary.fromURLToKey(url)
+  var key = await datLibrary.fromURLToKey(url, true)
   var archive = /** @type LibraryArchiveRecord */(await datLibrary.queryArchives({key}))
   if (!archive) return null
   return {
