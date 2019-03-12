@@ -230,7 +230,7 @@ const getPost = exports.getPost = async function (url) {
         AND src.url = ?
       WHERE
         crawl_posts.pathname = ?
-  `, [urlParsed.origin, urlParsed.pathname]))
+  `, [`${urlParsed.protocol}//${urlParsed.hostname}`, urlParsed.pathname]))
 }
 
 /**
@@ -240,21 +240,23 @@ const getPost = exports.getPost = async function (url) {
  * @param {InternalDatArchive} archive - where to write the post to.
  * @param {Object} content
  * @param {string} content.body
- * @returns {Promise}
+ * @returns {Promise<string>} url
  */
 exports.addPost = async function (archive, content) {
   var valid = validatePostContent(content)
   if (!valid) throw ajv.errorsText(validatePostContent.errors)
 
   var filename = generateTimeFilename()
+  var filepath = `/data/feed/${filename}.json`
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/feed')
-  await archive.pda.writeFile(`/data/feed/${filename}.json`, JSON.stringify({
+  await archive.pda.writeFile(filepath, JSON.stringify({
     type: JSON_TYPE,
     content,
     createdAt: (new Date()).toISOString()
   }, null, 2))
   await crawler.crawlSite(archive)
+  return archive.url + filepath
 }
 
 /**
@@ -265,7 +267,7 @@ exports.addPost = async function (archive, content) {
  * @param {string} pathname - the pathname of the post.
  * @param {Object} content
  * @param {string} content.body
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 exports.editPost = async function (archive, pathname, content) {
   var valid = validatePostContent(content)
@@ -286,7 +288,7 @@ exports.editPost = async function (archive, pathname, content) {
  *
  * @param {InternalDatArchive} archive - where to write the post to.
  * @param {string} pathname - the pathname of the post.
- * @returns {Promise}
+ * @returns {Promise<void>}
  */
 exports.deletePost = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')

@@ -70,7 +70,7 @@ module.exports = {
    * @param {Object} post
    * @param {Object} post.content
    * @param {string} post.content.body
-   * @returns {Promise<void>}
+   * @returns {Promise<FeedPostPublicAPIRecord>}
    */
   async addPost (post) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -83,7 +83,8 @@ module.exports = {
     if (!userSession) throw new Error('No active user session')
 
     var userArchive = dat.library.getArchive(userSession.url)
-    await feedCrawler.addPost(userArchive, post.content)
+    var url = await feedCrawler.addPost(userArchive, post.content)
+    return massagePostRecord(await feedCrawler.getPost(url))
   },
 
   /**
@@ -91,7 +92,7 @@ module.exports = {
    * @param {Object} post
    * @param {Object} post.content
    * @param {string} post.content.body
-   * @returns {Promise<void>}
+   * @returns {Promise<FeedPostPublicAPIRecord>}
    */
   async editPost (url, post) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -103,10 +104,11 @@ module.exports = {
 
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
-    url = urlToPathname(url)
+    var filepath = await urlToFilepath(url, userSession.url)
 
     var userArchive = dat.library.getArchive(userSession.url)
-    await feedCrawler.editPost(userArchive, url, post.content)
+    await feedCrawler.editPost(userArchive, filepath, post.content)
+    return massagePostRecord(await feedCrawler.getPost(userSession.url + filepath))
   },
 
   /**
@@ -120,10 +122,10 @@ module.exports = {
 
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
-    url = urlToPathname(url)
+    var filepath = await urlToFilepath(url, userSession.url)
 
     var userArchive = dat.library.getArchive(userSession.url)
-    await feedCrawler.deletePost(userArchive, url)
+    await feedCrawler.deletePost(userArchive, filepath)
   }
 }
 
@@ -141,17 +143,26 @@ async function assertPermission (sender, perm) {
 /**
  * Tries to parse the URL and return the pathname. If fails, assumes the string was a pathname.
  * @param {string} url
- * @returns {string}
+ * @returns {Promise<string>}
  */
-function urlToPathname (url) {
+async function urlToFilepath (url, origin) {
+  var filepath
   try {
-    var urlParsed = new URL(url)
-    if (urlParsed.pathname && urlParsed.pathname !== '/') {
-      return urlParsed.pathname
+    // if `url` is a full URL, extract the path
+    var urlp = new URL(url)
+    filepath = urlp.pathname
+    
+    // double-check the origin
+    var key = dat.dns.resolveName(urlp.hostname)
+    var urlp2 = new URL(origin)
+    if (key !== urlp2.hostname) {
+      throw new Error('Unable to edit posts on other sites than your own')
     }
   } catch (e) {
-    return url
+    // assume `url` is a path
+    filepath = url
   }
+  return filepath
 }
 
 function massagePostRecord (post) {
