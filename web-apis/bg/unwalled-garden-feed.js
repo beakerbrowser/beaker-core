@@ -105,6 +105,7 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var filepath = await urlToFilepath(url, userSession.url)
+    console.log('got filepath', url, filepath)
 
     var userArchive = dat.library.getArchive(userSession.url)
     await feedCrawler.editPost(userArchive, filepath, post.content)
@@ -146,22 +147,24 @@ async function assertPermission (sender, perm) {
  * @returns {Promise<string>}
  */
 async function urlToFilepath (url, origin) {
+  var urlp
   var filepath
   try {
     // if `url` is a full URL, extract the path
-    var urlp = new URL(url)
+    urlp = new URL(url)
     filepath = urlp.pathname
-    
-    // double-check the origin
-    var key = dat.dns.resolveName(urlp.hostname)
-    var urlp2 = new URL(origin)
-    if (key !== urlp2.hostname) {
-      throw new Error('Unable to edit posts on other sites than your own')
-    }
   } catch (e) {
     // assume `url` is a path
-    filepath = url
+    return url
   }
+
+  // double-check the origin
+  var key = await dat.dns.resolveName(urlp.hostname)
+  var urlp2 = new URL(origin)
+  if (key !== urlp2.hostname) {
+    throw new Error('Unable to edit posts on other sites than your own')
+  }
+
   return filepath
 }
 
