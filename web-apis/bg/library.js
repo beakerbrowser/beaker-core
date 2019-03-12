@@ -20,7 +20,7 @@ const {PermissionsError} = require('beaker-error-constants')
  * @prop {number} connections
  * @prop {boolean} owner
  * @prop {boolean} saved
- * @prop {boolean} preview
+ * @prop {boolean} previewEnabled
  * @prop {string} localPath
  *
  * @typedef {Object} LibraryPublicAPIAddedEventDetail
@@ -49,7 +49,7 @@ function add (isRequest) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var key = await datLibrary.fromURLToKey(url, true)
     if (opts && 'localPath' in opts) await validateLocalPath(key, opts.localPath)
-    if (opts && 'preview' in opts) validatePreview(opts.preview)
+    if (opts && 'previewEnabled' in opts) validatePreview(opts.previewEnabled)
 
     if (isRequest) {
       await checkIsntOwner(key)
@@ -62,7 +62,7 @@ function add (isRequest) {
     // update settings
     var settings = {isSaved: true}
     if (opts && 'localPath' in opts) settings.localSyncPath = opts.localPath
-    if (opts && 'preview' in opts) settings.previewMode = opts.preview
+    if (opts && 'previewEnabled' in opts) settings.previewMode = opts.previewEnabled
     await archivesDb.setUserSettings(0, key, settings)
   }
 }
@@ -131,7 +131,7 @@ module.exports = {
    * @param {string} url
    * @param {Object} [opts]
    * @param {string} [opts.localPath]
-   * @param {boolean} [opts.preview]
+   * @param {boolean} [opts.previewEnabled]
    * @returns {Promise<void>}
    */
   add: add(false),
@@ -140,7 +140,7 @@ module.exports = {
    * @param {string} url
    * @param {Object} [opts]
    * @param {string} [opts.localPath]
-   * @param {boolean} [opts.preview]
+   * @param {boolean} [opts.previewEnabled]
    * @returns {Promise<void>}
    */
   requestAdd: add(true),
@@ -149,19 +149,19 @@ module.exports = {
    * @param {string} url
    * @param {Object} [opts]
    * @param {string} [opts.localPath]
-   * @param {boolean} [opts.preview]
+   * @param {boolean} [opts.previewEnabled]
    * @returns {Promise<void>}
    */
   async edit (url, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var key = await datLibrary.fromURLToKey(url, true)
     if (opts && 'localPath' in opts) await validateLocalPath(key, opts.localPath)
-    if (opts && 'preview' in opts) validatePreview(opts.preview)
+    if (opts && 'previewEnabled' in opts) validatePreview(opts.previewEnabled)
 
     // update settings
     var settings = {}
     if (opts && 'localPath' in opts) settings.localSyncPath = opts.localPath
-    if (opts && 'preview' in opts) settings.previewMode = opts.preview
+    if (opts && 'previewEnabled' in opts) settings.previewMode = opts.previewEnabled
     await archivesDb.setUserSettings(0, key, settings)
   },
 
@@ -255,7 +255,7 @@ function validateSavedFilter (v) {
 
 function validatePreview (v) {
   if (typeof v === 'boolean') return
-  throw new Error('The `preview` option must be a boolean')
+  throw new Error('The `previewEnabled` option must be a boolean')
 }
 
 async function validateLocalPath (key, v) {
@@ -302,7 +302,7 @@ function massageArchiveRecord (a) {
     connections: a.peers, // .peers is attached by library.js
     owner: a.isOwner,
     saved: a.userSettings.isSaved,
-    preview: a.userSettings.previewMode,
+    previewEnabled: a.userSettings.previewMode,
     localPath: a.userSettings.localSyncPath
   }
 }
