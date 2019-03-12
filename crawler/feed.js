@@ -119,7 +119,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         if (isNaN(post.updatedAt)) post.updatedAt = 0 // optional
 
         // upsert
-        let existingPost = await getPost(archive.url, changedPost.name)
+        let existingPost = await getPost(joinPath(archive.url, changedPost.name))
         if (existingPost) {
           await db.run(`
             UPDATE crawl_posts
@@ -310,6 +310,21 @@ function toAuthorOrigin (url) {
   } catch (e) {
     throw new Error('Invalid URL: ' + url)
   }
+}
+
+/**
+ * @param {string} origin 
+ * @param {string} pathname
+ * @returns {string}
+ */
+function joinPath (origin, pathname) {
+  if (origin.endsWith('/') && pathname.startsWith('/')) {
+    return origin + pathname.slice(1)
+  }
+  if (!origin.endsWith('/') && !pathname.startsWith('/')) {
+    return origin + '/' + pathname
+  }
+  return origin + pathname
 }
 
 /**
