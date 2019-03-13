@@ -24,7 +24,7 @@ async function get (url) {
   var archive = /** @type LibraryArchiveRecord */(await datLibrary.queryArchives({key}))
   if (!archive) return null
   return {
-    url,
+    url: toOrigin(url),
     title: archive.title,
     description: archive.description,
     type: archive.type
@@ -80,4 +80,13 @@ async function assertPermission (sender, perm) {
   }
   if (await globals.permsAPI.requestPermission(perm, sender)) return true
   throw new PermissionsError()
+}
+
+function toOrigin (url) {
+  try {
+    let urlp = new URL(url)
+    return `${urlp.protocol}//${urlp.hostname}`
+  } catch (e) {
+    return url
+  }
 }
