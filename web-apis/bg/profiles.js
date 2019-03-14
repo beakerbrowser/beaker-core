@@ -59,18 +59,6 @@ module.exports = {
     await assertPermission(this.sender, 'dangerousAppControl')
     await crawler.crawlSite(url)
     return get(url)
-  },
-
-  /**
-   * @returns {Promise<ProfilesPublicAPIRecord>}
-   */
-  async openProfileEditor () {
-    await assertPermission(this.sender, 'dangerousAppControl')
-    var sess = globals.userSessionAPI.getFor(this.sender)
-    if (!sess) return null
-    var user = await get(sess.url)
-    await globals.userSessionAPI.openProfileEditor(this.sender, user)
-    return get(sess.url)
   }
 }
 
