@@ -49,7 +49,7 @@ exports.setup = async function () {
 
   // load the current users
   users = await db.all(`SELECT * FROM users`)
-  users.forEach(async (user) => {
+  await Promise.all(users.map(async (user) => {
     // massage data
     user.url = normalizeUrl(user.url)
     user.archive = null
@@ -57,15 +57,29 @@ exports.setup = async function () {
     user.createdAt = new Date(user.createdAt)
     logger.info('Loading user', {details: user})
 
-    // fetch the user archive
+    // validate
     try {
       await validateUserUrl(user.url)
+    } catch (e) {
+      user.isInvalid = true
+      return
+    }
+
+    // fetch the user archive
+    try {
       user.archive = await dat.library.getOrLoadArchive(user.url)
       /* dont await */crawler.watchSite(user.archive)
       events.emit('load-user', user)
     } catch (err) {
       logger.error('Failed to load user', {details: {user, err}})
     }
+  }))
+
+  // remove any invalid users
+  var invalids = users.filter(user => user.isInvalid)
+  users = users.filter(user => !user.isInvalid)
+  invalids.forEach(async (invalidUser) => {
+    await db.run(`DELETE FROM users WHERE url = ?`, [invalidUser.url])
   })
 }
 
