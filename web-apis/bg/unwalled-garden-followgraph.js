@@ -13,7 +13,7 @@ const followgraphCrawler = require('../../crawler/followgraph')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string[]} type
  */
 
 // exported api

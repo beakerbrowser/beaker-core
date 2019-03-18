@@ -13,7 +13,7 @@ const feedCrawler = require('../../crawler/feed')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string[]} type
  *
  * @typedef {Object} FeedPostPublicAPIRecord
  * @prop {string} url
