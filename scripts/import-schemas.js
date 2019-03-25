@@ -6,7 +6,8 @@ const rimraf = require('rimraf')
 const SCHEMAS = [
   'comment',
   'follows',
-  'post'
+  'post',
+  'bookmark'
 ]
 
 console.log('')

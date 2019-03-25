@@ -2,9 +2,13 @@ const Events = require('events')
 const logger = require('../logger').category('crawler')
 const dat = require('../dat')
 const crawler = require('../crawler')
-const followgraph = require('../crawler/followgraph')
+const followgraphCrawler = require('../crawler/followgraph')
+const bookmarksCrawler = require('../crawler/bookmarks')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
+const bookmarksDb = require('../dbs/bookmarks')
+const _isEqual = require('lodash.isequal')
+const _pick = require('lodash.pick')
 
 // constants
 // =
@@ -73,6 +77,9 @@ exports.setup = async function () {
     } catch (err) {
       logger.error('Failed to load user', {details: {user, err}})
     }
+
+    // start any active processes
+    watchAndSyncBookmarks(user)
   }))
 
   // remove any invalid users
@@ -244,10 +251,10 @@ async function selectNextCrawlTargets (user) {
   var rows = [user.url]
 
   // get followed sites
-  rows = rows.concat(await followgraph.listFollows(user.url))
+  rows = rows.concat(await followgraphCrawler.listFollows(user.url))
 
   // get sites followed by followed sites
-  rows = rows.concat(await followgraph.listFoaFs(user.url))
+  rows = rows.concat(await followgraphCrawler.listFoaFs(user.url))
 
   // assemble into list
   var start = user.crawlSelectorCursor || 0
@@ -307,5 +314,42 @@ async function validateUserUrl (url) {
   }
   if (!userSettings.isSaved) {
     throw new Error('User dat has been deleted')
+  }
+}
+
+/**
+ * @param {Object} user 
+ * @returns {void}
+ */
+function watchAndSyncBookmarks (user) {
+  // TODO support multiple users
+  syncBookmarks()
+  bookmarksDb.on('changed', syncBookmarks)
+
+  function pickBookmarkAttrs (b) {
+    return _pick(b, ['href', 'title', 'description', 'tags'])
+  }
+
+  async function syncBookmarks () {
+    // fetch current public bookmarks
+    var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {public: true}})
+    var publishedBookmarks = await bookmarksCrawler.query({filters: {authors: user.url}})
+
+    // diff and publish changes
+    for (let b of publicBookmarks) {
+      b.tags = b.tags.join(' ')
+      let existing = publishedBookmarks.find(b2 => b.href === b2.content.href)
+      if (!existing) {
+        await bookmarksCrawler.addBookmark(user.archive, pickBookmarkAttrs(b)) // add
+      } else {
+        if (!_isEqual(pickBookmarkAttrs(b), existing.content)) {
+          await bookmarksCrawler.editBookmark(user.archive, existing.pathname, pickBookmarkAttrs(b)) // update
+        }
+      }
+    }
+    for (let b of publishedBookmarks) {
+      let existing = publicBookmarks.find(b2 => b2.href === b.content.href)
+      if (!existing) await bookmarksCrawler.deleteBookmark(user.archive, b.pathname) // remove
+    }
   }
 }

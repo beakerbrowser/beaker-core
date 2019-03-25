@@ -1,5 +1,11 @@
 module.exports = `
 
+-- description of the bookmark's content, often pulled from the bookmarked page
+ALTER TABLE bookmarks ADD COLUMN description TEXT;
+
+-- sync the bookmark to the user's public profile
+ALTER TABLE bookmarks ADD COLUMN public INTEGER;
+
 CREATE TABLE users (
   id INTEGER PRIMARY KEY NOT NULL,
   url TEXT,
@@ -75,6 +81,35 @@ END;
 CREATE TRIGGER crawl_posts_au AFTER UPDATE ON crawl_posts BEGIN
   INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
   INSERT INTO crawl_posts_fts_index(rowid, body) VALUES (new.rowid, new.body);
+END;
+
+-- crawled bookmarks
+CREATE TABLE crawl_bookmarks (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+
+  href TEXT,
+  title TEXT,
+  description TEXT,
+  tags TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE VIRTUAL TABLE crawl_bookmarks_fts_index USING fts5(title, description, tags, content='crawl_bookmarks');
+
+-- triggers to keep crawl_bookmarks_fts_index updated
+CREATE TRIGGER crawl_bookmarks_ai AFTER INSERT ON crawl_bookmarks BEGIN
+  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description, tags) VALUES (new.rowid, new.title, new.description, new.tags);
+END;
+CREATE TRIGGER crawl_bookmarks_ad AFTER DELETE ON crawl_bookmarks BEGIN
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description, tags) VALUES('delete', old.rowid, old.title, old.description, old.tags);
+END;
+CREATE TRIGGER crawl_bookmarks_au AFTER UPDATE ON crawl_bookmarks BEGIN
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description, tags) VALUES('delete', old.rowid, old.title, old.description, old.tags);
+  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description, tags) VALUES (new.rowid, new.title, new.description, new.tags);
 END;
 
 -- crawled follows

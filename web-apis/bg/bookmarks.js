@@ -10,8 +10,10 @@ const bookmarksDb = require('../../dbs/bookmarks')
  * @prop {number} createdAt
  * @prop {string} href
  * @prop {string} title
+ * @prop {string} description
  * @prop {string[]} tags
  * @prop {boolean} pinned
+ * @prop {boolean} public
  * @prop {number} pinOrder
  */
 
@@ -24,6 +26,7 @@ module.exports = {
    * @param {Object} [opts.filters]
    * @param {string|string[]} [opts.filters.tag]
    * @param {boolean} [opts.filters.pinned]
+   * @param {boolean} [opts.filters.public]
    * @returns {Promise<BookmarkPublicAPIRecord[]>}
    */
   async list (opts) {
@@ -66,8 +69,10 @@ module.exports = {
    * @param {Object} data
    * @param {string} [data.href]
    * @param {string} [data.title]
+   * @param {string} [data.description]
    * @param {string | string[]} [data.tags]
    * @param {boolean} [data.pinned]
+   * @param {boolean} [data.public]
    * @returns {Promise<void>}
    */
   async add (data) {
@@ -80,8 +85,10 @@ module.exports = {
    * @param {Object} data
    * @param {string} [data.href]
    * @param {string} [data.title]
+   * @param {string} [data.description]
    * @param {string | string[]} [data.tags]
    * @param {boolean} [data.pinned]
+   * @param {boolean} [data.public]
    * @returns {Promise<void>}
    */
   async edit (href, data = {}) {

@@ -70,6 +70,17 @@ const BUILTIN_PAGES = [
  * @prop {string} content.body
  * @prop {number} createdAt
  * @prop {number} updatedAt
+ *
+ * @typedef {Object} BookmarkSearchResult
+ * @prop {SearchResultRecord} record
+ * @prop {string} url
+ * @prop {Object} content
+ * @prop {string} content.href
+ * @prop {string} content.title
+ * @prop {string} content.description
+ * @prop {string} content.tags
+ * @prop {number} createdAt
+ * @prop {number} updatedAt
  */
 
 // exported api
@@ -129,7 +140,7 @@ exports.listSuggestions = async function (query = '', opts = {}) {
  * @param {Object} opts
  * @param {string} [opts.query] - The search query.
  * @param {Object} [opts.filters]
- * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/post'.
+ * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/post', 'unwalled.garden/bookmark'.
  * @param {number} [opts.filters.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included? Valid values: 1, 2.
  * @param {number} [opts.offset]
@@ -223,6 +234,21 @@ exports.query = async function (user, opts) {
     rows = await Promise.all(rows.map(massagePostSearchResult))
     searchResults.results = searchResults.results.concat(rows)
   }
+  if (datasetValues.includes('all') || datasets.includes('unwalled.garden/bookmark')) {
+    // BOOKMARKS
+    let rows = await db.all(buildBookmarksSearchQuery({
+      query,
+      crawlSourceIds,
+      userCrawlSourceId,
+      since,
+      limit,
+      offset,
+      startHighlight,
+      endHighlight
+    }))
+    rows = await Promise.all(rows.map(massageBookmarkSearchResult))
+    searchResults.results = searchResults.results.concat(rows)
+  }
 
   // sort and apply limit again
   searchResults.results.sort((a, b) => b.record.crawledAt - a.record.crawledAt)
@@ -299,6 +325,43 @@ function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since
   return sql
 }
 
+function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_bookmarks_fts_index' : 'crawl_bookmarks')
+    .select('crawl_bookmarks.pathname')
+    .select('crawl_bookmarks.crawledAt')
+    .select('crawl_bookmarks.createdAt')
+    .select('crawl_bookmarks.updatedAt')
+    .select('crawl_sources.url AS authorUrl')
+    .where(builder => builder
+      .whereIn('crawl_followgraph.crawlSourceId', crawlSourceIds) // published by someone I follow
+      .orWhere('crawl_bookmarks.crawlSourceId', userCrawlSourceId) // or by me
+    )
+    .andWhere('crawl_bookmarks.crawledAt', '>=', since)
+    .orderBy('crawl_bookmarks.crawledAt')
+    .limit(limit)
+    .offset(offset)
+  if (query) {
+    sql = sql
+      .select('crawl_bookmarks.href')
+      .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
+      .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
+      .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 2, '${startHighlight}', '${endHighlight}', '...', 25) AS tags`))
+      .innerJoin('crawl_bookmarks', 'crawl_bookmarks.rowid', '=', 'crawl_bookmarks_fts_index.rowid')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
+      .whereRaw('crawl_bookmarks_fts_index MATCH ?', [query])
+  } else {
+    sql = sql
+      .select('crawl_bookmarks.href')
+      .select('crawl_bookmarks.title')
+      .select('crawl_bookmarks.description')
+      .select('crawl_bookmarks.tags')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
+      .leftJoin('crawl_followgraph', 'crawl_followgraph.destUrl', '=', 'crawl_sources.url')
+  }
+  return sql
+}
+
 /**
  * @param {Object} row
  * @returns {Promise<SiteSearchResult>}
@@ -351,6 +414,40 @@ async function massagePostSearchResult (row) {
     },
     url,
     content: {body: row.body},
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
+}
+
+/**
+ * @param {Object} row
+ * @returns {Promise<BookmarkSearchResult>}
+ */
+async function massageBookmarkSearchResult (row) {
+  // fetch additional info
+  var author = await siteDescriptions.getBest({subject: row.authorUrl})
+
+  // massage attrs
+  var url = row.authorUrl + row.pathname
+  return {
+    record: {
+      type: 'unwalled.garden/bookmark',
+      url,
+      author: {
+        url: author.url,
+        title: author.title,
+        description: author.description,
+        type: author.type
+      },
+      crawledAt: row.crawledAt,
+    },
+    url,
+    content: {
+      href: row.href,
+      title: row.title,
+      description: row.description,
+      tags: row.tags
+    },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   }
