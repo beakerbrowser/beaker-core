@@ -105,7 +105,6 @@ module.exports = {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
     var filepath = await urlToFilepath(url, userSession.url)
-    console.log('got filepath', url, filepath)
 
     var userArchive = dat.library.getArchive(userSession.url)
     await feedCrawler.editPost(userArchive, filepath, post.content)

@@ -318,7 +318,7 @@ async function validateUserUrl (url) {
 }
 
 /**
- * @param {Object} user 
+ * @param {Object} user
  * @returns {void}
  */
 function watchAndSyncBookmarks (user) {

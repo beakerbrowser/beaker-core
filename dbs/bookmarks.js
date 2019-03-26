@@ -179,7 +179,6 @@ exports.getBookmark = async function (profileId, href) {
  * @param {number} profileId
  * @param {Object} [opts]
  * @param {Object} [opts.filters]
- * @param {string|string[]} [opts.filters.tag]
  * @param {boolean} [opts.filters.pinned]
  * @param {boolean} [opts.filters.public]
  * @returns {Promise<Array<Bookmark>>}
@@ -204,20 +203,7 @@ exports.listBookmarks = async function (profileId, {filters} = {}) {
   }
 
   var bookmarks = await db.all(sql)
-  bookmarks = bookmarks.map(toNewFormat)
-
-  // apply tag filter
-  if (filters && filters.tag) {
-    if (Array.isArray(filters.tag)) {
-      bookmarks = bookmarks.filter(b => {
-        return /** @type string[] */(filters.tag).reduce((agg, t) => agg && b.tags.includes(t), true)
-      })
-    } else {
-      bookmarks = bookmarks.filter(b => b.tags.includes(filters.tag))
-    }
-  }
-
-  return bookmarks
+  return bookmarks.map(toNewFormat)
 }
 
 /**

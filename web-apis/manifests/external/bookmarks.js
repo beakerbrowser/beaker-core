@@ -1,5 +1,5 @@
 module.exports = {
-  list: 'promise',
+  query: 'promise',
   listTags: 'promise',
   get: 'promise',
   has: 'promise',
