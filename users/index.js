@@ -216,16 +216,18 @@ exports.remove = async function (url) {
   events.emit('unload-user', user)
 }
 
-// internal methods
-// =
-
 /**
  * @param {string} url
  * @return {Promise<boolean>}
  */
-async function isUser (url) {
-  return !!(await get(url))
+const isUser =
+exports.isUser = function (url) {
+  url = normalizeUrl(url)
+  return !!users.find(user => user.url === url)
 }
+
+// internal methods
+// =
 
 /**
  * Assembles a list of crawl targets based on the current database state.

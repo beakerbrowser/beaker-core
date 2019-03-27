@@ -9,7 +9,7 @@ const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
-const scopedFSes = require('../../lib/scoped-fses')
+const users = require('../../users')
 const {
   DAT_MANIFEST_FILENAME,
   DAT_CONFIGURABLE_FIELDS,
@@ -129,7 +129,7 @@ module.exports = {
   async unlinkArchive (url) {
     var {archive} = await lookupArchive(this.sender, url)
     await assertDeleteArchivePermission(archive, this.sender)
-    await assertArchiveDeletable(archive)
+    assertArchiveDeletable(archive)
     await archivesDb.setUserSettings(0, archive.key, {isSaved: false})
   },
 
@@ -626,12 +626,11 @@ async function assertArchiveOfflineable (archive) {
   // }
 }
 
-async function assertArchiveDeletable (archive) {
-  // TODO(profiles) disabled -prf
-  // var profileRecord = await getProfileRecord(0)
-  // if ('dat://' + archive.key.toString('hex') === profileRecord.url) {
-  //   throw new PermissionsError('Unable to delete the user archive.')
-  // }
+function assertArchiveDeletable (archive) {
+  var archiveUrl = 'dat://' + archive.key.toString('hex')
+  if (users.isUser(archiveUrl)) {
+    throw new PermissionsError('Unable to delete the user profile.')
+  }
 }
 
 async function assertQuotaPermission (archive, senderOrigin, byteLength) {

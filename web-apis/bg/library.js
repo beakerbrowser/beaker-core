@@ -2,6 +2,7 @@ const globals = require('../../globals')
 const through2 = require('through2')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')
+const users = require('../../users')
 const {PermissionsError} = require('beaker-error-constants')
 
 // typedefs
@@ -71,6 +72,7 @@ function remove (isRequest) {
   return async function (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var key = await datLibrary.fromURLToKey(url, true)
+    assertArchiveDeletable(key)
 
     if (isRequest) {
       await checkIsntOwner(key)
@@ -183,7 +185,9 @@ module.exports = {
    */
   async uncache (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    await datLibrary.clearFileCache(await datLibrary.fromURLToKey(url, true))
+    var key = await datLibrary.fromURLToKey(url, true)
+    assertArchiveDeletable(key)
+    await datLibrary.clearFileCache(key)
   },
 
   async createEventStream () {
@@ -223,6 +227,12 @@ module.exports = {
 
 // internal methods
 // =
+
+function assertArchiveDeletable (key) {
+  if (users.isUser(`dat://${key}`)) {
+    throw new PermissionsError('Unable to delete the user profile.')
+  }
+}
 
 async function checkIsntOwner (key) {
   var meta = await archivesDb.getMeta(key)

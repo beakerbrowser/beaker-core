@@ -1,9 +1,6 @@
 const path = require('path')
-const assert = require('assert')
-const {URL} = require('url')
 const mkdirp = require('mkdirp')
 const jetpack = require('fs-jetpack')
-const globals = require('../../globals')
 const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
@@ -11,7 +8,8 @@ const archivesDb = require('../../dbs/archives')
 const archiveDraftsDb = require('../../dbs/archive-drafts')
 const {cbPromise} = require('../../lib/functions')
 const {timer} = require('../../lib/time')
-const lock = require('../../lib/lock')
+const users = require('../../users')
+const {PermissionsError} = require('beaker-error-constants')
 
 // exported api
 // =
@@ -53,6 +51,7 @@ module.exports = {
 
   async remove (url) {
     var key = await datLibrary.fromURLToKey(url, true)
+    assertArchiveDeletable(key)
     return archivesDb.setUserSettings(0, key, {isSaved: false})
   },
 
@@ -66,7 +65,7 @@ module.exports = {
 
     for (var i = 0; i < urls.length; i++) {
       let key = await datLibrary.fromURLToKey(urls[i], true)
-
+      assertArchiveDeletable(key)
       results.push(await archivesDb.setUserSettings(0, key, {isSaved: false}))
     }
     return results
@@ -74,6 +73,7 @@ module.exports = {
 
   async delete (url) {
     const key = await datLibrary.fromURLToKey(url, true)
+    assertArchiveDeletable(key)
     const drafts = await archiveDraftsDb.list(0, key)
     const toDelete = [{key}].concat(drafts)
     var bytes = 0
@@ -306,14 +306,8 @@ module.exports = {
 // internal methods
 // =
 
-function getOrigin (url) {
-  try {
-    url = new URL(url)
-    return url.protocol + '//' + url.hostname
-  } catch (e) {}
-  return null
-}
-
-function assertString (v, msg) {
-  assert(!!v && typeof v === 'string', msg)
+function assertArchiveDeletable (key) {
+  if (users.isUser(`dat://${key}`)) {
+    throw new PermissionsError('Unable to delete the user profile.')
+  }
 }
