@@ -494,7 +494,8 @@ module.exports = {
       dstArchive: checkoutFS,
       dstPath: filepath,
       ignore: opts.ignore,
-      inplaceImport: opts.inplaceImport !== false
+      inplaceImport: opts.inplaceImport !== false,
+      dryRun: opts.dryRun
     })
   },
 

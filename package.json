@@ -69,7 +69,7 @@
     "once": "^1.4.0",
     "os-locale": "^3.1.0",
     "parse-dat-url": "^3.0.1",
-    "pauls-dat-api": "^8.0.4",
+    "pauls-dat-api": "^8.1.0",
     "pify": "^3.0.0",
     "pump": "^3.0.0",
     "random-access-file": "^2.0.1",
