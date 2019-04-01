@@ -28,9 +28,9 @@ const APIs = {
     manifest: require('../manifests/external/search'),
     create: makeCreateFn('search')
   },
-  'unwalled-garden-feed': {
-    manifest: require('../manifests/external/unwalled-garden-feed'),
-    create: makeCreateFn('unwalled-garden-feed')
+  'unwalled-garden-posts': {
+    manifest: require('../manifests/external/unwalled-garden-posts'),
+    create: makeCreateFn('unwalled-garden-posts')
   },
   'unwalled-garden-followgraph': {
     manifest: require('../manifests/external/unwalled-garden-followgraph'),

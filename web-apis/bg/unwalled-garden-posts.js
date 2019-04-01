@@ -3,26 +3,26 @@ const assert = require('assert')
 const {URL} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
-const feedCrawler = require('../../crawler/feed')
+const postsCrawler = require('../../crawler/posts')
 
 // typedefs
 // =
 
 /**
- * @typedef {Object} FeedAuthorPublicAPIRecord
+ * @typedef {Object} PostAuthorPublicAPIRecord
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
  * @prop {string[]} type
  *
- * @typedef {Object} FeedPostPublicAPIRecord
+ * @typedef {Object} PostPublicAPIRecord
  * @prop {string} url
  * @prop {Object} content
  * @prop {string} content.body
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
- * @prop {FeedAuthorPublicAPIRecord} author
+ * @prop {PostAuthorPublicAPIRecord} author
  */
 
 // exported api
@@ -37,7 +37,7 @@ module.exports = {
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
    * @param {boolean} [opts.reverse]
-   * @returns {Promise<FeedPostPublicAPIRecord[]>}
+   * @returns {Promise<PostPublicAPIRecord[]>}
    */
   async query (opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -53,24 +53,24 @@ module.exports = {
         }
       }
     }
-    var posts = await feedCrawler.query(opts)
+    var posts = await postsCrawler.query(opts)
     return Promise.all(posts.map(massagePostRecord))
   },
 
   /**
    * @param {string} url
-   * @returns {Promise<FeedPostPublicAPIRecord>}
+   * @returns {Promise<PostPublicAPIRecord>}
    */
   async getPost (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    return massagePostRecord(await feedCrawler.getPost(url))
+    return massagePostRecord(await postsCrawler.getPost(url))
   },
 
   /**
    * @param {Object} post
    * @param {Object} post.content
    * @param {string} post.content.body
-   * @returns {Promise<FeedPostPublicAPIRecord>}
+   * @returns {Promise<PostPublicAPIRecord>}
    */
   async addPost (post) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -83,8 +83,8 @@ module.exports = {
     if (!userSession) throw new Error('No active user session')
 
     var userArchive = dat.library.getArchive(userSession.url)
-    var url = await feedCrawler.addPost(userArchive, post.content)
-    return massagePostRecord(await feedCrawler.getPost(url))
+    var url = await postsCrawler.addPost(userArchive, post.content)
+    return massagePostRecord(await postsCrawler.getPost(url))
   },
 
   /**
@@ -92,7 +92,7 @@ module.exports = {
    * @param {Object} post
    * @param {Object} post.content
    * @param {string} post.content.body
-   * @returns {Promise<FeedPostPublicAPIRecord>}
+   * @returns {Promise<PostPublicAPIRecord>}
    */
   async editPost (url, post) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -107,8 +107,8 @@ module.exports = {
     var filepath = await urlToFilepath(url, userSession.url)
 
     var userArchive = dat.library.getArchive(userSession.url)
-    await feedCrawler.editPost(userArchive, filepath, post.content)
-    return massagePostRecord(await feedCrawler.getPost(userSession.url + filepath))
+    await postsCrawler.editPost(userArchive, filepath, post.content)
+    return massagePostRecord(await postsCrawler.getPost(userSession.url + filepath))
   },
 
   /**
@@ -125,7 +125,7 @@ module.exports = {
     var filepath = await urlToFilepath(url, userSession.url)
 
     var userArchive = dat.library.getArchive(userSession.url)
-    await feedCrawler.deletePost(userArchive, filepath)
+    await postsCrawler.deletePost(userArchive, filepath)
   }
 }
 
