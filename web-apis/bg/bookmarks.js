@@ -24,7 +24,7 @@ const _get = require('lodash.get')
  * @prop {string} description
  * @prop {string[]} tags
  * @prop {boolean} pinned
- * @prop {boolean} public
+ * @prop {boolean} isPublic
  * @prop {boolean} isOwner
  * @prop {number} pinOrder
  */
@@ -39,7 +39,7 @@ module.exports = {
    * @param {string|string[]} [opts.filters.authors]
    * @param {string|string[]} [opts.filters.tag]
    * @param {boolean} [opts.filters.pinned]
-   * @param {boolean} [opts.filters.public]
+   * @param {boolean} [opts.filters.isPublic]
    * @returns {Promise<BookmarkPublicAPIRecord[]>}
    */
   async query (opts) {
@@ -53,7 +53,7 @@ module.exports = {
     // massage params
     var tagFilter = _get(opts, 'filters.tag', undefined)
     var pinnedFilter = _get(opts, 'filters.pinned', undefined)
-    var publicFilter = _get(opts, 'filters.public', undefined)
+    var publicFilter = _get(opts, 'filters.isPublic', undefined)
     var authorsFilter = _get(opts, 'filters.authors', undefined)
     if (authorsFilter) {
       if (!Array.isArray(authorsFilter)) authorsFilter = [authorsFilter]
@@ -147,7 +147,7 @@ module.exports = {
    * @param {string} [data.description]
    * @param {string | string[]} [data.tags]
    * @param {boolean} [data.pinned]
-   * @param {boolean} [data.public]
+   * @param {boolean} [data.isPublic]
    * @returns {Promise<void>}
    */
   async add (data) {
@@ -163,7 +163,7 @@ module.exports = {
    * @param {string} [data.description]
    * @param {string | string[]} [data.tags]
    * @param {boolean} [data.pinned]
-   * @param {boolean} [data.public]
+   * @param {boolean} [data.isPublic]
    * @returns {Promise<void>}
    */
   async edit (href, data = {}) {
@@ -210,7 +210,7 @@ function normalizeInternalBookmark (bookmark, user) {
 
 function normalizeUWBookmark (uwBookmark, user, pinneds) {
   var bookmark = uwBookmark.content
-  bookmark.public = true
+  bookmark.isPublic = true
   bookmark.author = uwBookmark.author
   bookmark.isOwner = bookmark.author.url === user.url
   bookmark.pinned = bookmark.isOwner && pinneds.find(p => p.href === bookmark.href)

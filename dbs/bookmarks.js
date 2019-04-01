@@ -23,7 +23,7 @@ const NORMALIZE_OPTS = {
  * @prop {string} description
  * @prop {string[]} tags
  * @prop {boolean} pinned
- * @prop {boolean} public
+ * @prop {boolean} isPublic
  * @prop {number} pinOrder
  */
 
@@ -47,10 +47,10 @@ exports.removeListener = events.removeListener.bind(events)
  * @param {string} [values.description]
  * @param {string | string[]} [values.tags]
  * @param {boolean} [values.pinned]
- * @param {boolean} [values.public]
+ * @param {boolean} [values.isPublic]
  * @returns {Promise<void>}
  */
-exports.addBookmark = async function (profileId, {href, title, description, tags, pinned, public} = {}) {
+exports.addBookmark = async function (profileId, {href, title, description, tags, pinned, isPublic} = {}) {
   // validate
   assertValidHref(href)
   assertValidTitle(title)
@@ -61,16 +61,16 @@ exports.addBookmark = async function (profileId, {href, title, description, tags
   href = normalizeUrl(href, NORMALIZE_OPTS)
   var tagsStr = tagsToString(tags)
   description = description || ''
-  public = public || false
+  isPublic = isPublic || false
 
   // update record
   var release = await lock(`bookmarksdb`)
   try {
     await db.run(`
       INSERT OR REPLACE
-        INTO bookmarks (profileId, url, title, description, tags, pinned, public)
+        INTO bookmarks (profileId, url, title, description, tags, pinned, isPublic)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [profileId, href, title, description, tagsStr, Number(pinned), Number(public)])
+    `, [profileId, href, title, description, tagsStr, Number(pinned), Number(isPublic)])
     events.emit('changed')
   } finally {
     release()
@@ -86,10 +86,10 @@ exports.addBookmark = async function (profileId, {href, title, description, tags
  * @param {string} [values.description]
  * @param {string | string[]} [values.tags]
  * @param {boolean} [values.pinned]
- * @param {boolean} [values.public]
+ * @param {boolean} [values.isPublic]
  * @returns {Promise<void>}
  */
-exports.editBookmark = async function (profileId, bookmarkHref, {href, title, description, tags, pinned, public} = {}) {
+exports.editBookmark = async function (profileId, bookmarkHref, {href, title, description, tags, pinned, isPublic} = {}) {
   // validate
   assertValidHref(bookmarkHref)
   if (href) assertValidHref(href)
@@ -116,15 +116,15 @@ exports.editBookmark = async function (profileId, bookmarkHref, {href, title, de
       if (typeof description !== 'undefined') sql = sql.update('description', description)
       if (typeof tagsStr !== 'undefined') sql = sql.update('tags', tagsStr)
       if (typeof pinned !== 'undefined') sql = sql.update('pinned', Number(pinned))
-      if (typeof public !== 'undefined') sql = sql.update('public', Number(public))
+      if (typeof isPublic !== 'undefined') sql = sql.update('isPublic', Number(isPublic))
       await db.run(sql)
     } else {
       // insert record
       await db.run(`
         INSERT OR REPLACE
-          INTO bookmarks (profileId, url, title, description, tags, pinned, public)
+          INTO bookmarks (profileId, url, title, description, tags, pinned, isPublic)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [profileId, href, title, description || '', tagsStr, Number(pinned), Number(public)])
+      `, [profileId, href, title, description || '', tagsStr, Number(pinned), Number(isPublic)])
     }
     events.emit('changed')
   } finally {
@@ -180,7 +180,7 @@ exports.getBookmark = async function (profileId, href) {
  * @param {Object} [opts]
  * @param {Object} [opts.filters]
  * @param {boolean} [opts.filters.pinned]
- * @param {boolean} [opts.filters.public]
+ * @param {boolean} [opts.filters.isPublic]
  * @returns {Promise<Array<Bookmark>>}
  */
 exports.listBookmarks = async function (profileId, {filters} = {}) {
@@ -190,7 +190,7 @@ exports.listBookmarks = async function (profileId, {filters} = {}) {
     .select('description')
     .select('tags')
     .select('pinned')
-    .select('public')
+    .select('isPublic')
     .select('pinOrder')
     .select('createdAt')
     .where('profileId', '=', profileId)
@@ -198,8 +198,8 @@ exports.listBookmarks = async function (profileId, {filters} = {}) {
   if (filters && filters.pinned) {
     sql = sql.where('pinned', '=', '1')
   }
-  if (filters && 'public' in filters) {
-    sql = sql.where('public', '=', filters.public ? '1' : '0')
+  if (filters && 'isPublic' in filters) {
+    sql = sql.where('isPublic', '=', filters.isPublic ? '1' : '0')
   }
 
   var bookmarks = await db.all(sql)
@@ -248,7 +248,7 @@ function toNewFormat (b) {
     description: b.description,
     tags: b.tags ? b.tags.split(' ').filter(Boolean) : [],
     pinned: !!b.pinned,
-    public: !!b.public,
+    isPublic: !!b.isPublic,
     pinOrder: b.pinOrder
   }
 }

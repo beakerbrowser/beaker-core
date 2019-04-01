@@ -334,7 +334,7 @@ function watchAndSyncBookmarks (user) {
 
   async function syncBookmarks () {
     // fetch current public bookmarks
-    var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {public: true}})
+    var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {isPublic: true}})
     var publishedBookmarks = await bookmarksCrawler.query({filters: {authors: user.url}})
 
     // diff and publish changes

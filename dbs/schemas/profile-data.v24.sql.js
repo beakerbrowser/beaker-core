@@ -4,7 +4,7 @@ module.exports = `
 ALTER TABLE bookmarks ADD COLUMN description TEXT;
 
 -- sync the bookmark to the user's public profile
-ALTER TABLE bookmarks ADD COLUMN public INTEGER;
+ALTER TABLE bookmarks ADD COLUMN isPublic INTEGER;
 
 CREATE TABLE users (
   id INTEGER PRIMARY KEY NOT NULL,
