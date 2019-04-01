@@ -8,7 +8,7 @@ module.exports = {
   'properties': {
     'type': {
       'type': 'string',
-      'title': "The object's type",
+      'description': "The object's type",
       'const': 'unwalled.garden/bookmark'
     },
     'content': {
@@ -20,7 +20,8 @@ module.exports = {
           'format': 'uri',
           'examples': [
             'dat://beakerbrowser.com'
-          ]
+          ],
+          'maxLength': 10000
         },
         'title': {
           'type': 'string',
@@ -31,8 +32,12 @@ module.exports = {
           'maxLength': 560
         },
         'tags': {
-          'type': 'string',
-          'maxLength': 280
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'maxLength': 100,
+            'pattern': '^[A-Za-z][A-Za-z0-9-_?]*$'
+          }
         }
       }
     },

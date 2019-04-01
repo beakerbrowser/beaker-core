@@ -78,7 +78,7 @@ const BUILTIN_PAGES = [
  * @prop {string} content.href
  * @prop {string} content.title
  * @prop {string} content.description
- * @prop {string} content.tags
+ * @prop {string[]} content.tags
  * @prop {number} createdAt
  * @prop {number} updatedAt
  */
@@ -446,7 +446,7 @@ async function massageBookmarkSearchResult (row) {
       href: row.href,
       title: row.title,
       description: row.description,
-      tags: row.tags
+      tags: row.tags.split(' ')
     },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt

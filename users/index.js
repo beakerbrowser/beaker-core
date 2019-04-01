@@ -339,7 +339,6 @@ function watchAndSyncBookmarks (user) {
 
     // diff and publish changes
     for (let b of publicBookmarks) {
-      b.tags = b.tags.join(' ')
       let existing = publishedBookmarks.find(b2 => b.href === b2.content.href)
       if (!existing) {
         await bookmarksCrawler.addBookmark(user.archive, pickBookmarkAttrs(b)) // add

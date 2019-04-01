@@ -30,7 +30,7 @@ const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
  * @prop {string} content.href
  * @prop {string} content.title
  * @prop {string?} content.description
- * @prop {string?} content.tags
+ * @prop {string[]?} content.tags
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
@@ -121,7 +121,8 @@ exports.crawlSite = async function (archive, crawlSource) {
         bookmark.updatedAt = Number(new Date(bookmark.updatedAt))
         if (isNaN(bookmark.updatedAt)) bookmark.updatedAt = 0 // optional
         if (!bookmark.content.description) bookmark.content.description = '' // optional
-        if (!bookmark.content.tags) bookmark.content.tags = '' // optional
+        if (!bookmark.content.tags) bookmark.content.tags = [] // optional
+        bookmark.content.tags = bookmark.content.tags.join(' ')
 
         // upsert
         let existingBookmark = await getBookmark(joinPath(archive.url, changedBookmark.name))
@@ -251,7 +252,7 @@ const getBookmark = exports.getBookmark = async function (url) {
  * @returns {Promise<string>} url
  */
 exports.addBookmark = async function (archive, content) {
-  if (content && Array.isArray(content.tags)) content.tags = content.tags.join(' ')
+  if (content && typeof content.tags === 'string') content.tags = content.tags.split(' ')
   var valid = validateBookmarkContent(content)
   if (!valid) throw ajv.errorsText(validateBookmarkContent.errors)
 
@@ -282,7 +283,7 @@ exports.addBookmark = async function (archive, content) {
  * @returns {Promise<void>}
  */
 exports.editBookmark = async function (archive, pathname, content) {
-  if (content && Array.isArray(content.tags)) content.tags = content.tags.join(' ')
+  if (content && typeof content.tags === 'string') content.tags = content.tags.split(' ')
   var valid = validateBookmarkContent(content)
   if (!valid) throw ajv.errorsText(validateBookmarkContent.errors)
   var oldJson = JSON.parse(await archive.pda.readFile(pathname))
@@ -364,7 +365,7 @@ async function massageBookmarkRow (row) {
       href: row.href,
       title: row.title,
       description: row.description,
-      tags: row.tags
+      tags: row.tags.split(' ')
     },
     crawledAt: row.crawledAt,
     createdAt: row.createdAt,

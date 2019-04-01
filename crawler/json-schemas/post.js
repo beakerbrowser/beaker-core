@@ -8,7 +8,7 @@ module.exports = {
   'properties': {
     'type': {
       'type': 'string',
-      'title': "The object's type",
+      'description': "The object's type",
       'const': 'unwalled.garden/post'
     },
     'content': {
@@ -17,7 +17,7 @@ module.exports = {
       'properties': {
         'body': {
           'type': 'string',
-          'title': "The post's text body",
+          'description': "The post's text body",
           'maxLength': 280
         }
       }
@@ -25,12 +25,12 @@ module.exports = {
     'createdAt': {
       'type': 'string',
       'format': 'date-time',
-      'title': "The time of this post's creation"
+      'description': "The time of this post's creation"
     },
     'updatedAt': {
       'type': 'string',
       'format': 'date-time',
-      'title': "The time of this post's last edit"
+      'description': "The time of this post's last edit"
     }
   }
 }
