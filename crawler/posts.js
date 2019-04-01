@@ -14,7 +14,7 @@ const postSchema = require('./json-schemas/post')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/post'
-const JSON_PATH_REGEX = /^\/data\/feed\/([^/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -247,9 +247,9 @@ exports.addPost = async function (archive, content) {
   if (!valid) throw ajv.errorsText(validatePostContent.errors)
 
   var filename = generateTimeFilename()
-  var filepath = `/data/feed/${filename}.json`
+  var filepath = `/data/posts/${filename}.json`
   await ensureDirectory(archive, '/data')
-  await ensureDirectory(archive, '/data/feed')
+  await ensureDirectory(archive, '/data/posts')
   await archive.pda.writeFile(filepath, JSON.stringify({
     type: JSON_TYPE,
     content,
