@@ -3,7 +3,7 @@ const _difference = require('lodash.difference')
 const Events = require('events')
 const {URL} = require('url')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'followgraph'})
+const logger = require('../logger').child({category: 'crawler', dataset: 'graph'})
 const lock = require('../lib/lock')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
@@ -50,16 +50,16 @@ exports.removeListener = events.removeListener.bind(events)
  * @returns {Promise<void>}
  */
 exports.crawlSite = async function (archive, crawlSource) {
-  return doCrawl(archive, crawlSource, 'crawl_followgraph', TABLE_VERSION, async ({changes, resetRequired}) => {
+  return doCrawl(archive, crawlSource, 'crawl_graph', TABLE_VERSION, async ({changes, resetRequired}) => {
     const supressEvents = resetRequired === true // dont emit when replaying old info
     logger.silly('Crawling follows', {details: {url: archive.url, numChanges: changes.length, resetRequired}})
     if (resetRequired) {
       // reset all data
       logger.debug('Resetting dataset', {details: {url: archive.url}})
       await db.run(`
-        DELETE FROM crawl_followgraph WHERE crawlSourceId = ?
+        DELETE FROM crawl_graph WHERE crawlSourceId = ?
       `, [crawlSource.id])
-      await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, 0)
+      await doCheckpoint('crawl_graph', TABLE_VERSION, crawlSource, 0)
     }
 
     // did follows.json change?
@@ -67,13 +67,13 @@ exports.crawlSite = async function (archive, crawlSource) {
     if (!change) {
       logger.debug('No change detected to follows record', {details: {url: archive.url}})
       if (changes.length) {
-        await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
+        await doCheckpoint('crawl_graph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
       }
       return
     }
 
     logger.verbose('Change detected to follows record', {details: {url: archive.url}})
-    emitProgressEvent(archive.url, 'crawl_followgraph', 0, 1)
+    emitProgressEvent(archive.url, 'crawl_graph', 0, 1)
 
     // read and validate
     try {
@@ -94,13 +94,13 @@ exports.crawlSite = async function (archive, crawlSource) {
     for (let add of adds) {
       try {
         await db.run(`
-          INSERT INTO crawl_followgraph (crawlSourceId, destUrl, crawledAt) VALUES (?, ?, ?)
+          INSERT INTO crawl_graph (crawlSourceId, destUrl, crawledAt) VALUES (?, ?, ?)
         `, [crawlSource.id, add, Date.now()])
       } catch (e) {
         if (e.code === 'SQLITE_CONSTRAINT') {
           // uniqueness constraint probably failed, which means we got a duplicate somehow
           // dont worry about it
-          logger.warn('Attempted to insert duplicate followgraph record', {details: {url: archive.url, add}})
+          logger.warn('Attempted to insert duplicate graph record', {details: {url: archive.url, add}})
         } else {
           throw e
         }
@@ -111,7 +111,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
     for (let remove of removes) {
       await db.run(`
-        DELETE FROM crawl_followgraph WHERE crawlSourceId = ? AND destUrl = ?
+        DELETE FROM crawl_graph WHERE crawlSourceId = ? AND destUrl = ?
       `, [crawlSource.id, remove])
       if (supressEvents) {
         events.emit('follow-removed', archive.url, remove)
@@ -120,8 +120,8 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // write checkpoint as success
     logger.silly(`Finished crawling follows`, {details: {url: archive.url}})
-    await doCheckpoint('crawl_followgraph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
-    emitProgressEvent(archive.url, 'crawl_followgraph', 1, 1)
+    await doCheckpoint('crawl_graph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
+    emitProgressEvent(archive.url, 'crawl_graph', 1, 1)
   })
 }
 
@@ -145,12 +145,12 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
   var rows
   if (followedBy) {
     rows = await db.all(`
-      SELECT cs.url FROM crawl_followgraph fg
+      SELECT cs.url FROM crawl_graph fg
         INNER JOIN crawl_sources cs ON cs.id = fg.crawlSourceId
         WHERE fg.destUrl = ?
           AND (cs.url = ? OR cs.url IN (
-            SELECT destUrl as url FROM crawl_followgraph
-              INNER JOIN crawl_sources ON crawl_sources.id = crawl_followgraph.crawlSourceId
+            SELECT destUrl as url FROM crawl_graph
+              INNER JOIN crawl_sources ON crawl_sources.id = crawl_graph.crawlSourceId
               WHERE crawl_sources.url = ?
           ))
         LIMIT ?
@@ -160,9 +160,9 @@ const listFollowers = exports.listFollowers = async function (subject, {followed
     rows = await db.all(`
       SELECT f.url
         FROM crawl_sources f
-        INNER JOIN crawl_followgraph
-          ON crawl_followgraph.crawlSourceId = f.id
-          AND crawl_followgraph.destUrl = ?
+        INNER JOIN crawl_graph
+          ON crawl_graph.crawlSourceId = f.id
+          AND crawl_graph.destUrl = ?
         LIMIT ?
         OFFSET ?
     `, [subject, limit, offset])
@@ -202,10 +202,10 @@ const listFollows = exports.listFollows = async function (subject, {followedBy, 
   limit = limit || -1
 
   var rows = await db.all(`
-    SELECT crawl_followgraph.destUrl
-      FROM crawl_followgraph
+    SELECT crawl_graph.destUrl
+      FROM crawl_graph
       INNER JOIN crawl_sources
-        ON crawl_followgraph.crawlSourceId = crawl_sources.id
+        ON crawl_graph.crawlSourceId = crawl_sources.id
         AND crawl_sources.url = ?
       LIMIT ?
       OFFSET ?
@@ -273,9 +273,9 @@ const isAFollowingB = exports.isAFollowingB = async function (a, b) {
   var res = await db.get(`
     SELECT crawl_sources.id
       FROM crawl_sources
-      INNER JOIN crawl_followgraph
-        ON crawl_followgraph.crawlSourceId = crawl_sources.id
-        AND crawl_followgraph.destUrl = ?
+      INNER JOIN crawl_graph
+        ON crawl_graph.crawlSourceId = crawl_sources.id
+        AND crawl_graph.destUrl = ?
       WHERE crawl_sources.url = ?
   `, [b, a])
   return !!res
@@ -366,7 +366,7 @@ async function readFollowsFile (archive) {
  * @returns {Promise<void>}
  */
 async function updateFollowsFile (archive, updateFn) {
-  var release = await lock('crawler:followgraph:' + archive.url)
+  var release = await lock('crawler:graph:' + archive.url)
   try {
     // read the follows file
     try {

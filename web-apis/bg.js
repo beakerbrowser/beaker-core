@@ -30,7 +30,7 @@ const libraryManifest = require('./manifests/external/library')
 const profilesManifest = require('./manifests/external/profiles')
 const searchManifest = require('./manifests/external/search')
 const postsManifest = require('./manifests/external/unwalled-garden-posts')
-const followgraphManifest = require('./manifests/external/unwalled-garden-followgraph')
+const graphManifest = require('./manifests/external/unwalled-garden-graph')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
@@ -40,7 +40,7 @@ const libraryAPI = require('./bg/library')
 const profilesAPI = require('./bg/profiles')
 const searchAPI = require('./bg/search')
 const postsAPI = require('./bg/unwalled-garden-posts')
-const followgraphAPI = require('./bg/unwalled-garden-followgraph')
+const graphAPI = require('./bg/unwalled-garden-graph')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
@@ -75,7 +75,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('profiles', profilesManifest, profilesAPI, secureOnly)
   globals.rpcAPI.exportAPI('search', searchManifest, searchAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-posts', postsManifest, postsAPI, secureOnly)
-  globals.rpcAPI.exportAPI('unwalled-garden-followgraph', followgraphManifest, followgraphAPI, secureOnly)
+  globals.rpcAPI.exportAPI('unwalled-garden-graph', graphManifest, graphAPI, secureOnly)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)

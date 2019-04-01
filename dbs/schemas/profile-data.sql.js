@@ -213,7 +213,7 @@ CREATE TRIGGER crawl_bookmarks_au AFTER UPDATE ON crawl_bookmarks BEGIN
 END;
 
 -- crawled follows
-CREATE TABLE crawl_followgraph (
+CREATE TABLE crawl_graph (
   crawlSourceId INTEGER NOT NULL,
   crawledAt INTEGER,
   

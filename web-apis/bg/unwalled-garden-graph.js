@@ -3,13 +3,13 @@ const assert = require('assert')
 const {URL} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
-const followgraphCrawler = require('../../crawler/followgraph')
+const graphCrawler = require('../../crawler/graph')
 
 // typedefs
 // =
 
 /**
- * @typedef {Object} FollowgraphSitePublicAPIRecord
+ * @typedef {Object} GraphSitePublicAPIRecord
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
@@ -27,7 +27,7 @@ module.exports = {
    * @param {string} [opts.filters.followedBy]
    * @param {number} [opts.offset]
    * @param {number} [opts.limit]
-   * @returns {Promise<FollowgraphSitePublicAPIRecord[]>}
+   * @returns {Promise<GraphSitePublicAPIRecord[]>}
    */
   async listFollowers (url, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -52,7 +52,7 @@ module.exports = {
     }
 
     query.includeDesc = true
-    var followers = await followgraphCrawler.listFollowers(url, query)
+    var followers = await graphCrawler.listFollowers(url, query)
     return followers.map(massageSiteRecord)
   },
 
@@ -63,7 +63,7 @@ module.exports = {
    * @param {string} [opts.filters.followedBy]
    * @param {number} [opts.offset]
    * @param {number} [opts.limit]
-   * @returns {Promise<FollowgraphSitePublicAPIRecord[]>}
+   * @returns {Promise<GraphSitePublicAPIRecord[]>}
    */
   async listFollows (url, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
@@ -88,7 +88,7 @@ module.exports = {
     }
 
     query.includeDesc = true
-    var follows = await followgraphCrawler.listFollows(url, query)
+    var follows = await graphCrawler.listFollows(url, query)
     return follows.map(massageSiteRecord)
   },
 
@@ -106,7 +106,7 @@ module.exports = {
     assert(a, 'The `a` parameter must be a valid URL')
     assert(b, 'The `b` parameter must be a valid URL')
 
-    return followgraphCrawler.isAFollowingB(a, b)
+    return graphCrawler.isAFollowingB(a, b)
   },
 
   /**
@@ -123,7 +123,7 @@ module.exports = {
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
 
-    await followgraphCrawler.follow(userArchive, url)
+    await graphCrawler.follow(userArchive, url)
   },
 
   /**
@@ -140,7 +140,7 @@ module.exports = {
     if (!userSession) throw new Error('No active user session')
     var userArchive = dat.library.getArchive(userSession.url)
 
-    await followgraphCrawler.unfollow(userArchive, url)
+    await graphCrawler.unfollow(userArchive, url)
   }
 }
 
