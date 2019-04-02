@@ -365,7 +365,7 @@ async function massageBookmarkRow (row) {
       href: row.href,
       title: row.title,
       description: row.description,
-      tags: row.tags.split(' ')
+      tags: row.tags.split(' ').filter(Boolean)
     },
     crawledAt: row.crawledAt,
     createdAt: row.createdAt,
