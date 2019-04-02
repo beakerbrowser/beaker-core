@@ -210,6 +210,7 @@ function normalizeInternalBookmark (bookmark, user) {
 
 function normalizeUWBookmark (uwBookmark, user, pinneds) {
   var bookmark = uwBookmark.content
+  bookmark.createdAt = uwBookmark.createdAt
   bookmark.isPublic = true
   bookmark.author = uwBookmark.author
   bookmark.isOwner = bookmark.author.url === user.url
