@@ -11,10 +11,10 @@ const knex = require('../lib/knex')
 
 /** @type {Array<Object>} */
 const BUILTIN_PAGES = [
-  // {title: 'Timeline', url: 'beaker://timeline'}, DISABLED -prf
-  {title: 'Your Library', url: 'beaker://library'},
+  {title: 'Address book', url: 'beaker://library/?view=addressbook'},
+  {title: 'Bookmarks', url: 'beaker://library/?view=bookmarks'},
+  {title: 'Websites', url: 'beaker://library/?view=websites'},
   {title: 'Search', url: 'beaker://search'},
-  {title: 'Bookmarks', url: 'beaker://bookmarks'},
   {title: 'History', url: 'beaker://history'},
   {title: 'Watchlist', url: 'beaker://watchlist'},
   {title: 'Downloads', url: 'beaker://downloads'},
@@ -29,13 +29,10 @@ const BUILTIN_PAGES = [
  * @typedef {import("../dbs/archives").LibraryArchiveRecord} LibraryArchiveRecord
  *
  * @typedef {Object} SuggestionResults
- * @prop {Array<Object>} apps
- * @prop {Array<Object>} people
- * @prop {Array<Object>} webPages
- * @prop {Array<Object>} fileShares
- * @prop {Array<Object>} imageCollections
- * @prop {Array<Object>} others
- * @prop {(undefined|Array<Object>)} bookmarks
+ * @prop {Array<Object>} builtins
+ * @prop {Array<Object>} addressbook
+ * @prop {Array<Object>} bookmarks
+ * @prop {Array<Object>} websites
  * @prop {(undefined|Array<Object>)} history
  *
  * TODO: define the SuggestionResults values
@@ -90,39 +87,40 @@ const BUILTIN_PAGES = [
  * @description
  * Get suggested content of various types.
  *
+ * @param {string} user - The current user's URL.
  * @param {string} [query=''] - The search query.
  * @param {Object} [opts={}]
  * @param {boolean} [opts.filterPins] - If true, will filter out pinned bookmarks.
  * @returns {Promise<SuggestionResults>}
  */
-exports.listSuggestions = async function (query = '', opts = {}) {
+exports.listSuggestions = async function (user, query = '', opts = {}) {
   var suggestions = {}
-  const filterFn = a => ((a.url || a.href).includes(query) || a.title.toLowerCase().includes(query))
+  const filterFn = a => query ? ((a.url || a.href).includes(query) || a.title.toLowerCase().includes(query)) : true
 
   // builtin pages
-  suggestions.apps = BUILTIN_PAGES.filter(filterFn)
+  suggestions.builtins = BUILTIN_PAGES.filter(a => query ? a.title.toLowerCase().includes(query) : true)
 
-  // library
-  var libraryResults = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
-  libraryResults = libraryResults.filter(filterFn)
-  var libraryResultsGrouped = _groupBy(libraryResults, a => 'todo') //getBasicType(a.type))
-  suggestions.people = libraryResultsGrouped.user
-  suggestions.webPages = libraryResultsGrouped['web-page']
-  suggestions.fileShares = libraryResultsGrouped['file-share']
-  suggestions.imageCollections = libraryResultsGrouped['image-collection']
-  suggestions.others = libraryResultsGrouped.other
+  // addressbook
+  suggestions.addressbook = await graph.listFollows(user, {includeDesc: true})
+  suggestions.addressbook = [await siteDescriptions.getBest({subject: user, author: user})].concat(suggestions.addressbook)
+  suggestions.addressbook = suggestions.addressbook.filter(filterFn)
+
+  // bookmarks
+  var bookmarkResults = await bookmarksDb.listBookmarks(0)
+  if (opts.filterPins) {
+    bookmarkResults = bookmarkResults.filter(b => !b.pinned && filterFn(b))
+  } else {
+    bookmarkResults = bookmarkResults.filter(filterFn)
+  }
+  bookmarkResults = bookmarkResults.slice(0, 12)
+  suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
+
+  // websites
+  suggestions.websites = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
+  suggestions.websites = suggestions.websites.filter(w => w.url !== user) // filter out the user's site
+  suggestions.websites = suggestions.websites.filter(filterFn)
 
   if (query) {
-    // bookmarks
-    var bookmarkResults = await bookmarksDb.listBookmarks(0)
-    if (opts.filterPins) {
-      bookmarkResults = bookmarkResults.filter(b => !b.pinned && filterFn(b))
-    } else {
-      bookmarkResults = bookmarkResults.filter(filterFn)
-    }
-    bookmarkResults = bookmarkResults.slice(0, 12)
-    suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
-
     // history
     var historyResults = await historyDb.search(query)
     suggestions.history = historyResults.slice(0, 12)
