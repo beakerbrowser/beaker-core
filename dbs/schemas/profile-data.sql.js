@@ -277,12 +277,14 @@ CREATE TABLE workspaces (
 INSERT INTO profiles (id) VALUES (0);
 
 -- default bookmarks
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker Home', 'dat://beakerbrowser.com', 0);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker Browser', 'dat://beakerbrowser.com', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Dat Project', 'dat://datproject.org', 0);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Hashbase', 'https://hashbase.io', 0);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Documentation', 'dat://beakerbrowser.com/docs', 0);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Documentation', 'dat://beakerbrowser.com/docs', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issue', 'https://github.com/beakerbrowser/beaker/issues', 0);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 0);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Address book', 'beaker://library/?view=addressbook', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
 PRAGMA user_version = 24;
 `
