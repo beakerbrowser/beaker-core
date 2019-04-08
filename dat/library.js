@@ -24,7 +24,7 @@ const {
   DAT_HASH_REGEX,
   DAT_PRESERVED_FIELDS_ON_FORK
 } = require('../lib/const')
-const {InvalidURLError} = require('beaker-error-constants')
+const {InvalidURLError, TimeoutError} = require('beaker-error-constants')
 const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 
 // typedefs
@@ -264,16 +264,26 @@ const createNewArchive = exports.createNewArchive = async function createNewArch
   return `dat://${key}/`
 }
 
-exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, settings = false) {
+exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, settings = undefined) {
   srcArchiveUrl = fromKeyToURL(srcArchiveUrl)
 
-  // get the old archive
-  var srcArchive = getArchive(srcArchiveUrl)
-  if (!srcArchive) {
-    throw new Error('Invalid archive key')
+  // get the source archive
+  var srcArchive 
+  var downloadRes = await Promise.race([
+    (async function () {
+      srcArchive = await getOrLoadArchive(srcArchiveUrl)
+      if (!srcArchive) {
+        throw new Error('Invalid archive key')
+      }
+      return srcArchive.pda.download('/')
+    })(),
+    new Promise(r => setTimeout(() => r('timeout'), 60e3))
+  ])
+  if (downloadRes === 'timeout') {
+    throw new TimeoutError('Timed out while downloading source archive')
   }
 
-  // fetch old archive meta
+  // fetch source archive meta
   var srcManifest = await srcArchive.pda.readManifest().catch(_ => {})
   srcManifest = srcManifest || {}
 
