@@ -116,8 +116,9 @@ module.exports = {
       await assertCreateArchivePermission(this.sender)
 
       // create
+      let key = await lookupUrlDatKey(url)
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.forkArchive(url, {title, description, type, author, links}, {networked, hidden})
+      newArchiveUrl = await datLibrary.forkArchive(key, {title, description, type, author, links}, {networked, hidden})
     }
 
     // grant write permissions to the creating app
@@ -737,6 +738,7 @@ async function lookupArchive (sender, url, opts = {}) {
 }
 
 async function lookupUrlDatKey (url) {
+  if (DAT_HASH_REGEX.test(url)) return url
   if (url.startsWith('dat://') === false) {
     return false // not a dat site
   }
