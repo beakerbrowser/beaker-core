@@ -268,7 +268,7 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
   srcArchiveUrl = fromKeyToURL(srcArchiveUrl)
 
   // get the source archive
-  var srcArchive 
+  var srcArchive
   var downloadRes = await Promise.race([
     (async function () {
       srcArchive = await getOrLoadArchive(srcArchiveUrl)

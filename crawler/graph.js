@@ -388,6 +388,7 @@ async function updateFollowsFile (archive, updateFn) {
     updateFn(followsJson)
 
     // write the follows file
+    await archive.pda.mkdir('/data').catch(err => undefined)
     await archive.pda.writeFile(JSON_PATH, JSON.stringify(followsJson, null, 2), 'utf8')
 
     // trigger crawl now
