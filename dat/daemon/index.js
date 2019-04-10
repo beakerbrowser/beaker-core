@@ -471,7 +471,11 @@ function getArchiveCheckout (key, version) {
 
 async function updateSizeTracking (archive) {
   archive = getArchive(archive)
-  archive.size = await pda.readSize(archive, '/')
+  try {
+    archive.size = await pda.readSize(archive, '/')
+  } catch (e) {
+    archive.size = 0
+  }
   return archive.size
 }
 
