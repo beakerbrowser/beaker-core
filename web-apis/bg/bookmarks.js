@@ -40,10 +40,21 @@ module.exports = {
    * @param {string|string[]} [opts.filters.tag]
    * @param {boolean} [opts.filters.pinned]
    * @param {boolean} [opts.filters.isPublic]
+   * @param {string} [opts.sortBy] - 'title' or 'createdAt' (default 'title')
+   * @param {number} [opts.offset] - default 0
+   * @param {number} [opts.limit]
+   * @param {boolean} [opts.reverse]
    * @returns {Promise<BookmarkPublicAPIRecord[]>}
    */
   async query (opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
+
+    // NOTE
+    // The crawled and local-user bookmarks are stored in separate tables
+    // For now, those tables are queried separately, combined, and then filtered/sorted/sliced
+    // That won't scale - we really need to leverage sqlite's on-disk indexing to perform well
+    // We should plan to rewrite that way
+    // -prf
 
     // fetch user
     var userSession = globals.userSessionAPI.getFor(this.sender)
@@ -97,7 +108,23 @@ module.exports = {
     }
 
     // apply sorting
-    bookmarks.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    var dir = _get(opts, 'reverse') ? -1 : 1
+    var sortBy = _get(opts, 'sortBy', 'title')
+    if (sortBy === 'createdAt') {
+      bookmarks.sort((a, b) => (b.createdAt - a.createdAt) * dir)
+    } else {
+      bookmarks.sort((a, b) => (a.title || '').localeCompare(b.title || '') * dir)
+    }
+
+    // apply offset & limit
+    var offset = _get(opts, 'offset')
+    var limit = _get(opts, 'limit')
+    if (typeof limit !== 'undefined') {
+      offset = offset || 0
+      bookmarks = bookmarks.slice(offset, offset + limit)
+    } else if (typeof offset !== 'undefined') {
+      bookmarks = bookmarks.slice(offset)
+    }
 
     return bookmarks
   },
