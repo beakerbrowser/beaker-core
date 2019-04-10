@@ -43,7 +43,6 @@ CREATE TABLE crawl_site_descriptions (
   description TEXT,
   type TEXT, -- comma separated strings
 
-  PRIMARY KEY (crawlSourceId, pathname),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 CREATE VIRTUAL TABLE crawl_site_descriptions_fts_index USING fts5(title, description, content='crawl_site_descriptions');
