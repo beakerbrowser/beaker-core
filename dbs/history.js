@@ -52,17 +52,19 @@ exports.addVisit = async function (profileId, {url, title}) {
   try {
     await db.run('BEGIN TRANSACTION;')
 
-    // get current stats
-    var stats = await db.get('SELECT * FROM visit_stats WHERE url = ?;', [url])
     var ts = Date.now()
+    if (!url.startsWith('beaker://')) { // dont log stats on internal sites, keep them out of the search
+      // get current stats
+      var stats = await db.get('SELECT * FROM visit_stats WHERE url = ?;', [url])
 
-    // create or update stats
-    if (!stats) {
-      await db.run('INSERT INTO visit_stats (url, num_visits, last_visit_ts) VALUES (?, ?, ?);', [url, 1, ts])
-      await db.run('INSERT INTO visit_fts (url, title) VALUES (?, ?);', [url, title])
-    } else {
-      let num_visits = (+stats.num_visits || 1) + 1
-      await db.run('UPDATE visit_stats SET num_visits = ?, last_visit_ts = ? WHERE url = ?;', [num_visits, ts, url])
+      // create or update stats
+      if (!stats) {
+        await db.run('INSERT INTO visit_stats (url, num_visits, last_visit_ts) VALUES (?, ?, ?);', [url, 1, ts])
+        await db.run('INSERT INTO visit_fts (url, title) VALUES (?, ?);', [url, title])
+      } else {
+        let num_visits = (+stats.num_visits || 1) + 1
+        await db.run('UPDATE visit_stats SET num_visits = ?, last_visit_ts = ? WHERE url = ?;', [num_visits, ts, url])
+      }
     }
 
     // visited within 1 hour?
