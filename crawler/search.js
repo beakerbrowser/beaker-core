@@ -173,8 +173,8 @@ exports.query = async function (user, opts) {
   // prep search terms
   if (query && typeof query === 'string') {
     query = query
+      .replace(/[^a-z0-9]/ig, ' ') // strip symbols that sqlite interprets.
       .toLowerCase() // all lowercase. (uppercase is interpretted as a directive by sqlite.)
-      .replace(/[:^*.]/g, ' ') // strip symbols that sqlite interprets.
     query += '*' // match prefixes
   }
 
