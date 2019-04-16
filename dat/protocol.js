@@ -240,6 +240,14 @@ exports.electronHandler = async function (request, respond) {
     }
   }
 
+  // check for a fallback page
+  const useFallback = Boolean(manifest && manifest.fallback_page && !urlp.query.disable_fallback_page)
+  if (useFallback && (!entry || entry.isDirectory())) {
+    let tmp = entry; entry = null
+    await tryStat(manifest.fallback_page)
+    if (!entry) entry = tmp
+  }
+
   // handle folder
   if (entry && entry.isDirectory()) {
     cleanup()
@@ -273,19 +281,12 @@ exports.electronHandler = async function (request, respond) {
 
   // handle not found
   if (!entry) {
-    // check for a fallback page
-    if (manifest && manifest.fallback_page && !urlp.query.disable_fallback_page) {
-      await tryStat(manifest.fallback_page)
-    }
-
-    if (!entry) {
-      cleanup()
-      return respondError(404, 'File Not Found', {
-        errorDescription: 'File Not Found',
-        errorInfo: `Beaker could not find the file ${urlp.path}`,
-        title: 'File Not Found'
-      })
-    }
+    cleanup()
+    return respondError(404, 'File Not Found', {
+      errorDescription: 'File Not Found',
+      errorInfo: `Beaker could not find the file ${urlp.path}`,
+      title: 'File Not Found'
+    })
   }
 
   // TODO
