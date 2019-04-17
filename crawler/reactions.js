@@ -146,8 +146,6 @@ const listReactions = exports.listReactions = async function (topic) {
         crawl_reactions.topic = ?
   `, [topic])
 
-  console.log(topic, rows)
-
   // construct reactions list
   var reactions = {}
   rows.forEach(row => {
@@ -159,8 +157,6 @@ const listReactions = exports.listReactions = async function (topic) {
       }
     })
   })
-
-  console.log(reactions)
 
   return Object.values(reactions)
 }
@@ -175,6 +171,7 @@ const listReactions = exports.listReactions = async function (topic) {
  * @returns {Promise<void>}
  */
 exports.addReaction = async function (archive, topic, emoji) {
+  emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
   var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
@@ -195,6 +192,7 @@ exports.addReaction = async function (archive, topic, emoji) {
  * @returns {Promise<void>}
  */
 exports.deleteReaction = async function (archive, topic, emoji) {
+  emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
   var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
