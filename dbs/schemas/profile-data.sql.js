@@ -183,6 +183,20 @@ CREATE TRIGGER crawl_posts_au AFTER UPDATE ON crawl_posts BEGIN
   INSERT INTO crawl_posts_fts_index(rowid, body) VALUES (new.rowid, new.body);
 END;
 
+-- crawled reactions
+CREATE TABLE crawl_reactions (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  topic TEXT NOT NULL,
+  emojis TEXT NOT NULL,
+
+  PRIMARY KEY (crawlSourceId, pathname),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_reactions_topic ON crawl_reactions (topic);
+
 -- crawled bookmarks
 CREATE TABLE crawl_bookmarks (
   crawlSourceId INTEGER NOT NULL,
@@ -286,5 +300,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Address book', 'beaker://library/?view=addressbook', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 24;
+PRAGMA user_version = 25;
 `

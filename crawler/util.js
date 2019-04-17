@@ -175,3 +175,19 @@ exports.getSiteDescriptionThumbnailUrl = function (author, subject) {
     ? `${subject}/thumb` // self-description, use their own thumb
     : `${author}/data/known-sites/${toHostname(subject)}/thumb` // use captured thumb
 }
+
+/**
+ * @param {string} url
+ * @returns {string}
+ */
+var reservedChars = /[<>:"/\\|?*\x00-\x1F]/g
+var endingDashes = /([-]+$)/g
+exports.slugifyUrl = function (str) {
+  try {
+    let url = new URL(str)
+    str = url.protocol + url.hostname + url.pathname + url.search + url.hash
+  } catch (e) {
+    // ignore
+  }
+  return str.replace(reservedChars, '-').replace(endingDashes, '')
+}

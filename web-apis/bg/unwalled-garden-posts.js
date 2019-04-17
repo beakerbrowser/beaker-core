@@ -4,6 +4,7 @@ const {URL} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const postsCrawler = require('../../crawler/posts')
+const reactionsAPI = require('./unwalled-garden-reactions')
 
 // typedefs
 // =
@@ -15,10 +16,19 @@ const postsCrawler = require('../../crawler/posts')
  * @prop {string} description
  * @prop {string[]} type
  *
+ * @typedef {Object} PostReactionAuthorPublicAPIRecord
+ * @prop {string} url
+ * @prop {string} title
+ *
+ * @typedef {Object} PostReactionPublicAPIRecord
+ * @prop {string} emoji
+ * @prop {PostReactionAuthorPublicAPIRecord[]} authors
+ *
  * @typedef {Object} PostPublicAPIRecord
  * @prop {string} url
  * @prop {Object} content
  * @prop {string} content.body
+ * @prop {PostReactionPublicAPIRecord[]} reactions
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
@@ -167,12 +177,20 @@ async function urlToFilepath (url, origin) {
   return filepath
 }
 
-function massagePostRecord (post) {
+async function massagePostRecord (post) {
+  var url =  post.author.url + post.pathname
   return {
-    url: post.author.url + post.pathname,
+    url,
     content: {
       body: post.content.body
     },
+    reactions: (await reactionsAPI.innerListReactions(url)).map(r => ({
+      emoji: r.emoji,
+      authors: r.authors.map(a => ({
+        url: a.url,
+        title: a.title
+      }))
+    })),
     crawledAt: post.crawledAt,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,

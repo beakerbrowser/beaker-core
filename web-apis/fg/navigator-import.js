@@ -35,6 +35,10 @@ const APIs = {
   'unwalled-garden-graph': {
     manifest: require('../manifests/external/unwalled-garden-graph'),
     create: makeCreateFn('unwalled-garden-graph')
+  },
+  'unwalled-garden-reactions': {
+    manifest: require('../manifests/external/unwalled-garden-reactions'),
+    create: makeCreateFn('unwalled-garden-reactions')
   }
 }
 

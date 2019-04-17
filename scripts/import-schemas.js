@@ -7,7 +7,8 @@ const SCHEMAS = [
   'comment',
   'follows',
   'post',
-  'bookmark'
+  'bookmark',
+  'reaction'
 ]
 
 console.log('')
