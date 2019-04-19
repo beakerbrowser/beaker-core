@@ -137,10 +137,10 @@ exports.crawlSite = async function (archive, crawlSource) {
       }
 
       // checkpoint our progress
-      logger.silly(`Finished crawling posts`, {details: {url: archive.url}})
       await doCheckpoint('crawl_posts', TABLE_VERSION, crawlSource, changedPost.version)
       emitProgressEvent(archive.url, 'crawl_posts', ++progress, changedPosts.length)
     }
+    logger.silly(`Finished crawling posts`, {details: {url: archive.url}})
   })
 }
 

@@ -49,6 +49,7 @@
     "hypercore-protocol": "^6.9.0",
     "hyperdrive": "^9.14.3",
     "hyperdrive-network-speed": "^2.1.0",
+    "icojs": "^0.12.3",
     "identify-filetype": "^1.0.0",
     "into-stream": "^3.1.0",
     "knex": "^0.16.3",

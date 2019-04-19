@@ -11,6 +11,7 @@ const posts = require('./posts')
 const bookmarks = require('./bookmarks')
 const graph = require('./graph')
 const reactions = require('./reactions')
+const assets = require('./assets')
 const siteDescriptions = require('./site-descriptions')
 
 // globals
@@ -25,6 +26,7 @@ exports.posts = posts
 exports.bookmarks = bookmarks
 exports.graph = graph
 exports.reactions = reactions
+exports.assets = assets
 exports.siteDescriptions = siteDescriptions
 const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
 
@@ -89,6 +91,7 @@ exports.crawlSite = async function (archive) {
       bookmarks.crawlSite(archive, crawlSource),
       graph.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
+      assets.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource)
     ])
   } catch (err) {
