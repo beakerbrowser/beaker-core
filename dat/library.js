@@ -16,6 +16,7 @@ const archivesDb = require('../dbs/archives')
 
 // dat modules
 const datGC = require('./garbage-collector')
+const datAssets = require('./assets')
 
 // constants
 // =
@@ -397,6 +398,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   // update db
   archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
   await pullLatestArchiveMeta(archive)
+  datAssets.update(archive)
 
   // wire up events
   archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
@@ -404,6 +406,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
+      datAssets.update(archive, [path])
     }
   })
 
