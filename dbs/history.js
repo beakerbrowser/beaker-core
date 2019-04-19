@@ -190,7 +190,7 @@ exports.search = async function (q) {
       SELECT offsets(visit_fts) as offsets, visit_fts.url, visit_fts.title, visit_stats.num_visits
         FROM visit_fts
         LEFT JOIN visit_stats ON visit_stats.url = visit_fts.url
-        WHERE visit_fts MATCH ?
+        WHERE visit_fts MATCH ? AND visit_stats.num_visits > 2
         ORDER BY visit_stats.num_visits DESC
         LIMIT 10;
     `, [q])
