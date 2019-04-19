@@ -87,7 +87,7 @@ exports.crawlSite = async function (archive, crawlSource) {
 
 /**
  * Extract the asset type from the pathname
- * @param {string} pathname 
+ * @param {string} pathname
  * @returns string
  */
 function extractAssetType (pathname) {
@@ -99,8 +99,8 @@ function extractAssetType (pathname) {
 /**
  * Reads the asset file as a dataurl
  * - Converts any .ico to .png
- * @param {InternalDatArchive} archive 
- * @param {string} pathname 
+ * @param {InternalDatArchive} archive
+ * @param {string} pathname
  * @returns string The asset as a data URL
  */
 async function readAsset (archive, pathname) {
