@@ -18,6 +18,8 @@ const _get = require('lodash.get')
  *
  * @typedef {Object} BookmarkPublicAPIRecord
  * @prop {BookmarkAuthorPublicAPIRecord} author
+ * @prop {Object} record
+ * @prop {string} record.url
  * @prop {number} createdAt
  * @prop {string} href
  * @prop {string} title
@@ -230,6 +232,7 @@ async function assertPermission (sender, perm) {
 }
 
 function normalizeInternalBookmark (bookmark, user) {
+  bookmark.record = null
   bookmark.author = user
   bookmark.isOwner = true
   return bookmark
@@ -237,6 +240,7 @@ function normalizeInternalBookmark (bookmark, user) {
 
 function normalizeUWBookmark (uwBookmark, user, pinneds) {
   var bookmark = uwBookmark.content
+  bookmark.record = {url: uwBookmark.author.url + uwBookmark.pathname}
   bookmark.createdAt = uwBookmark.createdAt
   bookmark.isPublic = true
   bookmark.author = uwBookmark.author
