@@ -15,7 +15,6 @@ const IDEAL_FAVICON_SIZE = 64
  * @typedef {import('./library').InternalDatArchive} InternalDatArchive
  */
 
-
 // exported api
 // =
 

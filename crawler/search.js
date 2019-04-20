@@ -12,9 +12,7 @@ const knex = require('../lib/knex')
 /** @type {Array<Object>} */
 const BUILTIN_PAGES = [
   {title: 'Beaker.Social', url: 'dat://beaker.social'},
-  {title: 'Address book', url: 'beaker://library/?view=addressbook'},
-  {title: 'Bookmarks', url: 'beaker://library/?view=bookmarks'},
-  {title: 'Websites', url: 'beaker://library/?view=websites'},
+  {title: 'Library', url: 'beaker://library'},
   {title: 'History', url: 'beaker://history'},
   {title: 'Downloads', url: 'beaker://downloads'},
   {title: 'Settings', url: 'beaker://settings'},
