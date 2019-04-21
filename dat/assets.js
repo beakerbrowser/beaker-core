@@ -1,3 +1,4 @@
+const Events = require('events')
 const ICO = require('icojs')
 const mime = require('mime')
 const sitedata = require('../dbs/sitedata')
@@ -15,8 +16,17 @@ const IDEAL_FAVICON_SIZE = 64
  * @typedef {import('./library').InternalDatArchive} InternalDatArchive
  */
 
+// globals
+// =
+
+var events = new Events()
+
 // exported api
 // =
+
+exports.on = events.on.bind(events)
+exports.addListener = events.addListener.bind(events)
+exports.removeListener = events.removeListener.bind(events)
 
 /**
  * @description
@@ -39,6 +49,7 @@ exports.update = async function (archive, filenames = null) {
       let assetType = extractAssetType(filename)
       var dataUrl = await readAsset(archive, filename)
       await sitedata.set(archive.url, assetType, dataUrl)
+      events.emit(`update:${assetType}:${archive.url}`)
     } catch (e) {
       console.log('Failed to update asset', filename, e)
     }

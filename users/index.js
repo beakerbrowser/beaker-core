@@ -79,6 +79,7 @@ exports.setup = async function () {
     }
 
     // start any active processes
+    watchThumb(user)
     watchAndSyncBookmarks(user)
   }))
 
@@ -317,6 +318,16 @@ async function validateUserUrl (url) {
   if (!userSettings.isSaved) {
     throw new Error('User dat has been deleted')
   }
+}
+
+/**
+ * @param {Object} user
+ * @returns {void}
+ */
+function watchThumb (user) {
+  dat.assets.on(`update:thumb:${user.archive.url}`, () => {
+    events.emit('user-thumb-changed', {url: user.url})
+  })
 }
 
 /**
