@@ -297,7 +297,7 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Hashbase', 'ht
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Documentation', 'dat://beakerbrowser.com/docs', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issue', 'https://github.com/beakerbrowser/beaker/issues', 0);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Address book', 'beaker://library/?view=addressbook', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
 PRAGMA user_version = 25;

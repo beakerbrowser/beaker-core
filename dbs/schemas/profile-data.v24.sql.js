@@ -1,6 +1,5 @@
 module.exports = `
 -- new default bookmarks
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Address book', 'beaker://library/?view=addressbook', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
 -- description of the bookmark's content, often pulled from the bookmarked page
