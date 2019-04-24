@@ -178,6 +178,7 @@ exports.query = async function (opts) {
   // massage results
   rows.forEach(row => {
     row.emojis = row.emojis.split(',')
+    row.recordUrl = row.author + row.pathname
   })
   return rows
 }
