@@ -169,7 +169,7 @@ exports.query = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(toAuthorOrigin)
+      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
     }
   }
 
@@ -298,19 +298,6 @@ exports.deletePost = async function (archive, pathname) {
 
 // internal methods
 // =
-
-/**
- * @param {string} url
- * @returns {string}
- */
-function toAuthorOrigin (url) {
-  try {
-    var urlParsed = new URL(url)
-    return urlParsed.protocol + '//' + urlParsed.hostname
-  } catch (e) {
-    throw new Error('Invalid URL: ' + url)
-  }
-}
 
 /**
  * @param {string} origin

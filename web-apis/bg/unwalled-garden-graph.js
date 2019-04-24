@@ -34,6 +34,7 @@ module.exports = {
 
     var query = {}
     url = normalizeFollowUrl(url)
+    opts = (opts && typeof opts === 'object') ? opts : {}
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
     if (opts && 'offset' in opts) {
       assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -70,6 +71,7 @@ module.exports = {
 
     var query = {}
     url = normalizeFollowUrl(url)
+    opts = (opts && typeof opts === 'object') ? opts : {}
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
     if (opts && 'offset' in opts) {
       assert(typeof opts.offset === 'number', 'Offset must be a number')

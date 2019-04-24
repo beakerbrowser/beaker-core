@@ -142,14 +142,18 @@ exports.toHostname = function (url) {
 
 /**
  * @param {string} url
+ * @param {boolean?} shouldThrow
  * @returns {string}
  */
 const toOrigin =
-exports.toOrigin = function (url) {
+exports.toOrigin = function (url, shouldThrow = false) {
   try {
     var urlParsed = new URL(url)
     return urlParsed.protocol + '//' + urlParsed.hostname
   } catch (e) {
+    if (shouldThrow) {
+      throw new Error('Invalid URL: ' + url)
+    }
     return null
   }
 }

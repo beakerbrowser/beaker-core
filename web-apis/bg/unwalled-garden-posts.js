@@ -51,6 +51,7 @@ module.exports = {
    */
   async query (opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
+    opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
     if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
     if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
