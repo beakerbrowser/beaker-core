@@ -39,7 +39,6 @@ const reactionsAPI = require('./unwalled-garden-reactions')
 // =
 
 module.exports = {
-
   /**
    * @param {Object} [opts]
    * @param {Object} [opts.filters]

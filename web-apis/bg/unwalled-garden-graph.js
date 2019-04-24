@@ -14,12 +14,46 @@ const graphCrawler = require('../../crawler/graph')
  * @prop {string} title
  * @prop {string} description
  * @prop {string[]} type
+ *
+ * @typedef {Object} GraphLinkPublicAPIRecord
+ * @prop {string} type
+ * @prop {GraphSitePublicAPIRecord} src
+ * @prop {GraphSitePublicAPIRecord} dst
+ * @prop {number} crawledAt
  */
 
 // exported api
 // =
 
 module.exports = {
+  /**
+   * @param {Object} [opts]
+   * @param {Object} [opts.filters]
+   * @param {string|string[]} [opts.filters.authors]
+   * @param {number} [opts.offset=0]
+   * @param {number} [opts.limit]
+   * @param {boolean} [opts.reverse]
+   * @returns {Promise<GraphLinkPublicAPIRecord[]>}
+   */
+  async query (opts) {
+    await assertPermission(this.sender, 'dangerousAppControl')
+    opts = (opts && typeof opts === 'object') ? opts : {}
+    if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if (opts && opts.filters) {
+      if ('authors' in opts.filters) {
+        if (Array.isArray(opts.filters.authors)) {
+          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+        } else {
+          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
+        }
+      }
+    }
+    var links = await graphCrawler.query(opts)
+    return Promise.all(links.map(massageLinkRecord))
+  },
+
   /**
    * @param {string} url
    * @param {Object} [opts]
@@ -171,5 +205,14 @@ function massageSiteRecord (site) {
     title: site.title,
     description: site.description,
     type: site.type
+  }
+}
+
+function massageLinkRecord (link) {
+  return {
+    type: link.type,
+    src: massageSiteRecord(link.src),
+    dst: massageSiteRecord(link.dst),
+    crawledAt: link.crawledAt
   }
 }

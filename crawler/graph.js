@@ -5,6 +5,7 @@ const {URL} = require('url')
 const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'graph'})
 const lock = require('../lib/lock')
+const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
@@ -25,6 +26,12 @@ const JSON_PATH = '/data/follows.json'
  * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef {import('./site-descriptions').SiteDescription} SiteDescription
+ *
+ * @typedef {Object} GraphLink
+ * @prop {string} type
+ * @prop {SiteDescription} src
+ * @prop {SiteDescription} dst
+ * @prop {number} crawledAt
  */
 
 // globals
@@ -123,6 +130,61 @@ exports.crawlSite = async function (archive, crawlSource) {
     await doCheckpoint('crawl_graph', TABLE_VERSION, crawlSource, changes[changes.length - 1].version)
     emitProgressEvent(archive.url, 'crawl_graph', 1, 1)
   })
+}
+
+/**
+ * @description
+ * List crawled graph links.
+ *
+ * @param {Object} [opts]
+ * @param {Object} [opts.filters]
+ * @param {string|string[]} [opts.filters.authors]
+ * @param {number} [opts.offset=0]
+ * @param {number} [opts.limit]
+ * @param {boolean} [opts.reverse]
+ * @returns {Promise<Array<GraphLink>>}
+ */
+exports.query = async function (opts) {
+  // validate & parse params
+  if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+  if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+  if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+  if (opts && opts.filters) {
+    if ('authors' in opts.filters) {
+      if (Array.isArray(opts.filters.authors)) {
+        assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
+        opts.filters.authors = [opts.filters.authors]
+      }
+      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+    }
+  }
+
+  // execute query
+  let sql = knex('crawl_graph')
+    .select('crawl_graph.*')
+    .select('crawl_sources.url AS srcUrl')
+    .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_graph.crawlSourceId')
+    .orderBy('crawl_graph.crawledAt', opts.reverse ? 'DESC' : 'ASC')
+  if (opts.limit) sql = sql.limit(opts.limit)
+  if (opts.offset) sql = sql.offset(opts.offset)
+  if (opts && opts.filters && opts.filters.authors) {
+    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  }
+  var rows = await db.all(sql)
+
+  // massage results
+  return Promise.all(rows.map(async (row) => {
+    var src = toOrigin(row.srcUrl)
+    var dst = toOrigin(row.destUrl)
+    return {
+      type: 'unwalled.garden/follows',
+      src: await siteDescriptions.getBest({subject: src}),
+      dst: await siteDescriptions.getBest({subject: dst}),
+      crawledAt: row.crawledAt
+    }
+  }))
 }
 
 /**
