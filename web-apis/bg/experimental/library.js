@@ -2,6 +2,7 @@ const globals = require('../../../globals')
 const _pick = require('lodash.pick')
 const through2 = require('through2')
 const datLibrary = require('../../../dat/library')
+const datDns = require('../../../dat/dns')
 const archivesDb = require('../../../dbs/archives')
 const {PermissionsError} = require('beaker-error-constants')
 
@@ -15,7 +16,7 @@ const REQUEST_REMOVE_PERM_ID = 'experimentalLibraryRequestRemove'
 const LAB_API_ID = 'library'
 
 const QUERY_FIELDS = ['inMemory', 'isSaved', 'isNetworked', 'isOwner']
-const USER_SETTINGS_FIELDS = ['isSaved', 'expiresAt']
+const USER_SETTINGS_FIELDS = ['key', 'isSaved', 'expiresAt']
 const ARCHIVE_FIELDS = ['url', 'title', 'description', 'size', 'mtime', 'isOwner', 'userSettings', 'peers']
 const EVENT_FIELDS = {
   added: ['url', 'isSaved'],
@@ -29,7 +30,7 @@ const EVENT_FIELDS = {
 
 function add (isRequest) {
   return async function (url, {duration} = {}) {
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datDns.resolveName(url)
     if (isRequest) await checkIsntOwner(key)
     await globals.permsAPI.checkLabsPerm({
       perm: isRequest ? `${REQUEST_ADD_PERM_ID}:${key}` : API_PERM_ID,
@@ -53,7 +54,7 @@ function add (isRequest) {
 
 function remove (isRequest) {
   return async function (url) {
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datDns.resolveName(url)
     if (isRequest) await checkIsntOwner(key)
     await globals.permsAPI.checkLabsPerm({
       perm: isRequest ? `${REQUEST_REMOVE_PERM_ID}:${key}` : API_PERM_ID,
@@ -81,7 +82,7 @@ module.exports = {
       apiDocsUrl: API_DOCS_URL,
       sender: this.sender
     })
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datDns.resolveName(url)
     var settings = await archivesDb.getUserSettings(0, key)
     return _pick(settings, USER_SETTINGS_FIELDS)
   },
