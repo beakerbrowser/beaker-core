@@ -216,11 +216,11 @@ exports.query = async function (profileId, query = {}) {
     archive.isOwner = archive.isOwner != 0
     archive.type = archive.type ? archive.type.split(',') : []
     archive.userSettings = {
-      isSaved: archive.isSaved != 0,
-      hidden: archive.hidden != 0,
-      networked: archive.networked != 0,
-      autoDownload: archive.autoDownload != 0,
-      autoUpload: archive.autoUpload != 0,
+      isSaved: archive.isSaved == 1,
+      hidden: archive.hidden == 0,
+      networked: archive.networked == 1,
+      autoDownload: archive.autoDownload == 1,
+      autoUpload: archive.autoUpload == 1,
       expiresAt: archive.expiresAt,
       localSyncPath: archive.localSyncPath,
       previewMode: archive.previewMode == 1
