@@ -252,31 +252,22 @@ exports.electronHandler = async function (request, respond) {
   if (entry && entry.isDirectory()) {
     cleanup()
 
-    // make sure there's a trailing slash
-    if (!hasTrailingSlash) {
-      return respond({
-        statusCode: 303,
-        headers: {
-          Location: `dat://${urlp.host}${urlp.version ? ('+' + urlp.version) : ''}${urlp.pathname || ''}/${urlp.search || ''}`
-        },
-        data: intoStream('')
-      })
+    // by default, redirect to the library files view
+    let Location = `beaker://library?view=files&dat=${encodeURIComponent(`dat://${urlp.host}${urlp.version ? ('+' + urlp.version) : ''}`)}&path=${encodeURIComponent(urlp.pathname || '')}`
+
+    // for known types, redirect to their preferred interfaces
+    if (!filepath || filepath === '/') {
+      if (manifest.type && manifest.type.includes('unwalled.garden/person')) {
+        Location = `dat://beaker.social/profile/${encodeURIComponent(`dat://${urlp.host}`)}`
+      }
     }
 
-    let headers = {
-      'Content-Type': 'text/html',
-      'Content-Security-Policy': cspHeader,
-      'Access-Control-Allow-Origin': '*'
-    }
-    if (request.method === 'HEAD') {
-      return respond({statusCode: 204, headers, data: intoStream('')})
-    } else {
-      return respond({
-        statusCode: 200,
-        headers,
-        data: intoStream(await directoryListingPage(checkoutFS, filepath, manifest && manifest.web_root))
-      })
-    }
+    // redirect to the library files view
+    return respond({
+      statusCode: 303,
+      headers: {Location},
+      data: intoStream('')
+    })
   }
 
   // handle not found
