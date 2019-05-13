@@ -4,7 +4,6 @@ const {URL} = require('url')
 const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const postsCrawler = require('../../crawler/posts')
-const reactionsAPI = require('./unwalled-garden-reactions')
 
 // typedefs
 // =
@@ -20,15 +19,10 @@ const reactionsAPI = require('./unwalled-garden-reactions')
  * @prop {string} url
  * @prop {string} title
  *
- * @typedef {Object} PostReactionPublicAPIRecord
- * @prop {string} emoji
- * @prop {PostReactionAuthorPublicAPIRecord[]} authors
- *
  * @typedef {Object} PostPublicAPIRecord
  * @prop {string} url
  * @prop {Object} content
  * @prop {string} content.body
- * @prop {PostReactionPublicAPIRecord[]} reactions
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
@@ -184,13 +178,6 @@ async function massagePostRecord (post) {
     content: {
       body: post.content.body
     },
-    reactions: (await reactionsAPI.innerListReactions(url)).map(r => ({
-      emoji: r.emoji,
-      authors: r.authors.map(a => ({
-        url: a.url,
-        title: a.title
-      }))
-    })),
     crawledAt: post.crawledAt,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
