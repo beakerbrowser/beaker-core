@@ -72,15 +72,11 @@ exports.setup = async function () {
     // fetch the user archive
     try {
       user.archive = await dat.library.getOrLoadArchive(user.url)
-      /* dont await */crawler.watchSite(user.archive)
+      startWatch(user)
       events.emit('load-user', user)
     } catch (err) {
       logger.error('Failed to load user', {details: {user, err}})
     }
-
-    // start any active processes
-    watchThumb(user)
-    watchAndSyncBookmarks(user)
   }))
 
   // remove any invalid users
@@ -195,7 +191,7 @@ exports.add = async function (url) {
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
-  /* dont await */crawler.watchSite(user.archive)
+  startWatch(user)
   events.emit('load-user', user)
 }
 
@@ -318,6 +314,16 @@ async function validateUserUrl (url) {
   if (!userSettings.isSaved) {
     throw new Error('User dat has been deleted')
   }
+}
+
+/**
+ * @param {Object} user
+ * @returns {void}
+ */
+function startWatch (user) {
+  /* dont await */crawler.watchSite(user.archive)
+  watchThumb(user)
+  watchAndSyncBookmarks(user)
 }
 
 /**
