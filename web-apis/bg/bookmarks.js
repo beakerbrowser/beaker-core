@@ -232,6 +232,7 @@ async function assertPermission (sender, perm) {
 }
 
 function normalizeInternalBookmark (bookmark, user) {
+  if (!bookmark) return null
   bookmark.record = null
   bookmark.author = user
   bookmark.isOwner = true
