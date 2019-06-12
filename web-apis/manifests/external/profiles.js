@@ -1,5 +1,5 @@
 module.exports = {
-  getCurrentUser: 'promise',
+  me: 'promise',
   get: 'promise',
   index: 'promise'
 }

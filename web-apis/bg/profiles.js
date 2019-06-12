@@ -35,7 +35,7 @@ module.exports = {
   /**
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
-  async getCurrentUser () {
+  async me () {
     await assertPermission(this.sender, 'dangerousAppControl')
     var sess = globals.userSessionAPI.getFor(this.sender)
     if (!sess) return null
