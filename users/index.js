@@ -2,7 +2,7 @@ const Events = require('events')
 const logger = require('../logger').category('crawler')
 const dat = require('../dat')
 const crawler = require('../crawler')
-const graphCrawler = require('../crawler/graph')
+const followsCrawler = require('../crawler/follows')
 const bookmarksCrawler = require('../crawler/bookmarks')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
@@ -250,10 +250,12 @@ async function selectNextCrawlTargets (user) {
   var rows = [user.url]
 
   // get followed sites
-  rows = rows.concat(await graphCrawler.listFollows(user.url))
+  var followedUrls = (await followsCrawler.list({filters: {authors: user.url}})).map(({subject}) => subject.url)
+  rows = rows.concat(followedUrls)
 
   // get sites followed by followed sites
-  rows = rows.concat(await graphCrawler.listFoaFs(user.url))
+  var foafUrls = (await followsCrawler.list({filters: {authors: followedUrls}})).map(({subject}) => subject.url)
+  rows = rows.concat(foafUrls)
 
   // assemble into list
   var start = user.crawlSelectorCursor || 0

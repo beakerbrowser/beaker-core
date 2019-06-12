@@ -32,9 +32,9 @@ const APIs = {
     manifest: require('../manifests/external/unwalled-garden-posts'),
     create: makeCreateFn('unwalled-garden-posts')
   },
-  'unwalled-garden-graph': {
-    manifest: require('../manifests/external/unwalled-garden-graph'),
-    create: makeCreateFn('unwalled-garden-graph')
+  'unwalled-garden-follows': {
+    manifest: require('../manifests/external/unwalled-garden-follows'),
+    create: makeCreateFn('unwalled-garden-follows')
   },
   'unwalled-garden-reactions': {
     manifest: require('../manifests/external/unwalled-garden-reactions'),

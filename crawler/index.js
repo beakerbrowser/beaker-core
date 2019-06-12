@@ -9,7 +9,7 @@ const dat = require('../dat')
 const {crawlerEvents, toHostname} = require('./util')
 const posts = require('./posts')
 const bookmarks = require('./bookmarks')
-const graph = require('./graph')
+const follows = require('./follows')
 const reactions = require('./reactions')
 const siteDescriptions = require('./site-descriptions')
 
@@ -23,7 +23,7 @@ var watches = {}
 
 exports.posts = posts
 exports.bookmarks = bookmarks
-exports.graph = graph
+exports.follows = follows
 exports.reactions = reactions
 exports.siteDescriptions = siteDescriptions
 const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
@@ -87,7 +87,7 @@ exports.crawlSite = async function (archive) {
     await Promise.all([
       posts.crawlSite(archive, crawlSource),
       bookmarks.crawlSite(archive, crawlSource),
-      graph.crawlSite(archive, crawlSource),
+      follows.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource)
     ])

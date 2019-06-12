@@ -112,7 +112,8 @@ migrations = [
   migration('profile-data.v22.sql', {canFail: true}), // canFail for the same reason as v16, ffs
   migration('profile-data.v23.sql'),
   migration('profile-data.v24.sql'),
-  migration('profile-data.v25.sql')
+  migration('profile-data.v25.sql'),
+  migration('profile-data.v26.sql')
 ]
 function migration (file, opts = {}) {
   return cb => {

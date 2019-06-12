@@ -4,7 +4,7 @@ const db = require('../dbs/profile-data-db')
 const bookmarksDb = require('../dbs/bookmarks')
 const historyDb = require('../dbs/history')
 const datLibrary = require('../dat/library')
-const graph = require('./graph')
+const follows = require('./follows')
 const siteDescriptions = require('./site-descriptions')
 const {getSiteDescriptionThumbnailUrl} = require('./util')
 const knex = require('../lib/knex')
@@ -98,7 +98,7 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   suggestions.builtins = BUILTIN_PAGES.filter(a => query ? a.title.toLowerCase().includes(query) : true)
 
   // addressbook
-  suggestions.addressbook = await graph.listFollows(user, {includeDesc: true})
+  suggestions.addressbook = (await follows.list({filters: {authors: user}})).map(({subject}) => subject)
   suggestions.addressbook = [await siteDescriptions.getBest({subject: user, author: user})].concat(suggestions.addressbook)
   suggestions.addressbook = suggestions.addressbook.filter(filterFn)
 
@@ -188,7 +188,7 @@ exports.query = async function (user, opts) {
     // the user and all followed sources
     let res = await db.all(`
       SELECT id FROM crawl_sources src
-        INNER JOIN crawl_graph graph ON graph.destUrl = src.url AND graph.crawlSourceId = ?
+        INNER JOIN crawl_follows follows ON follows.destUrl = src.url AND follows.crawlSourceId = ?
     `, [userCrawlSourceId])
     crawlSourceIds = [userCrawlSourceId].concat(res.map(({id}) => id))
   } else if (hops === 1) {
@@ -261,7 +261,7 @@ function buildSitesSearchQuery ({query, crawlSourceIds, user, userCrawlSourceId,
     .select('crawl_sources.url AS authorUrl')
     .select('crawl_site_descriptions.crawledAt')
     .where(builder => builder
-      .whereIn('crawl_graph.crawlSourceId', crawlSourceIds) // description by a followed user
+      .whereIn('crawl_follows.crawlSourceId', crawlSourceIds) // description by a followed user
       .orWhere(builder => builder
         .where('crawl_site_descriptions.url', user) // about me and...
         .andWhere('crawl_site_descriptions.crawlSourceId', userCrawlSourceId) // by me
@@ -276,14 +276,14 @@ function buildSitesSearchQuery ({query, crawlSourceIds, user, userCrawlSourceId,
       .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
       .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
       .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.rowid', '=', 'crawl_site_descriptions_fts_index.rowid')
-      .leftJoin('crawl_graph', 'crawl_graph.destUrl', '=', 'crawl_site_descriptions.url')
+      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_site_descriptions.url')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
       .whereRaw('crawl_site_descriptions_fts_index MATCH ?', [query])
   } else {
     sql = sql
       .select('crawl_site_descriptions.title')
       .select('crawl_site_descriptions.description')
-      .leftJoin('crawl_graph', 'crawl_graph.destUrl', '=', 'crawl_site_descriptions.url')
+      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_site_descriptions.url')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
   }
   return sql
@@ -297,7 +297,7 @@ function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since
     .select('crawl_posts.updatedAt')
     .select('crawl_sources.url AS authorUrl')
     .where(builder => builder
-      .whereIn('crawl_graph.crawlSourceId', crawlSourceIds) // published by someone I follow
+      .whereIn('crawl_follows.crawlSourceId', crawlSourceIds) // published by someone I follow
       .orWhere('crawl_posts.crawlSourceId', userCrawlSourceId) // or by me
     )
     .andWhere('crawl_posts.crawledAt', '>=', since)
@@ -309,13 +309,13 @@ function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since
       .select(knex.raw(`SNIPPET(crawl_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS body`))
       .innerJoin('crawl_posts', 'crawl_posts.rowid', '=', 'crawl_posts_fts_index.rowid')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
-      .leftJoin('crawl_graph', 'crawl_graph.destUrl', '=', 'crawl_sources.url')
+      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
       .whereRaw('crawl_posts_fts_index MATCH ?', [query])
   } else {
     sql = sql
       .select('crawl_posts.body')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
-      .leftJoin('crawl_graph', 'crawl_graph.destUrl', '=', 'crawl_sources.url')
+      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
   }
   return sql
 }
@@ -328,7 +328,7 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
     .select('crawl_bookmarks.updatedAt')
     .select('crawl_sources.url AS authorUrl')
     .where(builder => builder
-      .whereIn('crawl_graph.crawlSourceId', crawlSourceIds) // published by someone I follow
+      .whereIn('crawl_follows.crawlSourceId', crawlSourceIds) // published by someone I follow
       .orWhere('crawl_bookmarks.crawlSourceId', userCrawlSourceId) // or by me
     )
     .andWhere('crawl_bookmarks.crawledAt', '>=', since)
@@ -343,7 +343,7 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 2, '${startHighlight}', '${endHighlight}', '...', 25) AS tags`))
       .innerJoin('crawl_bookmarks', 'crawl_bookmarks.rowid', '=', 'crawl_bookmarks_fts_index.rowid')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
-      .leftJoin('crawl_graph', 'crawl_graph.destUrl', '=', 'crawl_sources.url')
+      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
       .whereRaw('crawl_bookmarks_fts_index MATCH ?', [query])
   } else {
     sql = sql
@@ -352,7 +352,7 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .select('crawl_bookmarks.description')
       .select('crawl_bookmarks.tags')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
-      .leftJoin('crawl_graph', 'crawl_graph.destUrl', '=', 'crawl_sources.url')
+      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
   }
   return sql
 }
