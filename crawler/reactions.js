@@ -31,7 +31,7 @@ const JSON_PATH_REGEX = /^\/data\/reactions\/([^/]+)\.json$/i
  * @prop {string} recordUrl
  * @prop {number} crawledAt
  *
- * @typedef {Object} TopicReactions
+ * @typedef {Object} TopicReaction
  * @prop {string} emoji
  * @prop {string[]} authors
  */
@@ -140,13 +140,20 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @param {Object} [opts]
  * @param {Object} [opts.filters]
  * @param {string|string[]} [opts.filters.authors]
+ * @param {string|string[]} [opts.filters.topics]
+ * @param {string} [opts.filters.visibility]
+ * @param {string} [opts.sortBy]
  * @param {number} [opts.offset=0]
  * @param {number} [opts.limit]
  * @param {boolean} [opts.reverse]
  * @returns {Promise<Array<Reaction>>}
  */
-exports.query = async function (opts) {
+exports.list = async function (opts) {
+  // TODO: handle visibility
+  // TODO: sortBy options
+
   // validate & parse params
+  if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
   if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
   if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
   if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
@@ -160,6 +167,17 @@ exports.query = async function (opts) {
       }
       opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
     }
+    if ('topics' in opts.filters) {
+      if (Array.isArray(opts.filters.topics)) {
+        assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
+        opts.filters.topics = [opts.filters.topics]
+      }
+    }
+    if ('visibility' in opts.filters) {
+      assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    }
   }
 
   // execute query
@@ -172,6 +190,9 @@ exports.query = async function (opts) {
   if (opts.offset) sql = sql.offset(opts.offset)
   if (opts && opts.filters && opts.filters.authors) {
     sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  }
+  if (opts && opts.filters && opts.filters.topics) {
+    sql = sql.whereIn('crawl_reactions.topic', opts.filters.topics)
   }
   var rows = await db.all(sql)
 
@@ -187,23 +208,44 @@ exports.query = async function (opts) {
  * @description
  * List crawled reactions on a topic.
  *
- * @param {string} url - The URL of the topic
- * @returns {Promise<TopicReaction[]>}s
+ * @param {string} topic - The URL of the topic
+ * @param {Object} [opts]
+ * @param {Object} [opts.filters]
+ * @param {string|string[]} [opts.filters.authors]
+ * @param {string} [opts.filters.visibility]
+ * @returns {Promise<TopicReaction[]>}
  */
-const listReactions = exports.listReactions = async function (topic) {
+exports.tabulate = async function (topic, opts) {
+  // TODO handle visibility
+  
   // validate params
   try { new URL(topic) }
   catch (e) { throw new Error('Invalid URL: ' + topic) }
+  if (opts && opts.filters) {
+    if ('authors' in opts.filters) {
+      if (Array.isArray(opts.filters.authors)) {
+        assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
+        opts.filters.authors = [opts.filters.authors]
+      }
+      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+    }
+    if ('visibility' in opts.filters) {
+      assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    }
+  }
 
   // execute query
-  var rows = await db.all(`
-    SELECT
-        crawl_reactions.*, src.url AS crawlSourceUrl
-      FROM crawl_reactions
-      INNER JOIN crawl_sources src ON src.id = crawl_reactions.crawlSourceId
-      WHERE
-        crawl_reactions.topic = ?
-  `, [topic])
+  var sql = knex('crawl_reactions')
+    .select('crawl_reactions.*')
+    .select('crawl_sources.url AS crawlSourceUrl')
+    .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_reactions.crawlSourceId')
+    .where('crawl_reactions.topic', topic)
+  if (opts && opts.filters && opts.filters.authors) {
+    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  }
+  var rows = await db.all(sql)
 
   // construct reactions list
   var reactions = {}
@@ -229,7 +271,9 @@ const listReactions = exports.listReactions = async function (topic) {
  * @param {string} emoji
  * @returns {Promise<void>}
  */
-exports.addReaction = async function (archive, topic, emoji) {
+exports.add = async function (archive, topic, emoji) {
+  // TODO handle visibility
+
   emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
   var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
@@ -250,7 +294,9 @@ exports.addReaction = async function (archive, topic, emoji) {
  * @param {string} emoji
  * @returns {Promise<void>}
  */
-exports.deleteReaction = async function (archive, topic, emoji) {
+exports.delete = async function (archive, topic, emoji) {
+  // TODO handle visibility
+
   emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
   var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)

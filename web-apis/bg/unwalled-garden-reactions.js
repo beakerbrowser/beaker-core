@@ -24,12 +24,11 @@ const siteDescriptionsCrawler = require('../../crawler/site-descriptions')
  * @prop {ReactionAuthorPublicAPIRecord[]} authors
  *
  * @typedef {Object} ReactionPublicAPIRecord
+ * @prop {string} url
  * @prop {string} topic
  * @prop {string[]} emojis
  * @prop {ReactionAuthorPublicAPIRecord} author
- * @prop {number} crawledAt
- * @prop {Object} record
- * @prop {string} record.url
+ * @prop {string} visibility
  */
 
 // exported api
@@ -40,14 +39,18 @@ module.exports = {
    * @param {Object} [opts]
    * @param {Object} [opts.filters]
    * @param {string|string[]} [opts.filters.authors]
+   * @param {string|string[]} [opts.filters.topics]
+   * @param {string} [opts.filters.visibility]
+   * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
    * @param {boolean} [opts.reverse]
    * @returns {Promise<ReactionPublicAPIRecord[]>}
    */
-  async query (opts) {
+  async list (opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
     opts = (opts && typeof opts === 'object') ? opts : {}
+    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
     if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
     if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
@@ -59,24 +62,60 @@ module.exports = {
           assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         }
       }
+      if ('topics' in opts.filters) {
+        if (Array.isArray(opts.filters.topics)) {
+          assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
+        } else {
+          assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
+        }
+      }
+      if ('visibility' in opts.filters) {
+        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+      }
     }
-    var reactions = await reactionsCrawler.query(opts)
+    var reactions = await reactionsCrawler.list(opts)
     return Promise.all(reactions.map(massageReactionRecord))
   },
 
-  innerListReactions,
-
   /**
    * @param {string} topic
+   * @param {Object} [opts]
+   * @param {string|string[]} [opts.filters.authors]
+   * @param {string} [opts.filters.visibility]
    * @returns {Promise<TopicReactionsPublicAPIRecord[]>}
    */
-  async listReactions (topic) {
+  async tabulate (topic, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
-
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
+    opts = (opts && typeof opts === 'object') ? opts : {}
+    if (opts && opts.filters) {
+      if ('authors' in opts.filters) {
+        if (Array.isArray(opts.filters.authors)) {
+          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+        } else {
+          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
+        }
+      }
+      if ('visibility' in opts.filters) {
+        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+      }
+    }
 
-    return innerListReactions(topic)
+    var reactions = await reactionsCrawler.tabulate(topic, opts)
+    return Promise.all(reactions.map(async (reaction) => ({
+      topic,
+      emoji: reaction.emoji,
+      authors: await Promise.all(reaction.authors.map(async (url) => {
+        var desc = await siteDescriptionsCrawler.getBest({subject: url})
+        return {
+          url: desc.url,
+          title: desc.title,
+          description: desc.description,
+          type: desc.type
+        }
+      }))
+    })))
   },
 
   /**
@@ -84,17 +123,14 @@ module.exports = {
    * @param {string} emoji
    * @returns {Promise<void>}
    */
-  async addReaction (topic, emoji) {
+  async add (topic, emoji) {
     await assertPermission(this.sender, 'dangerousAppControl')
+    var userArchive = getUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    var userSession = globals.userSessionAPI.getFor(this.sender)
-    if (!userSession) throw new Error('No active user session')
-    var userArchive = dat.library.getArchive(userSession.url)
-
-    await reactionsCrawler.addReaction(userArchive, topic, emoji)
+    await reactionsCrawler.add(userArchive, topic, emoji)
   },
 
   /**
@@ -102,17 +138,14 @@ module.exports = {
    * @param {string} emoji
    * @returns {Promise<void>}
    */
-  async deleteReaction (topic, emoji) {
+  async delete (topic, emoji) {
     await assertPermission(this.sender, 'dangerousAppControl')
+    var userArchive = getUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    var userSession = globals.userSessionAPI.getFor(this.sender)
-    if (!userSession) throw new Error('No active user session')
-    var userArchive = dat.library.getArchive(userSession.url)
-
-    await reactionsCrawler.deleteReaction(userArchive, topic, emoji)
+    await reactionsCrawler.delete(userArchive, topic, emoji)
   }
 }
 
@@ -127,6 +160,12 @@ async function assertPermission (sender, perm) {
   throw new PermissionsError()
 }
 
+function getUserArchive (sender) {
+  var userSession = globals.userSessionAPI.getFor(sender)
+  if (!userSession) throw new Error('No active user session')
+  return dat.library.getArchive(userSession.url)
+}
+
 function normalizeTopicUrl (url) {
   try {
     url = new URL(url)
@@ -136,44 +175,21 @@ function normalizeTopicUrl (url) {
 }
 
 /**
- * @param {string} topic
- * @returns {Promise<TopicReactionsPublicAPIRecord[]>}
- */
-async function innerListReactions (topic) {
-  var reactions = await reactionsCrawler.listReactions(topic)
-  return Promise.all(reactions.map(async (reaction) => ({
-    topic,
-    emoji: reaction.emoji,
-    authors: await Promise.all(reaction.authors.map(async (url) => {
-      var desc = await siteDescriptionsCrawler.getBest({subject: url})
-      return {
-        url: desc.url,
-        title: desc.title,
-        description: desc.description,
-        type: desc.type
-      }
-    }))
-  })))
-}
-
-/**
  * @param {Reaction} reaction
  * @returns {Promise<ReactionPublicAPIRecord>}
  */
 async function massageReactionRecord (reaction) {
   var desc = await siteDescriptionsCrawler.getBest({subject: reaction.author})
   return {
+    url: reaction.recordUrl,
     topic: reaction.topic,
     emojis: reaction.emojis,
-    crawledAt: reaction.crawledAt,
     author: {
       url: desc.url,
       title: desc.title,
       description: desc.description,
       type: desc.type
     },
-    record: {
-      url: reaction.recordUrl
-    }
+    visibility: reaction.visibility
   }
 }

@@ -1,6 +1,6 @@
 module.exports = {
-  query: 'promise',
-  listReactions: 'promise',
-  addReaction: 'promise',
-  deleteReaction: 'promise'
+  list: 'promise',
+  tabulate: 'promise',
+  add: 'promise',
+  delete: 'promise'
 }
