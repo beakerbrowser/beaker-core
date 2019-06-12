@@ -1,7 +1,7 @@
 module.exports = {
-  query: 'promise',
-  getPost: 'promise',
-  addPost: 'promise',
-  editPost: 'promise',
-  deletePost: 'promise'
+  list: 'promise',
+  get: 'promise',
+  add: 'promise',
+  edit: 'promise',
+  delete: 'promise'
 }

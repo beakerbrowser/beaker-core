@@ -5,6 +5,8 @@ const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'posts'})
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
+const lock = require('../lib/lock')
+const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, toOrigin} = require('./util')
 const postSchema = require('./json-schemas/post')
@@ -12,7 +14,7 @@ const postSchema = require('./json-schemas/post')
 // constants
 // =
 
-const TABLE_VERSION = 1
+const TABLE_VERSION = 2
 const JSON_TYPE = 'unwalled.garden/post'
 const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 
@@ -26,12 +28,11 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
  *
  * @typedef {Object} Post
  * @prop {string} pathname
- * @prop {Object} content
- * @prop {string} content.body
- * @prop {number} crawledAt
- * @prop {number} createdAt
- * @prop {number} updatedAt
+ * @prop {string} body
+ * @prop {string} createdAt
+ * @prop {string} updatedAt
  * @prop {SiteDescription} author
+ * @prop {string} visibility
  */
 
 // globals
@@ -40,7 +41,6 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 const events = new Events()
 const ajv = (new Ajv())
 const validatePost = ajv.compile(postSchema)
-const validatePostContent = ajv.compile(postSchema.properties.content)
 
 // exported api
 // =
@@ -119,19 +119,19 @@ exports.crawlSite = async function (archive, crawlSource) {
         if (isNaN(post.updatedAt)) post.updatedAt = 0 // optional
 
         // upsert
-        let existingPost = await getPost(joinPath(archive.url, changedPost.name))
+        let existingPost = await get(joinPath(archive.url, changedPost.name))
         if (existingPost) {
           await db.run(`
             UPDATE crawl_posts
               SET crawledAt = ?, body = ?, createdAt = ?, updatedAt = ?
               WHERE crawlSourceId = ? AND pathname = ?
-          `, [Date.now(), post.content.body, post.createdAt, post.updatedAt, crawlSource.id, changedPost.name])
+          `, [Date.now(), post.body, post.createdAt, post.updatedAt, crawlSource.id, changedPost.name])
           events.emit('post-updated', archive.url)
         } else {
           await db.run(`
             INSERT INTO crawl_posts (crawlSourceId, pathname, crawledAt, body, createdAt, updatedAt)
               VALUES (?, ?, ?, ?, ?, ?)
-          `, [crawlSource.id, changedPost.name, Date.now(), post.content.body, post.createdAt, post.updatedAt])
+          `, [crawlSource.id, changedPost.name, Date.now(), post.body, post.createdAt, post.updatedAt])
           events.emit('post-added', archive.url)
         }
       }
@@ -151,13 +151,19 @@ exports.crawlSite = async function (archive, crawlSource) {
   * @param {Object} [opts]
   * @param {Object} [opts.filters]
   * @param {string|string[]} [opts.filters.authors]
+  * @param {string} [opts.filters.visibility]
+  * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
   * @param {number} [opts.limit]
   * @param {boolean} [opts.reverse]
  * @returns {Promise<Array<Post>>}
  */
-exports.query = async function (opts) {
+exports.list = async function (opts) {
+  // TODO: handle visibility
+  // TODO: sortBy options
+
   // validate & parse params
+  if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
   if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
   if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
   if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
@@ -171,37 +177,26 @@ exports.query = async function (opts) {
       }
       opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
     }
+    if ('visibility' in opts.filters) {
+      assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    }
   }
 
   // build query
-  var query = `
-    SELECT crawl_posts.*, src.url AS crawlSourceUrl FROM crawl_posts
-      INNER JOIN crawl_sources src ON src.id = crawl_posts.crawlSourceId
-  `
+  var sql = knex('crawl_posts')
+    .select('crawl_posts.*')
+    .select('crawl_sources.url AS crawlSourceUrl')
+    .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
+    .orderBy('crawl_posts.createdAt', opts.reverse ? 'DESC' : 'ASC')
   var values = []
   if (opts && opts.filters && opts.filters.authors) {
-    let op = 'WHERE'
-    for (let a of opts.filters.authors) {
-      query += ` ${op} src.url = ?`
-      op = 'OR'
-      values.push(a)
-    }
+    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
   }
-  query += ` ORDER BY createdAt`
-  if (opts && opts.reverse) {
-    query += ` DESC`
-  }
-  if (opts && opts.limit) {
-    query += ` LIMIT ?`
-    values.push(opts.limit)
-  }
-  if (opts && opts.offset) {
-    query += ` OFFSET ?`
-    values.push(opts.offset)
-  }
+  if (opts && opts.limit) sql = sql.limit(opts.limit)
+  if (opts && opts.offset) sql = sql.offset(opts.offset)
 
   // execute query
-  var rows = await db.all(query, values)
+  var rows = await db.all(sql)
   return Promise.all(rows.map(massagePostRow))
 }
 
@@ -212,7 +207,7 @@ exports.query = async function (opts) {
  * @param {string} url - The URL of the post
  * @returns {Promise<Post>}
  */
-const getPost = exports.getPost = async function (url) {
+const get = exports.get = async function (url) {
   // validate & parse params
   var urlParsed
   if (url) {
@@ -221,16 +216,15 @@ const getPost = exports.getPost = async function (url) {
   }
 
   // execute query
-  return await massagePostRow(await db.get(`
-    SELECT
-        crawl_posts.*, src.url AS crawlSourceUrl
-      FROM crawl_posts
-      INNER JOIN crawl_sources src
-        ON src.id = crawl_posts.crawlSourceId
-        AND src.url = ?
-      WHERE
-        crawl_posts.pathname = ?
-  `, [`${urlParsed.protocol}//${urlParsed.hostname}`, urlParsed.pathname]))
+  var sql = knex('crawl_posts')
+    .select('crawl_posts.*')
+    .select('crawl_sources.url AS crawlSourceUrl')
+    .innerJoin('crawl_sources', function () {
+      this.on('crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
+        .andOn('crawl_sources.url', '=', knex.raw('?', `${urlParsed.protocol}//${urlParsed.hostname}`))
+    })
+    .where('crawl_posts.pathname', urlParsed.pathname)
+  return await massagePostRow(await db.get(sql))
 }
 
 /**
@@ -238,23 +232,27 @@ const getPost = exports.getPost = async function (url) {
  * Create a new post.
  *
  * @param {InternalDatArchive} archive - where to write the post to.
- * @param {Object} content
- * @param {string} content.body
+ * @param {Object} post
+ * @param {string} post.body
+ * @param {string} post.visibility
  * @returns {Promise<string>} url
  */
-exports.addPost = async function (archive, content) {
-  var valid = validatePostContent(content)
-  if (!valid) throw ajv.errorsText(validatePostContent.errors)
+exports.add = async function (archive, post) {
+  // TODO visibility
+
+  var postObject = {
+    type: JSON_TYPE,
+    body: post.body,
+    createdAt: (new Date()).toISOString()
+  }
+  var valid = validatePost(postObject)
+  if (!valid) throw ajv.errorsText(validatePost.errors)
 
   var filename = generateTimeFilename()
   var filepath = `/data/posts/${filename}.json`
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/posts')
-  await archive.pda.writeFile(filepath, JSON.stringify({
-    type: JSON_TYPE,
-    content,
-    createdAt: (new Date()).toISOString()
-  }, null, 2))
+  await archive.pda.writeFile(filepath, JSON.stringify(postObject, null, 2))
   await crawler.crawlSite(archive)
   return archive.url + filepath
 }
@@ -265,21 +263,38 @@ exports.addPost = async function (archive, content) {
  *
  * @param {InternalDatArchive} archive - where to write the post to.
  * @param {string} pathname - the pathname of the post.
- * @param {Object} content
- * @param {string} content.body
+ * @param {Object} post
+ * @param {string} [post.body]
+ * @param {string} [post.visibility]
  * @returns {Promise<void>}
  */
-exports.editPost = async function (archive, pathname, content) {
-  var valid = validatePostContent(content)
-  if (!valid) throw ajv.errorsText(validatePostContent.errors)
-  var oldJson = JSON.parse(await archive.pda.readFile(pathname))
-  await archive.pda.writeFile(pathname, JSON.stringify({
-    type: JSON_TYPE,
-    content,
-    createdAt: oldJson.createdAt,
-    updatedAt: (new Date()).toISOString()
-  }, null, 2))
-  await crawler.crawlSite(archive)
+exports.edit = async function (archive, pathname, post) {
+  // TODO visibility
+
+  var release = await lock('crawler:follows:' + archive.url)
+  try {
+    // fetch post
+    var existingPost = await get(archive.url + pathname)
+    if (!existingPost) throw new Error('Post not found')
+
+    // update post content
+    var postObject = {
+      type: JSON_TYPE,
+      body: ('body' in post) ? post.body : existingPost.body,
+      createdAt: existingPost.createdAt,
+      updatedAt: (new Date()).toISOString()
+    }
+
+    // validate
+    var valid = validatePost(postObject)
+    if (!valid) throw ajv.errorsText(validatePost.errors)
+
+    // write
+    await archive.pda.writeFile(pathname, JSON.stringify(postObject, null, 2))
+    await crawler.crawlSite(archive)
+  } finally {
+    release()
+  }
 }
 
 /**
@@ -290,7 +305,7 @@ exports.editPost = async function (archive, pathname, content) {
  * @param {string} pathname - the pathname of the post.
  * @returns {Promise<void>}
  */
-exports.deletePost = async function (archive, pathname) {
+exports.delete = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
   await crawler.crawlSite(archive)
@@ -334,11 +349,9 @@ async function massagePostRow (row) {
   return {
     pathname: row.pathname,
     author,
-    content: {
-      body: row.body
-    },
-    crawledAt: row.crawledAt,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+    body: row.body,
+    createdAt: new Date(row.createdAt).toISOString(),
+    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    visibility: 'public' // TODO visibility
   }
 }

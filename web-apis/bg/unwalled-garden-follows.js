@@ -149,7 +149,7 @@ async function assertPermission (sender, perm) {
 }
 
 function getUserArchive (sender) {
-  var userSession = globals.userSessionAPI.getFor(this.sender)
+  var userSession = globals.userSessionAPI.getFor(sender)
   if (!userSession) throw new Error('No active user session')
   return dat.library.getArchive(userSession.url)
 }
@@ -167,7 +167,7 @@ function normalizeFollowUrl (url) {
 }
 
 /**
- * @param {Object} follow
+ * @param {Object} site
  * @returns {FollowsSitePublicAPIRecord}
  */
 function massageSiteRecord (site) {

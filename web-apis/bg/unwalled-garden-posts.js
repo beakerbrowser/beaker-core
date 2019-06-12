@@ -15,18 +15,13 @@ const postsCrawler = require('../../crawler/posts')
  * @prop {string} description
  * @prop {string[]} type
  *
- * @typedef {Object} PostReactionAuthorPublicAPIRecord
- * @prop {string} url
- * @prop {string} title
- *
  * @typedef {Object} PostPublicAPIRecord
  * @prop {string} url
- * @prop {Object} content
- * @prop {string} content.body
- * @prop {number} crawledAt
- * @prop {number} createdAt
- * @prop {number} updatedAt
+ * @prop {string} body
+ * @prop {string} createdAt
+ * @prop {string} updatedAt
  * @prop {PostAuthorPublicAPIRecord} author
+ * @prop {string} visibility
  */
 
 // exported api
@@ -37,14 +32,17 @@ module.exports = {
    * @param {Object} [opts]
    * @param {Object} [opts.filters]
    * @param {string|string[]} [opts.filters.authors]
+   * @param {string} [opts.filters.visibility]
+   * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
    * @param {boolean} [opts.reverse]
    * @returns {Promise<PostPublicAPIRecord[]>}
    */
-  async query (opts) {
+  async list (opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
     opts = (opts && typeof opts === 'object') ? opts : {}
+    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
     if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
     if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
@@ -56,8 +54,11 @@ module.exports = {
           assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         }
       }
+      if ('visibility' in opts.filters) {
+        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+      }
     }
-    var posts = await postsCrawler.query(opts)
+    var posts = await postsCrawler.list(opts)
     return Promise.all(posts.map(massagePostRecord))
   },
 
@@ -65,71 +66,78 @@ module.exports = {
    * @param {string} url
    * @returns {Promise<PostPublicAPIRecord>}
    */
-  async getPost (url) {
+  async get (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
-    return massagePostRecord(await postsCrawler.getPost(url))
+    return massagePostRecord(await postsCrawler.get(url))
   },
 
   /**
-   * @param {Object} post
-   * @param {Object} post.content
-   * @param {string} post.content.body
+   * @param {Object|string} post
+   * @param {string} post.body
+   * @param {string} [post.visibility]
    * @returns {Promise<PostPublicAPIRecord>}
    */
-  async addPost (post) {
+  async add (post) {
+    console.log('add()', post)
     await assertPermission(this.sender, 'dangerousAppControl')
+    var userArchive = getUserArchive(this.sender)
 
-    assert(post && typeof post === 'object', 'The `post` parameter must be an object')
-    assert(post.content && typeof post.content === 'object', 'The `post.content` parameter must be an object')
-    assert(post.content.body && typeof post.content.body === 'string', 'The `post.content.body` parameter must be a non-empty string')
+    // string usage
+    if (typeof post === 'string') {
+      post = {body: post}
+    }
 
-    var userSession = globals.userSessionAPI.getFor(this.sender)
-    if (!userSession) throw new Error('No active user session')
+    assert(post && typeof post === 'object', 'The `post` parameter must be a string or object')
+    assert(post.body && typeof post.body === 'string', 'The `post.body` parameter must be a non-empty string')
+    if ('visibility' in post) assert(typeof post.visibility === 'string', 'The `post.visibility` parameter must be "public" or "private"')
 
-    var userArchive = dat.library.getArchive(userSession.url)
-    var url = await postsCrawler.addPost(userArchive, post.content)
-    return massagePostRecord(await postsCrawler.getPost(url))
+    // default values
+    if (!post.visibility) {
+      post.visibility = 'public'
+    }
+
+    var url = await postsCrawler.add(userArchive, post)
+    return massagePostRecord(await postsCrawler.get(url))
   },
 
   /**
    * @param {string} url
-   * @param {Object} post
-   * @param {Object} post.content
-   * @param {string} post.content.body
+   * @param {Object|string} post
+   * @param {string} post.body
+   * @param {string} [post.visibility]
    * @returns {Promise<PostPublicAPIRecord>}
    */
-  async editPost (url, post) {
+  async edit (url, post) {
     await assertPermission(this.sender, 'dangerousAppControl')
+    var userArchive = getUserArchive(this.sender)
+
+    // string usage
+    if (typeof post === 'string') {
+      post = {body: post}
+    }
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
-    assert(post && typeof post === 'object', 'The `post` parameter must be an object')
-    assert(post.content && typeof post.content === 'object', 'The `post.content` parameter must be an object')
-    assert(post.content.body && typeof post.content.body === 'string', 'The `post.content.body` parameter must be a non-empty string')
+    assert(post && typeof post === 'object', 'The `post` parameter must be a string or object')
+    if ('body' in post) assert(typeof post.body === 'string', 'The `post.body` parameter must be a non-empty string')
+    if ('visibility' in post) assert(typeof post.visibility === 'string', 'The `post.visibility` parameter must be "public" or "private"')
 
-    var userSession = globals.userSessionAPI.getFor(this.sender)
-    if (!userSession) throw new Error('No active user session')
-    var filepath = await urlToFilepath(url, userSession.url)
-
-    var userArchive = dat.library.getArchive(userSession.url)
-    await postsCrawler.editPost(userArchive, filepath, post.content)
-    return massagePostRecord(await postsCrawler.getPost(userSession.url + filepath))
+    var filepath = await urlToFilepath(url, userArchive.url)
+    await postsCrawler.edit(userArchive, filepath, post)
+    return massagePostRecord(await postsCrawler.get(userArchive.url + filepath))
   },
 
   /**
    * @param {string} url
    * @returns {Promise<void>}
    */
-  async deletePost (url) {
+  async delete (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
+    var userArchive = getUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
-    var userSession = globals.userSessionAPI.getFor(this.sender)
-    if (!userSession) throw new Error('No active user session')
-    var filepath = await urlToFilepath(url, userSession.url)
-
-    var userArchive = dat.library.getArchive(userSession.url)
-    await postsCrawler.deletePost(userArchive, filepath)
+    var filepath = await urlToFilepath(url, userArchive.url)
+    await postsCrawler.delete(userArchive, filepath)
   }
 }
 
@@ -142,6 +150,12 @@ async function assertPermission (sender, perm) {
   }
   if (await globals.permsAPI.requestPermission(perm, sender)) return true
   throw new PermissionsError()
+}
+
+function getUserArchive (sender) {
+  var userSession = globals.userSessionAPI.getFor(sender)
+  if (!userSession) throw new Error('No active user session')
+  return dat.library.getArchive(userSession.url)
 }
 
 /**
@@ -171,14 +185,16 @@ async function urlToFilepath (url, origin) {
   return filepath
 }
 
-async function massagePostRecord (post) {
+/**
+ * @param {Object} post
+ * @returns {PostPublicAPIRecord}
+ */
+function massagePostRecord (post) {
+  if (!post) return null
   var url =  post.author.url + post.pathname
   return {
     url,
-    content: {
-      body: post.content.body
-    },
-    crawledAt: post.crawledAt,
+    body: post.body,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     author: {
@@ -186,6 +202,7 @@ async function massagePostRecord (post) {
       title: post.author.title,
       description: post.author.description,
       type: post.author.type
-    }
+    },
+    visibility: post.visibility
   }
 }

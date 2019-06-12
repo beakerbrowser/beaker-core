@@ -4,23 +4,17 @@ module.exports = {
   'type': 'object',
   'title': 'Post',
   'description': 'A broadcasted piece of content.',
-  'required': ['type', 'content', 'createdAt'],
+  'required': ['type', 'body', 'createdAt'],
   'properties': {
     'type': {
       'type': 'string',
       'description': "The object's type",
       'const': 'unwalled.garden/post'
     },
-    'content': {
-      'type': 'object',
-      'required': ['body'],
-      'properties': {
-        'body': {
-          'type': 'string',
-          'description': "The post's text body",
-          'maxLength': 280
-        }
-      }
+    'body': {
+      'type': 'string',
+      'description': "The post's text body",
+      'maxLength': 1000000
     },
     'createdAt': {
       'type': 'string',
