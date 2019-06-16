@@ -271,7 +271,7 @@ exports.add = async function (archive, post) {
 exports.edit = async function (archive, pathname, post) {
   // TODO visibility
 
-  var release = await lock('crawler:follows:' + archive.url)
+  var release = await lock('crawler:posts:' + archive.url)
   try {
     // fetch post
     var existingPost = await get(archive.url + pathname)

@@ -78,7 +78,6 @@ module.exports = {
    * @returns {Promise<PostPublicAPIRecord>}
    */
   async add (post) {
-    console.log('add()', post)
     await assertPermission(this.sender, 'dangerousAppControl')
     var userArchive = getUserArchive(this.sender)
 

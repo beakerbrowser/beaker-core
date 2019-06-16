@@ -28,6 +28,10 @@ const APIs = {
     manifest: require('../manifests/external/search'),
     create: makeCreateFn('search')
   },
+  'unwalled-garden-comments': {
+    manifest: require('../manifests/external/unwalled-garden-comments'),
+    create: makeCreateFn('unwalled-garden-comments')
+  },
   'unwalled-garden-posts': {
     manifest: require('../manifests/external/unwalled-garden-posts'),
     create: makeCreateFn('unwalled-garden-posts')

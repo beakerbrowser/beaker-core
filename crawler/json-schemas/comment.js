@@ -7,7 +7,7 @@ module.exports = {
   'required': [
     'type',
     'topic',
-    'content',
+    'body',
     'createdAt'
   ],
   'properties': {
@@ -19,28 +19,16 @@ module.exports = {
     'topic': {
       'type': 'string',
       'description': 'What this comment is about',
-      'format': 'uri',
-      'examples': [
-        'dat://beakerbrowser.com'
-      ]
+      'format': 'uri'
     },
     'replyTo': {
       'type': 'string',
       'description': 'What this comment is replying to',
-      'format': 'uri',
-      'examples': [
-        'dat://beakerbrowser.com'
-      ]
+      'format': 'uri'
     },
-    'content': {
-      'type': 'object',
-      'required': ['body'],
-      'properties': {
-        'body': {
-          'type': 'string',
-          'description': "The post's text content"
-        }
-      }
+    'body': {
+      'type': 'string',
+      'description': "The post's text content"
     },
     'createdAt': {
       'type': 'string',
@@ -52,6 +40,5 @@ module.exports = {
       'format': 'date-time',
       'description': "The time of this post's last edit"
     }
-  },
-  'additionalProperties': false
+  }
 }

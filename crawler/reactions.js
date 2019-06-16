@@ -217,7 +217,7 @@ exports.list = async function (opts) {
  */
 exports.tabulate = async function (topic, opts) {
   // TODO handle visibility
-  
+
   // validate params
   try { new URL(topic) }
   catch (e) { throw new Error('Invalid URL: ' + topic) }
