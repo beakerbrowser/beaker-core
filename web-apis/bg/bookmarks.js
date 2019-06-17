@@ -240,10 +240,10 @@ function normalizeInternalBookmark (bookmark, user) {
 }
 
 /**
- * 
- * @param {*} bookmark 
- * @param {*} user 
- * @param {*} pinneds 
+ *
+ * @param {*} bookmark
+ * @param {*} user
+ * @param {*} pinneds
  * @returns {BookmarkPublicAPIRecord}
  */
 function normalizeUWBookmark (bookmark, user, pinneds) {

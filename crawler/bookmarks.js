@@ -298,7 +298,7 @@ exports.editBookmark = async function (archive, pathname, bookmark) {
 
   var valid = validateBookmark(bookmark)
   if (!valid) throw ajv.errorsText(validateBookmark.errors)
-  
+
   await archive.pda.writeFile(pathname, JSON.stringify(bookmarkObject, null, 2))
   await crawler.crawlSite(archive)
 }
