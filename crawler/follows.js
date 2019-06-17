@@ -29,7 +29,7 @@ const JSON_PATH = '/data/follows.json'
  *
  * @typedef {Object} Follow
  * @prop {SiteDescription} author
- * @prop {SiteDescription} subject
+ * @prop {SiteDescription} topic
  * @prop {string} visibility
  */
 
@@ -91,7 +91,7 @@ exports.crawlSite = async function (archive, crawlSource) {
 
     // diff against the current follows
     var currentFollowObjects = await list({filters: {authors: archive.url}})
-    var currentFollows = currentFollowObjects.map(({subject}) => subject.url)
+    var currentFollows = currentFollowObjects.map(({topic}) => topic.url)
     var newFollows = followsJson.urls
     var adds = _difference(newFollows, currentFollows)
     var removes = _difference(currentFollows, newFollows)
@@ -139,7 +139,7 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @param {Object} [opts]
  * @param {Object} [opts.filters]
  * @param {string|string[]} [opts.filters.authors]
- * @param {string|string[]} [opts.filters.subjects]
+ * @param {string|string[]} [opts.filters.topics]
  * @param {string} [opts.filters.visibility]
  * @param {string} [opts.sortBy]
  * @param {number} [opts.offset=0]
@@ -166,14 +166,14 @@ const list = exports.list = async function (opts) {
       }
       opts.filters.authors = opts.filters.authors.map(url => toOrigin(url))
     }
-    if ('subjects' in opts.filters) {
-      if (Array.isArray(opts.filters.subjects)) {
-        assert(opts.filters.subjects.every(v => typeof v === 'string'), 'Subjects filter must be a string or array of strings')
+    if ('topics' in opts.filters) {
+      if (Array.isArray(opts.filters.topics)) {
+        assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
       } else {
-        assert(typeof opts.filters.subjects === 'string', 'Subjects filter must be a string or array of strings')
-        opts.filters.subjects = [opts.filters.subjects]
+        assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
+        opts.filters.topics = [opts.filters.topics]
       }
-      opts.filters.subjects = opts.filters.subjects.map(url => toOrigin(url))
+      opts.filters.topics = opts.filters.topics.map(url => toOrigin(url))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -191,18 +191,18 @@ const list = exports.list = async function (opts) {
   if (opts && opts.filters && opts.filters.authors) {
     sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
   }
-  if (opts && opts.filters && opts.filters.subjects) {
-    sql = sql.whereIn('crawl_follows.destUrl', opts.filters.subjects)
+  if (opts && opts.filters && opts.filters.topics) {
+    sql = sql.whereIn('crawl_follows.destUrl', opts.filters.topics)
   }
   var rows = await db.all(sql)
 
   // massage results
   return Promise.all(rows.map(async (row) => {
     var author = toOrigin(row.authorUrl)
-    var subject = toOrigin(row.destUrl)
+    var topic = toOrigin(row.destUrl)
     return {
       author: await siteDescriptions.getBest({subject: author}),
-      subject: await siteDescriptions.getBest({subject: subject}),
+      topic: await siteDescriptions.getBest({subject: topic}),
       visibility: 'public'
     }
   }))
@@ -213,22 +213,22 @@ const list = exports.list = async function (opts) {
  * Get an individual follow.
  *
  * @param {string} author - (URL) the site being queried.
- * @param {string} subject - (URL) does a follow this site?
+ * @param {string} topic - (URL) does a follow this site?
  * @returns {Promise<Follow>}
  */
-const get = exports.get = async function (author, subject) {
+const get = exports.get = async function (author, topic) {
   author = toOrigin(author)
-  subject = toOrigin(subject)
+  topic = toOrigin(topic)
   var res = await db.get(knex('crawl_follows')
     .select('crawl_follows.*')
     .select('crawl_sources.url AS authorUrl')
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_follows.crawlSourceId')
     .where('crawl_sources.url', author)
-    .where('crawl_follows.destUrl', subject))
+    .where('crawl_follows.destUrl', topic))
   if (!res) return null
   return {
     author: await siteDescriptions.getBest({subject: toOrigin(res.authorUrl)}),
-    subject: await siteDescriptions.getBest({subject: toOrigin(res.destUrl)}),
+    topic: await siteDescriptions.getBest({subject: toOrigin(res.destUrl)}),
     visibility: 'public'
   }
 }
@@ -238,27 +238,27 @@ const get = exports.get = async function (author, subject) {
  * Add a follow to the given archive.
  *
  * @param {InternalDatArchive} archive
- * @param {string} subject
+ * @param {string} topic
  * @param {Object} [opts]
  * @param {string} [opts.visibility]
  * @returns {Promise<void>}
  */
-exports.add = async function (archive, subject, opts) {
+exports.add = async function (archive, topic, opts) {
   // TODO visibility
 
-  // normalize subject
-  subject = toOrigin(subject)
-  assert(typeof subject === 'string', 'Follow() must be given a valid URL')
+  // normalize topic
+  topic = toOrigin(topic)
+  assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
   // write new follows.json
   await updateFollowsFile(archive, followsJson => {
-    if (!followsJson.urls.find(v => v === subject)) {
-      followsJson.urls.push(subject)
+    if (!followsJson.urls.find(v => v === topic)) {
+      followsJson.urls.push(topic)
     }
   })
 
   // capture site description
-  /* dont await */siteDescriptions.capture(archive, subject)
+  /* dont await */siteDescriptions.capture(archive, topic)
 }
 
 /**
@@ -266,22 +266,22 @@ exports.add = async function (archive, subject, opts) {
  * Edit a follow for the given archive.
  *
  * @param {InternalDatArchive} archive
- * @param {string} subject
+ * @param {string} topic
  * @param {Object} [opts]
  * @param {string} [opts.visibility]
  * @returns {Promise<void>}
  */
-exports.edit = async function (archive, subject, opts) {
+exports.edit = async function (archive, topic, opts) {
   // TODO visibility
 
-  // normalize subject
-  subject = toOrigin(subject)
-  assert(typeof subject === 'string', 'Follow() must be given a valid URL')
+  // normalize topic
+  topic = toOrigin(topic)
+  assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
   // write new follows.json
   await updateFollowsFile(archive, followsJson => {
-    if (!followsJson.urls.find(v => v === subject)) {
-      followsJson.urls.push(subject)
+    if (!followsJson.urls.find(v => v === topic)) {
+      followsJson.urls.push(topic)
     }
   })
 }
@@ -291,19 +291,19 @@ exports.edit = async function (archive, subject, opts) {
  * Remove a follow from the given archive.
  *
  * @param {InternalDatArchive} archive
- * @param {string} subject
+ * @param {string} topic
  * @returns {Promise<void>}
  */
-exports.remove = async function (archive, subject) {
+exports.remove = async function (archive, topic) {
   // TODO private follows
 
-  // normalize subject
-  subject = toOrigin(subject)
-  assert(typeof subject === 'string', 'Unfollow() must be given a valid URL')
+  // normalize topic
+  topic = toOrigin(topic)
+  assert(typeof topic === 'string', 'Unfollow() must be given a valid URL')
 
   // write new follows.json
   await updateFollowsFile(archive, followsJson => {
-    var i = followsJson.urls.findIndex(v => v === subject)
+    var i = followsJson.urls.findIndex(v => v === topic)
     if (i !== -1) {
       followsJson.urls.splice(i, 1)
     }

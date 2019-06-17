@@ -29,7 +29,7 @@ module.exports = {
    * @param {Object} [opts]
    * @param {Object} [opts.filters]
    * @param {string|string[]} [opts.filters.authors]
-   * @param {string|string[]} [opts.filters.subjects]
+   * @param {string|string[]} [opts.filters.topics]
    * @param {string} [opts.filters.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
@@ -52,11 +52,11 @@ module.exports = {
           assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         }
       }
-      if ('subjects' in opts.filters) {
-        if (Array.isArray(opts.filters.subjects)) {
-          assert(opts.filters.subjects.every(v => typeof v === 'string'), 'Subjects filter must be a string or array of strings')
+      if ('topics' in opts.filters) {
+        if (Array.isArray(opts.filters.topics)) {
+          assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
         } else {
-          assert(typeof opts.filters.subjects === 'string', 'Subjects filter must be a string or array of strings')
+          assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
         }
       }
       if ('visibility' in opts.filters) {
