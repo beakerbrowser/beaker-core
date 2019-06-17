@@ -13,7 +13,7 @@ const bookmarkSchema = require('./json-schemas/bookmark')
 // constants
 // =
 
-const TABLE_VERSION = 2
+const TABLE_VERSION = 3
 const JSON_TYPE = 'unwalled.garden/bookmark'
 const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
 
@@ -27,11 +27,10 @@ const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
  *
  * @typedef {Object} Bookmark
  * @prop {string} pathname
- * @prop {Object} content
- * @prop {string} content.href
- * @prop {string} content.title
- * @prop {string?} content.description
- * @prop {string[]?} content.tags
+ * @prop {string} href
+ * @prop {string} title
+ * @prop {string?} description
+ * @prop {string[]?} tags
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
@@ -44,7 +43,6 @@ const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
 const events = new Events()
 const ajv = (new Ajv())
 const validateBookmark = ajv.compile(bookmarkSchema)
-const validateBookmarkContent = ajv.compile(bookmarkSchema.properties.content)
 
 // exported api
 // =
@@ -121,8 +119,8 @@ exports.crawlSite = async function (archive, crawlSource) {
         bookmark.createdAt = Number(new Date(bookmark.createdAt))
         bookmark.updatedAt = Number(new Date(bookmark.updatedAt))
         if (isNaN(bookmark.updatedAt)) bookmark.updatedAt = 0 // optional
-        if (!bookmark.content.description) bookmark.content.description = '' // optional
-        if (!bookmark.content.tags) bookmark.content.tags = [] // optional
+        if (!bookmark.description) bookmark.description = '' // optional
+        if (!bookmark.tags) bookmark.tags = [] // optional
 
         // upsert
         let existingBookmark = await getBookmark(joinPath(archive.url, changedBookmark.name))
@@ -132,9 +130,9 @@ exports.crawlSite = async function (archive, crawlSource) {
         let res = await db.run(`
           INSERT INTO crawl_bookmarks (crawlSourceId, pathname, crawledAt, href, title, description, createdAt, updatedAt)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [crawlSource.id, changedBookmark.name, Date.now(), bookmark.content.href, bookmark.content.title, bookmark.content.description, bookmark.createdAt, bookmark.updatedAt])
+        `, [crawlSource.id, changedBookmark.name, Date.now(), bookmark.href, bookmark.title, bookmark.description, bookmark.createdAt, bookmark.updatedAt])
         var bookmarkId = res.lastID
-        for (let tag of bookmark.content.tags) {
+        for (let tag of bookmark.tags) {
           await db.run(`INSERT OR IGNORE INTO crawl_tags (tag) VALUES (?)`, [tag])
           let tagRow = await db.get(`SELECT id FROM crawl_tags WHERE tag = ?`, [tag])
           await db.run(`INSERT INTO crawl_bookmarks_tags (crawlBookmarkId, crawlTagId) VALUES (?, ?)`, [bookmarkId, tagRow.id])
@@ -240,27 +238,33 @@ const getBookmark = exports.getBookmark = async function (url) {
  * Create a new bookmark.
  *
  * @param {InternalDatArchive} archive - where to write the bookmark to.
- * @param {Object} content
- * @param {string} content.href
- * @param {string} content.title
- * @param {string?} content.description
- * @param {string?|string[]?} content.tags
+ * @param {Object} bookmark
+ * @param {string} bookmark.href
+ * @param {string} bookmark.title
+ * @param {string?} bookmark.description
+ * @param {string?|string[]?} bookmark.tags
  * @returns {Promise<string>} url
  */
-exports.addBookmark = async function (archive, content) {
-  if (content && typeof content.tags === 'string') content.tags = content.tags.split(' ')
-  var valid = validateBookmarkContent(content)
-  if (!valid) throw ajv.errorsText(validateBookmarkContent.errors)
+exports.addBookmark = async function (archive, bookmark) {
+  if (bookmark && typeof bookmark.tags === 'string') bookmark.tags = bookmark.tags.split(' ')
+
+  var bookmarkObject = {
+    type: JSON_TYPE,
+    href: bookmark.href,
+    title: bookmark.title,
+    description: bookmark.description,
+    tags: bookmark.tags,
+    createdAt: (new Date()).toISOString()
+  }
+
+  var valid = validateBookmark(bookmarkObject)
+  if (!valid) throw ajv.errorsText(validateBookmark.errors)
 
   var filename = generateTimeFilename()
   var filepath = `/data/bookmarks/${filename}.json`
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/bookmarks')
-  await archive.pda.writeFile(filepath, JSON.stringify({
-    type: JSON_TYPE,
-    content,
-    createdAt: (new Date()).toISOString()
-  }, null, 2))
+  await archive.pda.writeFile(filepath, JSON.stringify(bookmarkObject, null, 2))
   await crawler.crawlSite(archive)
   return archive.url + filepath
 }
@@ -271,24 +275,31 @@ exports.addBookmark = async function (archive, content) {
  *
  * @param {InternalDatArchive} archive - where to write the bookmark to.
  * @param {string} pathname - the pathname of the bookmark.
- * @param {Object} content
- * @param {string} content.href
- * @param {string} content.title
- * @param {string?} content.description
- * @param {string?|string[]?} content.tags
+ * @param {Object} bookmark
+ * @param {string} bookmark.href
+ * @param {string} bookmark.title
+ * @param {string?} bookmark.description
+ * @param {string?|string[]?} bookmark.tags
  * @returns {Promise<void>}
  */
-exports.editBookmark = async function (archive, pathname, content) {
-  if (content && typeof content.tags === 'string') content.tags = content.tags.split(' ')
-  var valid = validateBookmarkContent(content)
-  if (!valid) throw ajv.errorsText(validateBookmarkContent.errors)
-  var oldJson = JSON.parse(await archive.pda.readFile(pathname))
-  await archive.pda.writeFile(pathname, JSON.stringify({
+exports.editBookmark = async function (archive, pathname, bookmark) {
+  if (bookmark && typeof bookmark.tags === 'string') bookmark.tags = bookmark.tags.split(' ')
+  var existingBookmark = JSON.parse(await archive.pda.readFile(pathname))
+
+  var bookmarkObject = {
     type: JSON_TYPE,
-    content,
-    createdAt: oldJson.createdAt,
+    href: bookmark.href ? bookmark.href : existingBookmark.title,
+    title: ('title' in bookmark) ? bookmark.title : existingBookmark.title,
+    description: ('description' in bookmark) ? bookmark.description : existingBookmark.description,
+    tags: ('tags' in bookmark) ? bookmark.tags : existingBookmark.tags,
+    createdAt: existingBookmark.createdAt,
     updatedAt: (new Date()).toISOString()
-  }, null, 2))
+  }
+
+  var valid = validateBookmark(bookmark)
+  if (!valid) throw ajv.errorsText(validateBookmark.errors)
+  
+  await archive.pda.writeFile(pathname, JSON.stringify(bookmarkObject, null, 2))
   await crawler.crawlSite(archive)
 }
 
@@ -357,12 +368,10 @@ async function massageBookmarkRow (row) {
   return {
     pathname: row.pathname,
     author,
-    content: {
-      href: row.href,
-      title: row.title,
-      description: row.description,
-      tags: row.tags ? row.tags.split(',').filter(Boolean) : []
-    },
+    href: row.href,
+    title: row.title,
+    description: row.description,
+    tags: row.tags ? row.tags.split(',').filter(Boolean) : [],
     crawledAt: row.crawledAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt

@@ -239,13 +239,25 @@ function normalizeInternalBookmark (bookmark, user) {
   return bookmark
 }
 
-function normalizeUWBookmark (uwBookmark, user, pinneds) {
-  var bookmark = uwBookmark.content
-  bookmark.record = {url: uwBookmark.author.url + uwBookmark.pathname}
-  bookmark.createdAt = uwBookmark.createdAt
-  bookmark.isPublic = true
-  bookmark.author = uwBookmark.author
-  bookmark.isOwner = bookmark.author.url === user.url
-  bookmark.pinned = bookmark.isOwner && pinneds.find(p => p.href === bookmark.href)
-  return bookmark
+/**
+ * 
+ * @param {*} bookmark 
+ * @param {*} user 
+ * @param {*} pinneds 
+ * @returns {BookmarkPublicAPIRecord}
+ */
+function normalizeUWBookmark (bookmark, user, pinneds) {
+  return {
+    record: {url: bookmark.author.url + bookmark.pathname},
+    author: bookmark.author,
+    href: bookmark.href,
+    title: bookmark.title,
+    description: bookmark.description,
+    tags: bookmark.tags,
+    createdAt: bookmark.createdAt,
+    isOwner: bookmark.isOwner,
+    pinned: bookmark.isOwner && pinneds.find(p => p.href === bookmark.href),
+    pinOrder: 0,
+    isPublic: true
+  }
 }
