@@ -157,6 +157,12 @@ CREATE TRIGGER crawl_site_descriptions_au AFTER UPDATE ON crawl_site_description
   INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 
+-- crawled tags
+CREATE TABLE crawl_tags (
+  id INTEGER PRIMARY KEY,
+  tag TEXT UNIQUE
+);
+
 -- crawled posts
 CREATE TABLE crawl_posts (
   crawlSourceId INTEGER NOT NULL,
@@ -228,6 +234,7 @@ CREATE INDEX crawl_reactions_topic ON crawl_reactions (topic);
 
 -- crawled bookmarks
 CREATE TABLE crawl_bookmarks (
+  id INTEGER PRIMARY KEY,
   crawlSourceId INTEGER NOT NULL,
   pathname TEXT NOT NULL,
   crawledAt INTEGER,
@@ -235,25 +242,33 @@ CREATE TABLE crawl_bookmarks (
   href TEXT,
   title TEXT,
   description TEXT,
-  tags TEXT,
   createdAt INTEGER,
   updatedAt INTEGER,
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
-CREATE VIRTUAL TABLE crawl_bookmarks_fts_index USING fts5(title, description, tags, content='crawl_bookmarks');
+CREATE VIRTUAL TABLE crawl_bookmarks_fts_index USING fts5(title, description, content='crawl_bookmarks');
 
 -- triggers to keep crawl_bookmarks_fts_index updated
 CREATE TRIGGER crawl_bookmarks_ai AFTER INSERT ON crawl_bookmarks BEGIN
-  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description, tags) VALUES (new.rowid, new.title, new.description, new.tags);
+  INSERT INTO crawl_bookmarks_fts_index(id, title, description) VALUES (new.id, new.title, new.description);
 END;
 CREATE TRIGGER crawl_bookmarks_ad AFTER DELETE ON crawl_bookmarks BEGIN
-  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description, tags) VALUES('delete', old.rowid, old.title, old.description, old.tags);
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, id, title, description) VALUES('delete', old.id, old.title, old.description);
 END;
 CREATE TRIGGER crawl_bookmarks_au AFTER UPDATE ON crawl_bookmarks BEGIN
-  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description, tags) VALUES('delete', old.rowid, old.title, old.description, old.tags);
-  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description, tags) VALUES (new.rowid, new.title, new.description, new.tags);
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, id, title, description) VALUES('delete', old.id, old.title, old.description);
+  INSERT INTO crawl_bookmarks_fts_index(id, title, description) VALUES (new.id, new.title, new.description);
 END;
+
+-- crawled bookmark tags
+CREATE TABLE crawl_bookmarks_tags (
+  crawlBookmarkId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlBookmarkId) REFERENCES crawl_bookmarks (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
 
 -- crawled follows
 CREATE TABLE crawl_follows (
@@ -329,5 +344,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 27;
+PRAGMA user_version = 28;
 `

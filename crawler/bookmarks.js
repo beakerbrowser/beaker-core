@@ -4,6 +4,7 @@ const Events = require('events')
 const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'bookmarks'})
 const db = require('../dbs/profile-data-db')
+const knex = require('../lib/knex')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory} = require('./util')
@@ -12,7 +13,7 @@ const bookmarkSchema = require('./json-schemas/bookmark')
 // constants
 // =
 
-const TABLE_VERSION = 1
+const TABLE_VERSION = 2
 const JSON_TYPE = 'unwalled.garden/bookmark'
 const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
 
@@ -122,24 +123,23 @@ exports.crawlSite = async function (archive, crawlSource) {
         if (isNaN(bookmark.updatedAt)) bookmark.updatedAt = 0 // optional
         if (!bookmark.content.description) bookmark.content.description = '' // optional
         if (!bookmark.content.tags) bookmark.content.tags = [] // optional
-        bookmark.content.tags = bookmark.content.tags.join(' ')
 
         // upsert
         let existingBookmark = await getBookmark(joinPath(archive.url, changedBookmark.name))
         if (existingBookmark) {
-          await db.run(`
-            UPDATE crawl_bookmarks
-              SET crawledAt = ?, href = ?, title = ?, description = ?, tags = ?, createdAt = ?, updatedAt = ?
-              WHERE crawlSourceId = ? AND pathname = ?
-          `, [Date.now(), bookmark.content.href, bookmark.content.title, bookmark.content.description, bookmark.content.tags, bookmark.createdAt, bookmark.updatedAt, crawlSource.id, changedBookmark.name])
-          events.emit('bookmark-updated', archive.url)
-        } else {
-          await db.run(`
-            INSERT INTO crawl_bookmarks (crawlSourceId, pathname, crawledAt, href, title, description, tags, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [crawlSource.id, changedBookmark.name, Date.now(), bookmark.content.href, bookmark.content.title, bookmark.content.description, bookmark.content.tags, bookmark.createdAt, bookmark.updatedAt])
-          events.emit('bookmark-added', archive.url)
+          await db.run(`DELETE FROM crawl_bookmarks WHERE crawlSourceId = ? and pathname = ?`, [crawlSource.id, changedBookmark.name])
         }
+        let res = await db.run(`
+          INSERT INTO crawl_bookmarks (crawlSourceId, pathname, crawledAt, href, title, description, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [crawlSource.id, changedBookmark.name, Date.now(), bookmark.content.href, bookmark.content.title, bookmark.content.description, bookmark.createdAt, bookmark.updatedAt])
+        var bookmarkId = res.lastID
+        for (let tag of bookmark.content.tags) {
+          await db.run(`INSERT OR IGNORE INTO crawl_tags (tag) VALUES (?)`, [tag])
+          let tagRow = await db.get(`SELECT id FROM crawl_tags WHERE tag = ?`, [tag])
+          await db.run(`INSERT INTO crawl_bookmarks_tags (crawlBookmarkId, crawlTagId) VALUES (?, ?)`, [bookmarkId, tagRow.id])
+        }
+        events.emit('bookmark-added', archive.url)
       }
 
       // checkpoint our progress
@@ -163,6 +163,8 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @returns {Promise<Array<Bookmark>>}
  */
 exports.query = async function (opts) {
+  // TODO tags filter
+
   // validate & parse params
   if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
   if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
@@ -180,34 +182,23 @@ exports.query = async function (opts) {
   }
 
   // build query
-  var query = `
-    SELECT crawl_bookmarks.*, src.url AS crawlSourceUrl FROM crawl_bookmarks
-      INNER JOIN crawl_sources src ON src.id = crawl_bookmarks.crawlSourceId
-  `
-  var values = []
+  var sql = knex('crawl_bookmarks')
+    .select('crawl_bookmarks.*')
+    .select('crawl_sources.url as crawlSourceUrl')
+    .select(knex.raw('group_concat(crawl_tags.tag, ",") as tags'))
+    .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
+    .leftJoin('crawl_bookmarks_tags', 'crawl_bookmarks_tags.crawlBookmarkId', '=', 'crawl_bookmarks.id')
+    .leftJoin('crawl_tags', 'crawl_bookmarks_tags.crawlTagId', '=', 'crawl_tags.id')
+    .groupBy('crawl_bookmarks.id')
+    .orderBy('crawl_bookmarks.createdAt', opts.reverse ? 'DESC' : 'ASC')
   if (opts && opts.filters && opts.filters.authors) {
-    let op = 'WHERE'
-    for (let a of opts.filters.authors) {
-      query += ` ${op} src.url = ?`
-      op = 'OR'
-      values.push(a)
-    }
+    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
   }
-  query += ` ORDER BY createdAt`
-  if (opts && opts.reverse) {
-    query += ` DESC`
-  }
-  if (opts && opts.limit) {
-    query += ` LIMIT ?`
-    values.push(opts.limit)
-  }
-  if (opts && opts.offset) {
-    query += ` OFFSET ?`
-    values.push(opts.offset)
-  }
+  if (opts && opts.limit) sql = sql.limit(opts.limit)
+  if (opts && opts.offset) sql = sql.offset(opts.offset)
 
   // execute query
-  var rows = await db.all(query, values)
+  var rows = await db.all(sql)
   return Promise.all(rows.map(massageBookmarkRow))
 }
 
@@ -226,17 +217,22 @@ const getBookmark = exports.getBookmark = async function (url) {
     catch (e) { throw new Error('Invalid URL: ' + url) }
   }
 
+  // build query
+  var sql = knex('crawl_bookmarks')
+    .select('crawl_bookmarks.*')
+    .select('crawl_sources.url as crawlSourceUrl')
+    .select(knex.raw('group_concat(crawl_tags.tag, ",") as tags'))
+    .innerJoin('crawl_sources', function () {
+      this.on('crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
+        .andOn('crawl_sources.url', '=', knex.raw('?', `${urlParsed.protocol}//${urlParsed.hostname}`))
+    })
+    .leftJoin('crawl_bookmarks_tags', 'crawl_bookmarks_tags.crawlBookmarkId', '=', 'crawl_bookmarks.id')
+    .leftJoin('crawl_tags', 'crawl_tags.id', '=', 'crawl_bookmarks_tags.crawlTagId')
+    .where('crawl_bookmarks.pathname', urlParsed.pathname)
+    .groupBy('crawl_bookmarks.id')
+
   // execute query
-  return await massageBookmarkRow(await db.get(`
-    SELECT
-        crawl_bookmarks.*, src.url AS crawlSourceUrl
-      FROM crawl_bookmarks
-      INNER JOIN crawl_sources src
-        ON src.id = crawl_bookmarks.crawlSourceId
-        AND src.url = ?
-      WHERE
-        crawl_bookmarks.pathname = ?
-  `, [`${urlParsed.protocol}//${urlParsed.hostname}`, urlParsed.pathname]))
+  return await massageBookmarkRow(await db.get(sql))
 }
 
 /**
@@ -365,7 +361,7 @@ async function massageBookmarkRow (row) {
       href: row.href,
       title: row.title,
       description: row.description,
-      tags: row.tags.split(' ').filter(Boolean)
+      tags: row.tags ? row.tags.split(',').filter(Boolean) : []
     },
     crawledAt: row.crawledAt,
     createdAt: row.createdAt,

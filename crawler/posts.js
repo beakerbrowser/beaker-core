@@ -188,7 +188,6 @@ exports.list = async function (opts) {
     .select('crawl_sources.url AS crawlSourceUrl')
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
     .orderBy('crawl_posts.createdAt', opts.reverse ? 'DESC' : 'ASC')
-  var values = []
   if (opts && opts.filters && opts.filters.authors) {
     sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
   }

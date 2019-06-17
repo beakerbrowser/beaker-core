@@ -344,33 +344,37 @@ function watchThumb (user) {
  * @returns {void}
  */
 function watchAndSyncBookmarks (user) {
+  // DISABLED
+  // we're going to replace this with a purely FS based bookmarking system
+  // -prf
+
   // TODO support multiple users
-  syncBookmarks()
-  bookmarksDb.on('changed', syncBookmarks)
+  // syncBookmarks()
+  // bookmarksDb.on('changed', syncBookmarks)
 
-  function pickBookmarkAttrs (b) {
-    return _pick(b, ['href', 'title', 'description', 'tags'])
-  }
+  // function pickBookmarkAttrs (b) {
+  //   return _pick(b, ['href', 'title', 'description', 'tags'])
+  // }
 
-  async function syncBookmarks () {
-    // fetch current public bookmarks
-    var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {isPublic: true}})
-    var publishedBookmarks = await bookmarksCrawler.query({filters: {authors: user.url}})
+  // async function syncBookmarks () {
+  //   // fetch current public bookmarks
+  //   var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {isPublic: true}})
+  //   var publishedBookmarks = await bookmarksCrawler.query({filters: {authors: user.url}})
 
-    // diff and publish changes
-    for (let b of publicBookmarks) {
-      let existing = publishedBookmarks.find(b2 => b.href === b2.content.href)
-      if (!existing) {
-        await bookmarksCrawler.addBookmark(user.archive, pickBookmarkAttrs(b)) // add
-      } else {
-        if (!_isEqual(pickBookmarkAttrs(b), existing.content)) {
-          await bookmarksCrawler.editBookmark(user.archive, existing.pathname, pickBookmarkAttrs(b)) // update
-        }
-      }
-    }
-    for (let b of publishedBookmarks) {
-      let existing = publicBookmarks.find(b2 => b2.href === b.content.href)
-      if (!existing) await bookmarksCrawler.deleteBookmark(user.archive, b.pathname) // remove
-    }
-  }
+  //   // diff and publish changes
+  //   for (let b of publicBookmarks) {
+  //     let existing = publishedBookmarks.find(b2 => b.href === b2.content.href)
+  //     if (!existing) {
+  //       await bookmarksCrawler.addBookmark(user.archive, pickBookmarkAttrs(b)) // add
+  //     } else {
+  //       if (!_isEqual(pickBookmarkAttrs(b), existing.content)) {
+  //         await bookmarksCrawler.editBookmark(user.archive, existing.pathname, pickBookmarkAttrs(b)) // update
+  //       }
+  //     }
+  //   }
+  //   for (let b of publishedBookmarks) {
+  //     let existing = publicBookmarks.find(b2 => b2.href === b.content.href)
+  //     if (!existing) await bookmarksCrawler.deleteBookmark(user.archive, b.pathname) // remove
+  //   }
+  // }
 }
