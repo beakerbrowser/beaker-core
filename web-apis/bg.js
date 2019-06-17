@@ -33,6 +33,7 @@ const commentsManifest = require('./manifests/external/unwalled-garden-comments'
 const postsManifest = require('./manifests/external/unwalled-garden-posts')
 const followsManifest = require('./manifests/external/unwalled-garden-follows')
 const reactionsManifest = require('./manifests/external/unwalled-garden-reactions')
+const votesManifest = require('./manifests/external/unwalled-garden-votes')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
@@ -45,6 +46,7 @@ const commentsAPI = require('./bg/unwalled-garden-comments')
 const postsAPI = require('./bg/unwalled-garden-posts')
 const followsAPI = require('./bg/unwalled-garden-follows')
 const reactionsAPI = require('./bg/unwalled-garden-reactions')
+const votesAPI = require('./bg/unwalled-garden-votes')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
@@ -82,6 +84,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('unwalled-garden-posts', postsManifest, postsAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-follows', followsManifest, followsAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-reactions', reactionsManifest, reactionsAPI, secureOnly)
+  globals.rpcAPI.exportAPI('unwalled-garden-votes', votesManifest, votesAPI, secureOnly)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)

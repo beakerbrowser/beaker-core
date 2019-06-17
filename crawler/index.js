@@ -13,6 +13,7 @@ const bookmarks = require('./bookmarks')
 const follows = require('./follows')
 const reactions = require('./reactions')
 const siteDescriptions = require('./site-descriptions')
+const votes = require('./votes')
 
 // globals
 // =
@@ -28,6 +29,7 @@ exports.bookmarks = bookmarks
 exports.follows = follows
 exports.reactions = reactions
 exports.siteDescriptions = siteDescriptions
+exports.votes = votes
 const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
 
 exports.setup = async function () {
@@ -92,7 +94,8 @@ exports.crawlSite = async function (archive) {
       bookmarks.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
-      siteDescriptions.crawlSite(archive, crawlSource)
+      siteDescriptions.crawlSite(archive, crawlSource),
+      votes.crawlSite(archive, crawlSource)
     ])
   } catch (err) {
     logger.error('Failed to crawl site', {details: {url: archive.url, err: err.toString()}})

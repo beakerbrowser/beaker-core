@@ -232,6 +232,22 @@ CREATE TABLE crawl_reactions (
 );
 CREATE INDEX crawl_reactions_topic ON crawl_reactions (topic);
 
+-- crawled votes
+CREATE TABLE crawl_votes (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  topic TEXT NOT NULL,
+  vote INTEGER NOT NULL,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  PRIMARY KEY (crawlSourceId, pathname),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_votes_topic ON crawl_votes (topic);
+
 -- crawled bookmarks
 CREATE TABLE crawl_bookmarks (
   id INTEGER PRIMARY KEY,
@@ -344,5 +360,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 28;
+PRAGMA user_version = 29;
 `

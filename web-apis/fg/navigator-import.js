@@ -43,6 +43,10 @@ const APIs = {
   'unwalled-garden-reactions': {
     manifest: require('../manifests/external/unwalled-garden-reactions'),
     create: makeCreateFn('unwalled-garden-reactions')
+  },
+  'unwalled-garden-votes': {
+    manifest: require('../manifests/external/unwalled-garden-votes'),
+    create: makeCreateFn('unwalled-garden-votes')
   }
 }
 
