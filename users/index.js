@@ -126,6 +126,7 @@ async function tick () {
     // await all crawls
     await Promise.all(activeCrawls)
   } catch (e) {
+    console.error(e)
     logger.error('Crawler tick failed', {details: e})
   }
 
@@ -250,11 +251,11 @@ async function selectNextCrawlTargets (user) {
   var rows = [user.url]
 
   // get followed sites
-  var followedUrls = (await followsCrawler.list({filters: {authors: user.url}})).map(({subject}) => subject.url)
+  var followedUrls = (await followsCrawler.list({filters: {authors: user.url}})).map(({topic}) => topic.url)
   rows = rows.concat(followedUrls)
 
   // get sites followed by followed sites
-  var foafUrls = (await followsCrawler.list({filters: {authors: followedUrls}})).map(({subject}) => subject.url)
+  var foafUrls = (await followsCrawler.list({filters: {authors: followedUrls}})).map(({topic}) => topic.url)
   rows = rows.concat(foafUrls)
 
   // assemble into list
