@@ -72,7 +72,6 @@ const BUILTIN_PAGES = [
  * @prop {string} content.href
  * @prop {string} content.title
  * @prop {string} content.description
- * @prop {string[]} content.tags
  * @prop {number} createdAt
  * @prop {number} updatedAt
  */
@@ -98,8 +97,8 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   suggestions.builtins = BUILTIN_PAGES.filter(a => query ? a.title.toLowerCase().includes(query) : true)
 
   // addressbook
-  suggestions.addressbook = (await follows.list({filters: {authors: user}})).map(({subject}) => subject)
-  suggestions.addressbook = [await siteDescriptions.getBest({subject: user, author: user})].concat(suggestions.addressbook)
+  suggestions.addressbook = (await follows.list({filters: {authors: user}})).map(({topic}) => topic)
+  suggestions.addressbook = [await siteDescriptions.getBest({topic: user, author: user})].concat(suggestions.addressbook)
   suggestions.addressbook = suggestions.addressbook.filter(filterFn)
 
   // bookmarks
@@ -340,7 +339,6 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .select('crawl_bookmarks.href')
       .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
       .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
-      .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 2, '${startHighlight}', '${endHighlight}', '...', 25) AS tags`))
       .innerJoin('crawl_bookmarks', 'crawl_bookmarks.rowid', '=', 'crawl_bookmarks_fts_index.rowid')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
       .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
@@ -350,7 +348,6 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .select('crawl_bookmarks.href')
       .select('crawl_bookmarks.title')
       .select('crawl_bookmarks.description')
-      .select('crawl_bookmarks.tags')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
       .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
   }
@@ -440,8 +437,7 @@ async function massageBookmarkSearchResult (row) {
     content: {
       href: row.href,
       title: row.title,
-      description: row.description,
-      tags: row.tags.split(' ')
+      description: row.description
     },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
