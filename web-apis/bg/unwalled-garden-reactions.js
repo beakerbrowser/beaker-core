@@ -138,14 +138,14 @@ module.exports = {
    * @param {string} emoji
    * @returns {Promise<void>}
    */
-  async delete (topic, emoji) {
+  async remove (topic, emoji) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var userArchive = getUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    await reactionsCrawler.delete(userArchive, topic, emoji)
+    await reactionsCrawler.remove(userArchive, topic, emoji)
   }
 }
 

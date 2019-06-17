@@ -193,14 +193,14 @@ module.exports = {
    * @param {string} url
    * @returns {Promise<void>}
    */
-  async delete (url) {
+  async remove (url) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var userArchive = getUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await commentsCrawler.delete(userArchive, filepath)
+    await commentsCrawler.remove(userArchive, filepath)
   }
 }
 

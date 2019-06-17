@@ -3,5 +3,5 @@ module.exports = {
   get: 'promise',
   add: 'promise',
   edit: 'promise',
-  delete: 'promise'
+  remove: 'promise'
 }

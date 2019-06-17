@@ -305,8 +305,8 @@ exports.edit = async function (archive, pathname, post) {
  * @param {string} pathname - the pathname of the post.
  * @returns {Promise<void>}
  */
-exports.delete = async function (archive, pathname) {
-  assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
+exports.remove = async function (archive, pathname) {
+  assert(typeof pathname === 'string', 'Remove() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
   await crawler.crawlSite(archive)
 }

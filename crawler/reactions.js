@@ -294,7 +294,7 @@ exports.add = async function (archive, topic, emoji) {
  * @param {string} emoji
  * @returns {Promise<void>}
  */
-exports.delete = async function (archive, topic, emoji) {
+exports.remove = async function (archive, topic, emoji) {
   // TODO handle visibility
 
   emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
