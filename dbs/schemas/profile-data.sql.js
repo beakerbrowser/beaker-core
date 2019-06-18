@@ -313,6 +313,19 @@ CREATE TABLE crawl_discussions (
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 CREATE INDEX crawl_discussions_url ON crawl_discussions (crawlSourceId, pathname);
+CREATE VIRTUAL TABLE crawl_discussions_fts_index USING fts5(title, body, content='crawl_discussions');
+
+-- triggers to keep crawl_discussions_fts_index updated
+CREATE TRIGGER crawl_discussions_ai AFTER INSERT ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+END;
+CREATE TRIGGER crawl_discussions_ad AFTER DELETE ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+END;
+CREATE TRIGGER crawl_discussions_au AFTER UPDATE ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+END;
 
 -- crawled discussion tags
 CREATE TABLE crawl_discussions_tags (
@@ -428,5 +441,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 31;
+PRAGMA user_version = 32;
 `
