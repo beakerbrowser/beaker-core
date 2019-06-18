@@ -7,7 +7,7 @@ const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, toOrigin, generateTimeFilename} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, toOrigin, normalizeTopicUrl, generateTimeFilename} = require('./util')
 const voteSchema = require('./json-schemas/vote')
 
 // constants
@@ -344,14 +344,6 @@ exports.set = async function (archive, topic, vote) {
 
 // internal methods
 // =
-
-function normalizeTopicUrl (url) {
-  try {
-    url = new URL(url)
-    return (url.protocol + '//' + url.hostname + url.pathname + url.search + url.hash).replace(/([/]$)/g, '')
-  } catch (e) {}
-  return null
-}
 
 /**
  * @param {Object} row

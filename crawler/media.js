@@ -8,7 +8,7 @@ const crawler = require('./index')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, toOrigin} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, normalizeSchemaUrl, toOrigin} = require('./util')
 const mediaSchema = require('./json-schemas/media')
 
 // constants
@@ -118,6 +118,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         }
 
         // massage the media
+        media.subtype = normalizeSchemaUrl(media.subtype)
         media.createdAt = Number(new Date(media.createdAt))
         media.updatedAt = Number(new Date(media.updatedAt))
         if (!media.description) media.description = '' // optional
@@ -234,6 +235,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.subtypes === 'string', 'Subtypes filter must be a string or array of strings')
         opts.filters.subtypes = [opts.filters.subtypes]
       }
+      opts.filters.subtypes = opts.filters.subtypes.map(normalizeSchemaUrl)
     }
     if ('tags' in opts.filters) {
       if (Array.isArray(opts.filters.tags)) {
@@ -327,7 +329,7 @@ exports.add = async function (archive, media) {
 
   var mediaObject = {
     type: JSON_TYPE,
-    subtype: media.subtype,
+    subtype: normalizeSchemaUrl(media.subtype),
     href: media.href,
     title: media.title,
     description: media.description,
@@ -373,7 +375,7 @@ exports.edit = async function (archive, pathname, media) {
     // update media content
     var mediaObject = {
       type: JSON_TYPE,
-      subtype: ('subtype' in media) ? media.subtype : existingMedia.subtype,
+      subtype: normalizeSchemaUrl(('subtype' in media) ? media.subtype : existingMedia.subtype),
       href: ('href' in media) ? media.href : existingMedia.href,
       title: ('title' in media) ? media.title : existingMedia.title,
       description: ('description' in media) ? media.description : existingMedia.description,

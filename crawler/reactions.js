@@ -7,7 +7,7 @@ const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, toOrigin, slugifyUrl} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, toOrigin, normalizeTopicUrl, slugifyUrl} = require('./util')
 const reactionSchema = require('./json-schemas/reaction')
 
 // constants
@@ -174,6 +174,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
         opts.filters.topics = [opts.filters.topics]
       }
+      opts.filters.topics = opts.filters.topics.map(normalizeTopicUrl)
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -221,6 +222,7 @@ exports.tabulate = async function (topic, opts) {
   // validate params
   try { new URL(topic) }
   catch (e) { throw new Error('Invalid URL: ' + topic) }
+  topic = normalizeTopicUrl(topic)
   if (opts && opts.filters) {
     if ('authors' in opts.filters) {
       if (Array.isArray(opts.filters.authors)) {
@@ -274,6 +276,7 @@ exports.tabulate = async function (topic, opts) {
 exports.add = async function (archive, topic, emoji) {
   // TODO handle visibility
 
+  topic = normalizeTopicUrl(topic)
   emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
   var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
@@ -297,6 +300,7 @@ exports.add = async function (archive, topic, emoji) {
 exports.remove = async function (archive, topic, emoji) {
   // TODO handle visibility
 
+  topic = normalizeTopicUrl(topic)
   emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
   var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
@@ -308,14 +312,6 @@ exports.remove = async function (archive, topic, emoji) {
 
 // internal methods
 // =
-
-function normalizeTopicUrl (url) {
-  try {
-    url = new URL(url)
-    return (url.protocol + '//' + url.hostname + url.pathname + url.search + url.hash).replace(/([/]$)/g, '')
-  } catch (e) {}
-  return null
-}
 
 /**
  * @param {InternalDatArchive} archive

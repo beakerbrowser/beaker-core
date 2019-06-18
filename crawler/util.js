@@ -159,6 +159,30 @@ exports.toOrigin = function (url, shouldThrow = false) {
 }
 
 /**
+ * @param {string} url
+ * @returns {string}
+ */
+exports.normalizeTopicUrl = function (url) {
+  try {
+    var urlp = new URL(url)
+    return (urlp.protocol + '//' + urlp.hostname + urlp.pathname + urlp.search + urlp.hash).replace(/([/]$)/g, '')
+  } catch (e) {}
+  return null
+}
+
+/**
+ * @param {string} url
+ * @returns {string}
+ */
+exports.normalizeSchemaUrl = function (url) {
+  try {
+    var urlp = new URL(url)
+    return (urlp.hostname + urlp.pathname + urlp.search + urlp.hash).replace(/([/]$)/g, '')
+  } catch (e) {}
+  return null
+}
+
+/**
  * @param {InternalDatArchive} archive
  * @param {string} pathname
  * @returns {Promise}

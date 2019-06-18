@@ -8,7 +8,7 @@ const crawler = require('./index')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, toOrigin} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, normalizeTopicUrl, toOrigin} = require('./util')
 const commentSchema = require('./json-schemas/comment')
 
 // constants
@@ -128,7 +128,8 @@ exports.crawlSite = async function (archive, crawlSource) {
         }
 
         // massage the comment
-        comment.repliesTo = comment.repliesTo || ''
+        comment.topic = normalizeTopicUrl(comment.topic)
+        comment.repliesTo = comment.repliesTo ? normalizeTopicUrl(comment.repliesTo) : ''
         comment.createdAt = Number(new Date(comment.createdAt))
         comment.updatedAt = Number(new Date(comment.updatedAt))
         if (isNaN(comment.updatedAt)) comment.updatedAt = 0 // optional
@@ -200,6 +201,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
         opts.filters.topics = [opts.filters.topics]
       }
+      opts.filters.topics = opts.filters.topics.map(normalizeTopicUrl)
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -246,7 +248,11 @@ exports.thread = async function (topic, opts) {
 
   // validate & parse params
   assert(typeof topic === 'string', 'Topic must be a URL string')
-  if (opts && 'parent' in opts) assert(typeof opts.parent === 'string', 'Parent must be a string')
+  topic = normalizeTopicUrl(topic)
+  if (opts && 'parent' in opts) {
+    assert(typeof opts.parent === 'string', 'Parent must be a string')
+    opts.parent = normalizeTopicUrl(opts.parent)
+  }
   if (opts && 'depth' in opts) assert(typeof opts.depth === 'number', 'Depth must be a number')
   if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
   if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
@@ -375,8 +381,8 @@ exports.add = async function (archive, topic, comment) {
 
   var commentObject = {
     type: JSON_TYPE,
-    topic,
-    replyTo: comment.replyTo,
+    topic: normalizeTopicUrl(topic),
+    replyTo: comment.replyTo ? normalizeTopicUrl(comment.replyTo) : undefined,
     body: comment.body,
     createdAt: (new Date()).toISOString()
   }
@@ -416,8 +422,8 @@ exports.edit = async function (archive, pathname, comment) {
     // update comment content
     var commentObject = {
       type: JSON_TYPE,
-      topic: existingComment.topic,
-      replyTo: ('replyTo' in comment) ? comment.replyTo : existingComment.replyTo,
+      topic: normalizeTopicUrl(existingComment.topic),
+      replyTo: ('replyTo' in comment) ? normalizeTopicUrl(comment.replyTo) : existingComment.replyTo,
       body: ('body' in comment) ? comment.body : existingComment.body,
       createdAt: existingComment.createdAt,
       updatedAt: (new Date()).toISOString()

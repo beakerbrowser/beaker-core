@@ -7,7 +7,7 @@ const db = require('../dbs/profile-data-db')
 const knex = require('../lib/knex')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, normalizeTopicUrl, ensureDirectory} = require('./util')
 const bookmarkSchema = require('./json-schemas/bookmark')
 
 // constants
@@ -116,6 +116,7 @@ exports.crawlSite = async function (archive, crawlSource) {
         }
 
         // massage the bookmark
+        bookmark.href = normalizeTopicUrl(bookmark.href)
         bookmark.createdAt = Number(new Date(bookmark.createdAt))
         bookmark.updatedAt = Number(new Date(bookmark.updatedAt))
         if (isNaN(bookmark.updatedAt)) bookmark.updatedAt = 0 // optional
@@ -261,7 +262,7 @@ exports.addBookmark = async function (archive, bookmark) {
 
   var bookmarkObject = {
     type: JSON_TYPE,
-    href: bookmark.href,
+    href: normalizeTopicUrl(bookmark.href),
     title: bookmark.title,
     description: bookmark.description,
     tags: bookmark.tags,
@@ -299,7 +300,7 @@ exports.editBookmark = async function (archive, pathname, bookmark) {
 
   var bookmarkObject = {
     type: JSON_TYPE,
-    href: bookmark.href ? bookmark.href : existingBookmark.title,
+    href: bookmark.href ? normalizeTopicUrl(bookmark.href) : existingBookmark.title,
     title: ('title' in bookmark) ? bookmark.title : existingBookmark.title,
     description: ('description' in bookmark) ? bookmark.description : existingBookmark.description,
     tags: ('tags' in bookmark) ? bookmark.tags : existingBookmark.tags,
