@@ -32,13 +32,17 @@ const APIs = {
     manifest: require('../manifests/external/unwalled-garden-comments'),
     create: makeCreateFn('unwalled-garden-comments')
   },
-  'unwalled-garden-posts': {
-    manifest: require('../manifests/external/unwalled-garden-posts'),
-    create: makeCreateFn('unwalled-garden-posts')
+  'unwalled-garden-discussions': {
+    manifest: require('../manifests/external/unwalled-garden-discussions'),
+    create: makeCreateFn('unwalled-garden-discussions')
   },
   'unwalled-garden-follows': {
     manifest: require('../manifests/external/unwalled-garden-follows'),
     create: makeCreateFn('unwalled-garden-follows')
+  },
+  'unwalled-garden-posts': {
+    manifest: require('../manifests/external/unwalled-garden-posts'),
+    create: makeCreateFn('unwalled-garden-posts')
   },
   'unwalled-garden-reactions': {
     manifest: require('../manifests/external/unwalled-garden-reactions'),

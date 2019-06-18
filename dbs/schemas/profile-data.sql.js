@@ -297,6 +297,32 @@ CREATE TABLE crawl_follows (
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
+-- crawled discussions
+CREATE TABLE crawl_discussions (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  title TEXT NOT NULL,
+  body TEXT,
+  href TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_discussions_url ON crawl_discussions (crawlSourceId, pathname);
+
+-- crawled discussion tags
+CREATE TABLE crawl_discussions_tags (
+  crawlDiscussionId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlDiscussionId) REFERENCES crawl_discussions (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
 -- a list of the draft-dats for a master-dat
 -- deprecated
 CREATE TABLE archive_drafts (
@@ -360,5 +386,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 29;
+PRAGMA user_version = 30;
 `

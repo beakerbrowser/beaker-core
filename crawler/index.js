@@ -7,10 +7,11 @@ const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
 
 const {crawlerEvents, toHostname} = require('./util')
-const comments = require('./comments')
-const posts = require('./posts')
 const bookmarks = require('./bookmarks')
+const comments = require('./comments')
+const discussions = require('./discussions')
 const follows = require('./follows')
+const posts = require('./posts')
 const reactions = require('./reactions')
 const siteDescriptions = require('./site-descriptions')
 const votes = require('./votes')
@@ -23,10 +24,11 @@ var watches = {}
 // exported api
 // =
 
-exports.comments = comments
-exports.posts = posts
 exports.bookmarks = bookmarks
+exports.comments = comments
+exports.discussions = discussions
 exports.follows = follows
+exports.posts = posts
 exports.reactions = reactions
 exports.siteDescriptions = siteDescriptions
 exports.votes = votes
@@ -89,10 +91,11 @@ exports.crawlSite = async function (archive) {
 
     // crawl individual sources
     await Promise.all([
-      comments.crawlSite(archive, crawlSource),
-      posts.crawlSite(archive, crawlSource),
       bookmarks.crawlSite(archive, crawlSource),
+      comments.crawlSite(archive, crawlSource),
+      discussions.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
+      posts.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource),
       votes.crawlSite(archive, crawlSource)

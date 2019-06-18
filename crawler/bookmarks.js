@@ -155,6 +155,8 @@ exports.crawlSite = async function (archive, crawlSource) {
   * @param {Object} [opts]
   * @param {Object} [opts.filters]
   * @param {string|string[]} [opts.filters.authors]
+  * @param {string|string[]} [opts.filters.tags]
+  * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
   * @param {number} [opts.limit]
   * @param {boolean} [opts.reverse]
@@ -164,6 +166,7 @@ exports.query = async function (opts) {
   // TODO tags filter
 
   // validate & parse params
+  if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'number', 'SortBy must be a string')
   if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
   if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
   if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
@@ -176,6 +179,14 @@ exports.query = async function (opts) {
         opts.filters.authors = [opts.filters.authors]
       }
       opts.filters.authors = opts.filters.authors.map(toAuthorOrigin)
+    }
+    if ('tags' in opts.filters) {
+      if (Array.isArray(opts.filters.tags)) {
+        assert(opts.filters.tags.every(v => typeof v === 'string'), 'Tags filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.filters.tags === 'string', 'Tags filter must be a string or array of strings')
+        opts.filters.tags = [opts.filters.tags]
+      }
     }
   }
 
