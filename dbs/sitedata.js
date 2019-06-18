@@ -312,6 +312,7 @@ migrations = [
     db.exec(`
       -- beaker.social
       INSERT OR REPLACE INTO "sitedata" VALUES('dat:b3c82a26487167c276dc8539dcec97f52a95c8231bc2d41d28886ed36184d3b1','favicon','data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAjUlEQVR4Ac3BoQ0CQRCG0e/fG0UDJEs3WBw14KEVPDXgsBhquQs0gLsMKyasHYKA9/g5EXaX5whUcqbTZrGiKXSVvEoodDN5M8EIjq+FlmS43wnGm7ZAJUOagBuNEQR7PnOgKXzJ6I5AJcN9JBjB8bPQkgQXD4IRhK7AQILQDBhNoRvIGwiFbiJv5G+8ABIEG1xwcZ4JAAAAAElFTkSuQmCC');
+      PRAGMA user_version = 6;
     `, cb)
   }
 ]
