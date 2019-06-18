@@ -126,7 +126,7 @@ module.exports = {
     var userArchive = getUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
-    assert(discussion && typeof discussion === 'object', 'The `discussion` parameter must be a string or object')
+    assert(discussion && typeof discussion === 'object', 'The `discussion` parameter must be an object')
     if ('title' in discussion) assert(discussion.title && typeof discussion.title === 'string', 'The `discussion.title` parameter must be a non-empty string')
     if ('body' in discussion) assert(typeof discussion.body === 'string', 'The `discussion.body` parameter must be a string')
     if ('href' in discussion) assert(typeof discussion.href === 'string', 'The `discussion.href` parameter must be a string')

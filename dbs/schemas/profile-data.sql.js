@@ -267,14 +267,14 @@ CREATE VIRTUAL TABLE crawl_bookmarks_fts_index USING fts5(title, description, co
 
 -- triggers to keep crawl_bookmarks_fts_index updated
 CREATE TRIGGER crawl_bookmarks_ai AFTER INSERT ON crawl_bookmarks BEGIN
-  INSERT INTO crawl_bookmarks_fts_index(id, title, description) VALUES (new.id, new.title, new.description);
+  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 CREATE TRIGGER crawl_bookmarks_ad AFTER DELETE ON crawl_bookmarks BEGIN
-  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, id, title, description) VALUES('delete', old.id, old.title, old.description);
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
 END;
 CREATE TRIGGER crawl_bookmarks_au AFTER UPDATE ON crawl_bookmarks BEGIN
-  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, id, title, description) VALUES('delete', old.id, old.title, old.description);
-  INSERT INTO crawl_bookmarks_fts_index(id, title, description) VALUES (new.id, new.title, new.description);
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
 END;
 
 -- crawled bookmark tags
@@ -320,6 +320,48 @@ CREATE TABLE crawl_discussions_tags (
   crawlTagId INTEGER,
 
   FOREIGN KEY (crawlDiscussionId) REFERENCES crawl_discussions (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
+-- crawled media
+CREATE TABLE crawl_media (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  subtype TEXT NOT NULL,
+  href TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_media_url ON crawl_media (crawlSourceId, pathname);
+CREATE INDEX crawl_media_subtype ON crawl_media (subtype);
+CREATE INDEX crawl_media_href ON crawl_media (href);
+CREATE VIRTUAL TABLE crawl_media_fts_index USING fts5(title, description, content='crawl_media');
+
+-- triggers to keep crawl_media_fts_index updated
+CREATE TRIGGER crawl_media_ai AFTER INSERT ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_media_ad AFTER DELETE ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_media_au AFTER UPDATE ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+
+-- crawled media tags
+CREATE TABLE crawl_media_tags (
+  crawlMediaId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlMediaId) REFERENCES crawl_media (id) ON DELETE CASCADE,
   FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
 );
 
@@ -386,5 +428,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 30;
+PRAGMA user_version = 31;
 `

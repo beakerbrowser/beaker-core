@@ -382,21 +382,6 @@ exports.remove = async function (archive, pathname) {
 // =
 
 /**
- * @param {string} origin
- * @param {string} pathname
- * @returns {string}
- */
-function joinPath (origin, pathname) {
-  if (origin.endsWith('/') && pathname.startsWith('/')) {
-    return origin + pathname.slice(1)
-  }
-  if (!origin.endsWith('/') && !pathname.startsWith('/')) {
-    return origin + '/' + pathname
-  }
-  return origin + pathname
-}
-
-/**
  * @param {Object} row
  * @returns {Promise<Discussion>}
  */

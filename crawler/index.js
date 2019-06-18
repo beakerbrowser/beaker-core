@@ -11,6 +11,7 @@ const bookmarks = require('./bookmarks')
 const comments = require('./comments')
 const discussions = require('./discussions')
 const follows = require('./follows')
+const media = require('./media')
 const posts = require('./posts')
 const reactions = require('./reactions')
 const siteDescriptions = require('./site-descriptions')
@@ -28,6 +29,7 @@ exports.bookmarks = bookmarks
 exports.comments = comments
 exports.discussions = discussions
 exports.follows = follows
+exports.media = media
 exports.posts = posts
 exports.reactions = reactions
 exports.siteDescriptions = siteDescriptions
@@ -95,6 +97,7 @@ exports.crawlSite = async function (archive) {
       comments.crawlSite(archive, crawlSource),
       discussions.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
+      media.crawlSite(archive, crawlSource),
       posts.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource),

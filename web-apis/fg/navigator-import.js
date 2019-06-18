@@ -40,6 +40,10 @@ const APIs = {
     manifest: require('../manifests/external/unwalled-garden-follows'),
     create: makeCreateFn('unwalled-garden-follows')
   },
+  'unwalled-garden-media': {
+    manifest: require('../manifests/external/unwalled-garden-media'),
+    create: makeCreateFn('unwalled-garden-media')
+  },
   'unwalled-garden-posts': {
     manifest: require('../manifests/external/unwalled-garden-posts'),
     create: makeCreateFn('unwalled-garden-posts')
