@@ -39,7 +39,7 @@ module.exports = {
    * @param {Object} [opts]
    * @param {Object} [opts.filters]
    * @param {string|string[]} [opts.filters.authors]
-   * @param {string|string[]} [opts.filters.tag]
+   * @param {string|string[]} [opts.filters.tags]
    * @param {boolean} [opts.filters.pinned]
    * @param {boolean} [opts.filters.isPublic]
    * @param {string} [opts.sortBy] - 'title' or 'createdAt' (default 'title')
@@ -64,7 +64,7 @@ module.exports = {
     var user = await siteDescriptions.getBest({subject: userSession.url, author: userSession.url})
 
     // massage params
-    var tagFilter = _get(opts, 'filters.tag', undefined)
+    var tagsFilter = _get(opts, 'filters.tags', undefined)
     var pinnedFilter = _get(opts, 'filters.pinned', undefined)
     var publicFilter = _get(opts, 'filters.isPublic', undefined)
     var authorsFilter = _get(opts, 'filters.authors', undefined)
@@ -99,13 +99,13 @@ module.exports = {
     }
 
     // apply tag filter
-    if (tagFilter) {
-      if (Array.isArray(tagFilter)) {
+    if (tagsFilter) {
+      if (Array.isArray(tagsFilter)) {
         bookmarks = bookmarks.filter(b => {
-          return /** @type string[] */(tagFilter).reduce((agg, t) => agg && b.tags.includes(t), true)
+          return /** @type string[] */(tagsFilter).reduce((agg, t) => agg && b.tags.includes(t), true)
         })
       } else {
-        bookmarks = bookmarks.filter(b => b.tags.includes(tagFilter))
+        bookmarks = bookmarks.filter(b => b.tags.includes(tagsFilter))
       }
     }
 

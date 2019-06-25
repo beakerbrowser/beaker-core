@@ -209,7 +209,15 @@ exports.query = async function (opts) {
 
   // execute query
   var rows = await db.all(sql)
-  return Promise.all(rows.map(massageBookmarkRow))
+  var bookmarks = await Promise.all(rows.map(massageBookmarkRow))
+
+  // apply tags filter
+  if (opts && opts.filters && opts.filters.tags) {
+    const someFn = t => opts.filters.tags.includes(t)
+    bookmarks = bookmarks.filter(bookmark => bookmark.tags.some(someFn))
+  }
+
+  return bookmarks
 }
 
 /**

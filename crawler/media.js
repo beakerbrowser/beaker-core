@@ -266,15 +266,20 @@ exports.list = async function (opts) {
   if (opts && opts.filters && opts.filters.subtypes) {
     sql = sql.whereIn('crawl_media.subtype', opts.filters.subtypes)
   }
-  if (opts && opts.filters && opts.filters.tags) {
-    sql = sql.whereIn('crawl_tags.tag', opts.filters.tags)
-  }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)
 
   // execute query
   var rows = await db.all(sql)
-  return Promise.all(rows.map(massageMediaRow))
+  var media = await Promise.all(rows.map(massageMediaRow))
+
+  // apply tags filter
+  if (opts && opts.filters && opts.filters.tags) {
+    const someFn = t => opts.filters.tags.includes(t)
+    media = media.filter(m => m.tags.some(someFn))
+  }
+
+  return media
 }
 
 /**
