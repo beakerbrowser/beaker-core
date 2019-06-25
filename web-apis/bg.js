@@ -23,6 +23,7 @@ const templatesAPI = require('./bg/templates')
 const crawlerAPI = require('../crawler').WEBAPI
 
 // external manifests
+const navigatorManifest = require('./manifests/external/navigator')
 const datArchiveManifest = require('./manifests/external/dat-archive')
 const spellCheckerManifest = require('./manifests/external/spell-checker')
 const bookmarksManifest = require('./manifests/external/bookmarks')
@@ -39,6 +40,7 @@ const tagsManifest = require('./manifests/external/unwalled-garden-tags')
 const votesManifest = require('./manifests/external/unwalled-garden-votes')
 
 // external apis
+const navigatorAPI = require('./bg/navigator')
 const datArchiveAPI = require('./bg/dat-archive')
 const spellCheckerAPI = require('./bg/spell-checker')
 const bookmarksAPI = require('./bg/bookmarks')
@@ -80,6 +82,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
 
   // external apis
+  globals.rpcAPI.exportAPI('navigator', navigatorManifest, navigatorAPI, secureOnly)
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
   globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
   globals.rpcAPI.exportAPI('bookmarks', bookmarksManifest, bookmarksAPI, secureOnly)
