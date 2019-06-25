@@ -51,13 +51,60 @@ module.exports = {
     try {
       res = await globals.uiAPI.showModal(this.sender, 'select-file', opts)
     } catch (e) {
-      console.log(e)
       if (e.name !== 'Error') {
         throw e // only rethrow if a specific error
       }
     }
     if (!res || !res.paths) throw new UserDeniedError()
     return res.paths
+  },
+  /**
+   * @param {Object} [opts]
+   * @param {string} [opts.title]
+   * @param {string} [opts.buttonLabel]
+   * @param {string} [opts.archive]
+   * @param {string} [opts.defaultPath]
+   * @param {string} [opts.defaultFilename]
+   * @param {string} [opts.extension]
+   * @param {Object} [opts.filters]
+   * @param {string[]} [opts.filters.extensions]
+   * @param {boolean} [opts.filters.networked]
+   * @returns {Promise<string[]>}
+   */
+  async beakerSaveFileDialog (opts = {}) {
+    var userSession = globals.userSessionAPI.getFor(this.sender)
+    if (!userSession) throw new Error('No active user session')
+
+    // validate
+    assert(opts && typeof opts === 'object', 'Must pass an options object')
+    assert(!opts.title || typeof opts.title === 'string', '.title must be a string')
+    assert(!opts.buttonLabel || typeof opts.buttonLabel === 'string', '.buttonLabel must be a string')
+    assert(!opts.archive || typeof opts.archive === 'string', '.archive must be a string')
+    assert(!opts.defaultPath || typeof opts.defaultPath === 'string', '.defaultPath must be a string')
+    assert(!opts.defaultFilename || typeof opts.defaultFilename === 'string', '.defaultFilename must be a string')
+    if (opts.filters) {
+      assert(typeof opts.filters === 'object', '.filters must be an object')
+      assert(!opts.filters.extensions || isStrArray(opts.filters.extensions), '.filters.extensions must be an array of strings')
+      assert(!opts.filters.networked || typeof opts.filters.networked === 'boolean', '.filters.networked must be a boolean')
+    }
+
+    // set defaults
+    if (!opts.archive) {
+      opts.archive = userSession.url
+    }
+
+    // initiate the modal
+    opts.saveMode = true
+    var res
+    try {
+      res = await globals.uiAPI.showModal(this.sender, 'select-file', opts)
+    } catch (e) {
+      if (e.name !== 'Error') {
+        throw e // only rethrow if a specific error
+      }
+    }
+    if (!res || !res.path) throw new UserDeniedError()
+    return res.path
   },
 
   /**
