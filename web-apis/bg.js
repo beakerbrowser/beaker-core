@@ -35,6 +35,7 @@ const followsManifest = require('./manifests/external/unwalled-garden-follows')
 const mediaManifest = require('./manifests/external/unwalled-garden-media')
 const postsManifest = require('./manifests/external/unwalled-garden-posts')
 const reactionsManifest = require('./manifests/external/unwalled-garden-reactions')
+const tagsManifest = require('./manifests/external/unwalled-garden-tags')
 const votesManifest = require('./manifests/external/unwalled-garden-votes')
 
 // external apis
@@ -50,6 +51,7 @@ const followsAPI = require('./bg/unwalled-garden-follows')
 const mediaAPI = require('./bg/unwalled-garden-media')
 const postsAPI = require('./bg/unwalled-garden-posts')
 const reactionsAPI = require('./bg/unwalled-garden-reactions')
+const tagsAPI = require('./bg/unwalled-garden-tags')
 const votesAPI = require('./bg/unwalled-garden-votes')
 
 // experimental manifests
@@ -90,6 +92,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('unwalled-garden-media', mediaManifest, mediaAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-posts', postsManifest, postsAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-reactions', reactionsManifest, reactionsAPI, secureOnly)
+  globals.rpcAPI.exportAPI('unwalled-garden-tags', tagsManifest, tagsAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-votes', votesManifest, votesAPI, secureOnly)
 
   // experimental apis

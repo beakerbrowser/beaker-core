@@ -17,7 +17,7 @@ const followsCrawler = require('../../crawler/follows')
  *
  * @typedef {Object} FollowsPublicAPIRecord
  * @prop {FollowsSitePublicAPIRecord} author
- * @prop {FollowsSitePublicAPIRecord} subject
+ * @prop {FollowsSitePublicAPIRecord} topic
  * @prop {string} visibility
  */
 
@@ -69,71 +69,71 @@ module.exports = {
 
   /**
    * @param {string} author
-   * @param {string} subject
+   * @param {string} topic
    * @returns {Promise<FollowsPublicAPIRecord>}
    */
-  async get (author, subject) {
+  async get (author, topic) {
     await assertPermission(this.sender, 'dangerousAppControl')
 
     author = normalizeFollowUrl(author)
-    subject = normalizeFollowUrl(subject)
+    topic = normalizeFollowUrl(topic)
 
     assert(author, 'The `author` parameter must be a valid URL')
-    assert(subject, 'The `subject` parameter must be a valid URL')
+    assert(topic, 'The `topic` parameter must be a valid URL')
 
-    return followsCrawler.get(author, subject)
+    return followsCrawler.get(author, topic)
   },
 
   /**
-   * @param {string} subject
+   * @param {string} topic
    * @param {Object} [opts]
    * @param {string} [opts.visibility]
    * @returns {Promise<void>}
    */
-  async add (subject, opts) {
+  async add (topic, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var userArchive = getUserArchive(this.sender)
 
-    subject = normalizeFollowUrl(subject)
+    topic = normalizeFollowUrl(topic)
     if (!opts) opts = {}
     if (!opts.visibility) opts.visibility = 'public'
-    assert(subject, 'The `subject` parameter must be a valid URL')
+    assert(topic, 'The `topic` parameter must be a valid URL')
     assert(['public', 'private'].includes(opts.visibility), 'The `visibility` parameter must be "public" or "private"')
 
-    await followsCrawler.add(userArchive, subject, opts)
+    await followsCrawler.add(userArchive, topic, opts)
   },
 
   /**
-   * @param {string} subject
+   * @param {string} topic
    * @param {Object} [opts]
    * @param {string} [opts.visibility]
    * @returns {Promise<void>}
    */
-  async edit (subject, opts) {
+  async edit (topic, opts) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var userArchive = getUserArchive(this.sender)
 
-    subject = normalizeFollowUrl(subject)
+    topic = normalizeFollowUrl(topic)
     if (!opts) opts = {}
     if (!opts.visibility) opts.visibility = 'public'
-    assert(subject, 'The `subject` parameter must be a valid URL')
+    assert(topic, 'The `topic` parameter must be a valid URL')
     assert(['public', 'private'].includes(opts.visibility), 'The `visibility` parameter must be "public" or "private"')
 
-    await followsCrawler.edit(userArchive, subject, opts)
+    await followsCrawler.edit(userArchive, topic, opts)
   },
 
   /**
-   * @param {string} subject
+   * @param {string} topic
    * @returns {Promise<void>}
    */
-  async remove (subject) {
+  async remove (topic) {
     await assertPermission(this.sender, 'dangerousAppControl')
     var userArchive = getUserArchive(this.sender)
 
-    subject = normalizeFollowUrl(subject)
-    assert(subject, 'The `subject` parameter must be a valid URL')
+    topic = normalizeFollowUrl(topic)
+    assert(topic, 'The `topic` parameter must be a valid URL')
 
-    await followsCrawler.remove(userArchive, subject)
+    await followsCrawler.remove(userArchive, topic)
   }
 }
 
@@ -171,6 +171,7 @@ function normalizeFollowUrl (url) {
  * @returns {FollowsSitePublicAPIRecord}
  */
 function massageSiteRecord (site) {
+  if (!site) return null
   return {
     url: site.url,
     title: site.title,
@@ -186,7 +187,7 @@ function massageSiteRecord (site) {
 function massageFollowRecord (follow) {
   return {
     author: massageSiteRecord(follow.author),
-    subject: massageSiteRecord(follow.subject),
+    topic: massageSiteRecord(follow.topic),
     visibility: follow.visibility
   }
 }

@@ -179,7 +179,7 @@ exports.normalizeSchemaUrl = function (url) {
     var urlp = new URL(url)
     return (urlp.hostname + urlp.pathname + urlp.search + urlp.hash).replace(/([/]$)/g, '')
   } catch (e) {}
-  return null
+  return url
 }
 
 /**
