@@ -10,6 +10,7 @@
  * @prop {function(string): Promise<string>} getDebugLog
  * @prop {function(string | Buffer, LibraryArchiveUserSettings): Promise<void>} configureArchive
  * @prop {function(string | Buffer): Promise<DatDaemonArchiveInfo>} getArchiveInfo
+ * @prop {function(string | Buffer): Promise<DatDaemonNetworkStats>} getArchiveNetworkStats
  * @prop {function(string | Buffer): Promise<number>} updateSizeTracking
  * @prop {function(DatDaemonLoadArchiveOpts): Promise<DatDaemonLoadedArchiveInfo>} loadArchive
  * @prop {function(string): Promise<void>} unloadArchive
@@ -112,6 +113,7 @@ module.exports = {
 
   configureArchive: 'promise',
   getArchiveInfo: 'promise',
+  getArchiveNetworkStats: 'promise',
   updateSizeTracking: 'promise',
   loadArchive: 'promise',
   unloadArchive: 'promise',

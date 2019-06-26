@@ -182,6 +182,12 @@ const RPC_API = {
     }
   },
 
+  async getArchiveNetworkStats (key) {
+    var archive = getArchive(key)
+    if (!archive) return {}
+    return archive.networkStats
+  },
+
   updateSizeTracking,
 
   async loadArchive (opts) {
