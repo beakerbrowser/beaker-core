@@ -546,6 +546,11 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   return meta
 }
 
+exports.getArchiveNetworkStats = async function getArchiveNetworkStats (key) {
+  key = fromURLToKey(key)
+  return daemon.getArchiveNetworkStats(key)
+}
+
 exports.clearFileCache = async function clearFileCache (key) {
   var userSettings = await archivesDb.getUserSettings(0, key)
   return daemon.clearFileCache(key, userSettings)
