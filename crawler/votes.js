@@ -320,25 +320,32 @@ exports.set = async function (archive, topic, vote) {
 
   // get the existing vote if it exists
   let existingVote = await get(archive.url, topic)
-
-  var voteObject = {
-    type: JSON_TYPE,
-    topic: normalizeTopicUrl(topic),
-    vote,
-    createdAt: existingVote ? existingVote.createdAt : (new Date()).toISOString()
-  }
-  if (existingVote) {
-    voteObject.updatedAt = (new Date()).toISOString()
-  }
-
-  var valid = validateVote(voteObject)
-  if (!valid) throw ajv.errorsText(validateVote.errors)
-
   var filename = existingVote ? existingVote.createdAt : generateTimeFilename()
   var filepath = `/data/votes/${filename}.json`
-  await ensureDirectory(archive, '/data')
-  await ensureDirectory(archive, '/data/votes')
-  await archive.pda.writeFile(filepath, JSON.stringify(voteObject, null, 2))
+
+  if (vote === 0) {
+    // delete vote
+    if (!existingVote) return
+    await archive.pda.unlink(filepath)
+  } else {
+    // set new vote
+    var voteObject = {
+      type: JSON_TYPE,
+      topic: normalizeTopicUrl(topic),
+      vote,
+      createdAt: existingVote ? existingVote.createdAt : (new Date()).toISOString()
+    }
+    if (existingVote) {
+      voteObject.updatedAt = (new Date()).toISOString()
+    }
+
+    var valid = validateVote(voteObject)
+    if (!valid) throw ajv.errorsText(validateVote.errors)
+
+    await ensureDirectory(archive, '/data')
+    await ensureDirectory(archive, '/data/votes')
+    await archive.pda.writeFile(filepath, JSON.stringify(voteObject, null, 2))
+  }
   await crawler.crawlSite(archive)
 }
 
