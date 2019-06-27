@@ -284,7 +284,7 @@ function massageThreadedCommentRecord (comment) {
     topic: comment.topic,
     replyTo: comment.replyTo,
     body: comment.body,
-    replies: comment.replies,
+    replies: comment.replies ? comment.replies.map(massageThreadedCommentRecord) : null,
     replyCount: comment.replyCount,
     createdAt: comment.createdAt,
     updatedAt: comment.updatedAt,
