@@ -20,10 +20,6 @@ const APIs = {
       return api
     }
   },
-  profiles: {
-    manifest: require('../manifests/external/profiles'),
-    create: makeCreateFn('profiles')
-  },
   search: {
     manifest: require('../manifests/external/search'),
     create: makeCreateFn('search')
@@ -47,6 +43,10 @@ const APIs = {
   'unwalled-garden-posts': {
     manifest: require('../manifests/external/unwalled-garden-posts'),
     create: makeCreateFn('unwalled-garden-posts')
+  },
+  'unwalled-garden-profiles': {
+    manifest: require('../manifests/external/unwalled-garden-profiles'),
+    create: makeCreateFn('unwalled-garden-profiles')
   },
   'unwalled-garden-reactions': {
     manifest: require('../manifests/external/unwalled-garden-reactions'),
