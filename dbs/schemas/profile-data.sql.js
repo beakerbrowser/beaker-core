@@ -7,8 +7,10 @@ CREATE TABLE profiles (
 
 CREATE TABLE users (
   id INTEGER PRIMARY KEY NOT NULL,
+  label TEXT,
   url TEXT,
   isDefault INTEGER DEFAULT 0,
+  isTemporary INTEGER DEFAULT 0,
   createdAt INTEGER
 );
 
@@ -441,5 +443,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 32;
+PRAGMA user_version = 33;
 `

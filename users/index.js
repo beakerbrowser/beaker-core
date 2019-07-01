@@ -1,3 +1,4 @@
+const assert = require('assert')
 const Events = require('events')
 const logger = require('../logger').category('crawler')
 const dat = require('../dat')
@@ -15,6 +16,7 @@ const _pick = require('lodash.pick')
 
 const CRAWL_TICK_INTERVAL = 5e3
 const NUM_SIMULTANEOUS_CRAWLS = 10
+const LABEL_REGEX = /[a-z0-9-]/i
 
 // typedefs
 // =
@@ -23,9 +25,11 @@ const NUM_SIMULTANEOUS_CRAWLS = 10
  * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
  *
  * @typedef {Object} User
+ * @prop {string} label
  * @prop {string} url
  * @prop {InternalDatArchive} archive
  * @prop {boolean} isDefault
+ * @prop {boolean} isTemporary
  * @prop {string} title
  * @prop {string} description
  * @prop {Date} createdAt
@@ -36,6 +40,7 @@ const NUM_SIMULTANEOUS_CRAWLS = 10
 
 var events = new Events()
 var users
+var nextCrawlUserIndex = 0
 
 // exported api
 // =
@@ -54,6 +59,17 @@ exports.setup = async function () {
   // load the current users
   users = await db.all(`SELECT * FROM users`)
   await Promise.all(users.map(async (user) => {
+    // old temporary?
+    if (user.isTemporary) {
+      // delete old temporary user
+      logger.info('Deleting temporary user', {details: user})
+      user.isInvalid = true // let invalid-user-deletion clean up the record
+      let key = dat.library.fromURLToKey(user.url)
+      await archivesDb.setUserSettings(0, key, {isSaved: false})
+      await dat.library.clearFileCache(key)
+      return
+    }
+
     // massage data
     user.url = normalizeUrl(user.url)
     user.archive = null
@@ -96,8 +112,9 @@ function queueTick () {
  */
 async function tick () {
   try {
-    // TODO handle multiple users
-    var user = users[0]
+    var user = users[nextCrawlUserIndex]
+    nextCrawlUserIndex++
+    if (nextCrawlUserIndex >= users.length) nextCrawlUserIndex = 0
     if (!user) return queueTick()
 
     // assemble the next set of crawl targets
@@ -150,7 +167,18 @@ exports.get = async function (url) {
   url = normalizeUrl(url)
   var user = users.find(user => user.url === url)
   if (!user) return null
-  return await fetchUserInfo(user)
+  return fetchUserInfo(user)
+}
+
+/**
+ * @param {string} label
+ * @return {Promise<User>}
+ */
+const getByLabel =
+exports.getByLabel = async function (label) {
+  var user = users.find(user => user.label === label)
+  if (!user) return null
+  return fetchUserInfo(user)
 }
 
 /**
@@ -160,33 +188,41 @@ const getDefault =
 exports.getDefault = async function () {
   var user = users.find(user => user.isDefault === true)
   if (!user) return null
-  return await fetchUserInfo(user)
+  return fetchUserInfo(user)
 }
 
 /**
+ * @param {string} label
  * @param {string} url
- * @returns {Promise<void>}
+ * @param {boolean} [setDefault=false]
+ * @param {boolean} [isTemporary=false]
+ * @returns {Promise<User>}
  */
-exports.add = async function (url) {
-  // make sure the user doesnt already exist
-  url = normalizeUrl(url)
-  var existingUser = await get(url)
-  if (existingUser) return
-
+exports.add = async function (label, url, setDefault = false, isTemporary = false) {
   // validate
+  validateUserLabel(label)
   await validateUserUrl(url)
+
+  // make sure the user label or URL doesnt already exist
+  url = normalizeUrl(url)
+  var existingUser = users.find(user => user.url === url)
+  if (existingUser) throw new Error('User already exists at that URL')
+  existingUser = users.find(user => user.label === label)
+  if (existingUser) throw new Error('User already exists at that label')
 
   // create the new user
   var user = {
+    label,
     url,
     archive: null,
-    isDefault: users.length === 0,
-    createdAt: Date.now()
+    isDefault: setDefault || users.length === 0,
+    isTemporary,
+    createdAt: new Date()
   }
   logger.verbose('Adding user', {details: user})
   await db.run(
-    `INSERT INTO users (url, isDefault, createdAt) VALUES (?, ?, ?)`,
-    [user.url, Number(user.isDefault), user.createdAt]
+    `INSERT INTO users (label, url, isDefault, isTemporary, createdAt) VALUES (?, ?, ?, ?, ?)`,
+    [user.label, user.url, Number(user.isDefault), Number(user.isTemporary), Number(user.createdAt)]
   )
   users.push(user)
 
@@ -194,6 +230,48 @@ exports.add = async function (url) {
   user.archive = await dat.library.getOrLoadArchive(user.url)
   startWatch(user)
   events.emit('load-user', user)
+  return fetchUserInfo(user)
+}
+
+/**
+ * @param {string} url
+ * @param {Object} opts
+ * @param {string} [opts.title]
+ * @param {string} [opts.description]
+ * @param {string} [opts.label]
+ * @param {boolean} [opts.setDefault]
+ * @returns {Promise<User>}
+ */
+exports.edit = async function (url, opts) {
+  // validate
+  await validateUserUrl(url)
+  if ('label' in opts) validateUserLabel(opts.label)
+
+  // make sure the user label or URL doesnt already exist
+  url = normalizeUrl(url)
+  var existingUser = users.find(user => user.label === opts.label)
+  if (existingUser && existingUser.url !== url) throw new Error('User already exists at that label')
+
+  // update the user
+  var user = users.find(user => user.url === url)
+  if (opts.title) user.title = opts.title
+  if (opts.description) user.description = opts.title
+  if (opts.setDefault) {
+    try { users.find(user => user.isDefault).isDefault = false }
+    catch (e) { /* ignore, no existing default */ }
+    user.isDefault = true
+    await db.run(`UPDATE users SET isDefault = 0 WHERE isDefault = 1`)
+    await db.run(`UPDATE users SET isDefault = 1 WHERE url = ?`, [user.url])
+  }
+  if (opts.label) {
+    user.label = opts.label
+    await db.run(`UPDATE users SET label = ? WHERE url = ?`, [opts.label, user.url])
+  }
+  logger.verbose('Updating user', {details: user})
+
+  // fetch the user archive
+  user.archive = await dat.library.getOrLoadArchive(user.url)
+  return fetchUserInfo(user)
 }
 
 /**
@@ -216,12 +294,21 @@ exports.remove = async function (url) {
 
 /**
  * @param {string} url
- * @return {Promise<boolean>}
+ * @return {boolean}
  */
 const isUser =
 exports.isUser = function (url) {
   url = normalizeUrl(url)
   return !!users.find(user => user.url === url)
+}
+
+/**
+ * @param {string} label
+ */
+const validateUserLabel =
+exports.validateUserLabel = function (label) {
+  assert(label && typeof label === 'string', 'Label must be a non-empty string')
+  assert(LABEL_REGEX.test(label), 'Labels can only comprise of letters, numbers, and dashes')
 }
 
 // internal methods
@@ -258,13 +345,16 @@ async function selectNextCrawlTargets (user) {
   var foafUrls = (await followsCrawler.list({filters: {authors: followedUrls}})).map(({topic}) => topic.url)
   rows = rows.concat(foafUrls)
 
+  // eleminate duplicates
+  rows = Array.from(new Set(rows))
+
   // assemble into list
   var start = user.crawlSelectorCursor || 0
   if (start > rows.length) start = 0
   var end = start + NUM_SIMULTANEOUS_CRAWLS
   var nextCrawlTargets = rows.slice(start, end)
   var numRemaining = NUM_SIMULTANEOUS_CRAWLS - nextCrawlTargets.length
-  if (numRemaining && rows.length > NUM_SIMULTANEOUS_CRAWLS) {
+  if (numRemaining && rows.length >= NUM_SIMULTANEOUS_CRAWLS) {
     // wrap around
     nextCrawlTargets = nextCrawlTargets.concat(rows.slice(0, numRemaining))
     user.crawlSelectorCursor = numRemaining
@@ -283,12 +373,14 @@ async function fetchUserInfo (user) {
   var urlp = new URL(user.url)
   var meta = await archivesDb.getMeta(urlp.hostname)
   return {
+    label: user.label,
     url: normalizeUrl(user.url),
     archive: user.archive,
     isDefault: user.isDefault,
+    isTemporary: user.isTemporary,
     title: meta.title,
     description: meta.description,
-    createdAt: user.createdAt
+    createdAt: new Date(user.createdAt)
   }
 }
 

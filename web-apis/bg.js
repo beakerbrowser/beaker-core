@@ -12,6 +12,7 @@ const sitedataManifest = require('./manifests/internal/sitedata')
 const watchlistManifest = require('./manifests/internal/watchlist')
 const templatesManifest = require('./manifests/internal/templates')
 const crawlerManifest = require('./manifests/internal/crawler')
+const usersManifest = require('./manifests/internal/users')
 
 // internal apis
 const loggerAPI = require('../logger').WEBAPI
@@ -21,6 +22,7 @@ const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const watchlistAPI = require('./bg/watchlist')
 const templatesAPI = require('./bg/templates')
 const crawlerAPI = require('../crawler').WEBAPI
+const usersAPI = require('./bg/users')
 
 // external manifests
 const navigatorManifest = require('./manifests/external/navigator')
@@ -80,6 +82,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
   globals.rpcAPI.exportAPI('templates', templatesManifest, templatesAPI, internalOnly)
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
+  globals.rpcAPI.exportAPI('users', usersManifest, usersAPI, internalOnly)
 
   // external apis
   globals.rpcAPI.exportAPI('navigator', navigatorManifest, navigatorAPI, secureOnly)

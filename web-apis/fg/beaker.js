@@ -10,6 +10,7 @@ const sitedataManifest = require('../manifests/internal/sitedata')
 const watchlistManifest = require('../manifests/internal/watchlist')
 const templatesManifest = require('../manifests/internal/templates')
 const crawlerManifest = require('../manifests/internal/crawler')
+const usersManifest = require('../manifests/internal/users')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -26,6 +27,7 @@ exports.setup = function (rpc) {
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
     const templatesRPC = rpc.importAPI('templates', templatesManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
+    const usersRPC = rpc.importAPI('users', usersManifest, opts)
 
     // beaker.logger
     beaker.logger = {}
@@ -96,7 +98,7 @@ exports.setup = function (rpc) {
     beaker.browser.setWindowDimensions = beakerBrowserRPC.setWindowDimensions
     beaker.browser.showOpenDialog = beakerBrowserRPC.showOpenDialog
     beaker.browser.showContextMenu = beakerBrowserRPC.showContextMenu
-    beaker.browser.showShellModal = beakerBrowserRPC.showShellModal
+    beaker.browser.showModal = beakerBrowserRPC.showModal
     beaker.browser.openUrl = beakerBrowserRPC.openUrl
     beaker.browser.openFolder = beakerBrowserRPC.openFolder
     beaker.browser.doWebcontentsCmd = beakerBrowserRPC.doWebcontentsCmd
@@ -158,6 +160,18 @@ exports.setup = function (rpc) {
     beaker.crawler.crawlSite = crawlerRPC.crawlSite
     beaker.crawler.resetSite = crawlerRPC.resetSite
     beaker.crawler.createEventsStream = () => fromEventStream(crawlerRPC.createEventsStream())
+
+    // beaker.users
+    beaker.users = {}
+    beaker.users.list = usersRPC.list
+    beaker.users.get = usersRPC.get
+    beaker.users.getCurrent = usersRPC.getCurrent
+    beaker.users.getDefault = usersRPC.getDefault
+    beaker.users.create = usersRPC.create
+    beaker.users.createTemporary = usersRPC.createTemporary
+    beaker.users.add = usersRPC.add
+    beaker.users.edit = usersRPC.edit
+    beaker.users.remove = usersRPC.remove
   }
 
   return beaker
