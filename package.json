@@ -81,7 +81,7 @@
     "semver": "^5.7.0",
     "slugify": "^1.3.4",
     "sodium-signatures": "^2.1.1",
-    "spellchecker": "github:beakerbrowser/node-spellchecker#ce6402cb062823587986f3cd38debd01ddf3bffb",
+    "spellchecker": "^3.6.1",
     "split2": "^2.2.0",
     "sqlite3": "^4.0.9",
     "stream-throttle": "^0.1.3",
