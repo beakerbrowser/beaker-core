@@ -143,6 +143,7 @@ exports.setup = function (rpc) {
     beaker.sitedata.set = sitedataRPC.set
     beaker.sitedata.getPermissions = sitedataRPC.getPermissions
     beaker.sitedata.getAppPermissions = sitedataRPC.getAppPermissions
+    beaker.sitedata.getAppPermission = sitedataRPC.getAppPermission
     beaker.sitedata.getPermission = sitedataRPC.getPermission
     beaker.sitedata.setPermission = sitedataRPC.setPermission
     beaker.sitedata.setAppPermissions = sitedataRPC.setAppPermissions

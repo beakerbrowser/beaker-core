@@ -1,5 +1,6 @@
 module.exports = {
   beakerSelectFileDialog: 'promise',
   beakerSaveFileDialog: 'promise',
-  beakerSelectDatArchiveDialog: 'promise'
+  beakerSelectDatArchiveDialog: 'promise',
+  getApplicationState: 'promise'
 }

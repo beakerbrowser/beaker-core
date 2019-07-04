@@ -1,6 +1,32 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const { UserDeniedError } = require('beaker-error-constants')
+const dat = require('../../dat')
+const appPerms = require('../../lib/app-perms')
+const knex = require('../../lib/knex')
+const db = require('../../dbs/profile-data-db')
+const sitedataDb = require('../../dbs/sitedata')
+
+// typedefs
+// =
+
+/**
+ * @typedef {import('../../users').User} User
+ *
+ * @typedef {Object} ApplicationPermission
+ * @prop {string} id
+ * @prop {string[]} caps
+ * @prop {string} description
+ *
+ * @typedef {Object} ApplicationState
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {ApplicationPermission[]} permissions
+ * @prop {boolean} installed
+ * @prop {boolean} enabled
+ * @prop {string} installedAt
+ */
 
 // exported api
 // =
@@ -138,9 +164,53 @@ module.exports = {
     }
     if (!res || !res.url) throw new UserDeniedError()
     return res.url
+  },
+
+  /**
+   * @returns {Promise<ApplicationState>}
+   */
+  async getApplicationState () {
+    var url = await appPerms.toDatOrigin(this.sender.getURL())
+    var userId = await appPerms.getSessionUserId(this.sender)
+    var archiveInfo = await dat.library.getArchiveInfo(url)
+    var record = await db.get(knex('installed_applications').where({userId, url}))
+    if (record) {
+      record.installed = true
+    } else {
+      record = {
+        url,
+        installed: false,
+        enabled: false,
+        installedAt: null
+      }
+    }
+    record.title = archiveInfo.title
+    record.description = archiveInfo.description
+    record.permissions = await sitedataDb.getAppPermissions(record.url)
+    return massageAppRecord(record)
   }
 }
 
 function isStrArray (v) {
   return (Array.isArray(v) && v.every(el => typeof el === 'string'))
+}
+
+/**
+ * @param {Object} record
+ * @returns {ApplicationState}
+ */
+function massageAppRecord (record) {
+  return {
+    url: record.url,
+    title: record.title,
+    description: record.description,
+    permissions: Object.entries(record.permissions).map(([id, caps]) => ({
+      id,
+      caps,
+      description: appPerms.describePerm(id, caps)
+    })),
+    installed: record.installed,
+    enabled: Boolean(record.enabled),
+    installedAt: record.createdAt ? (new Date(record.createdAt)).toISOString() : null
+  }
 }
