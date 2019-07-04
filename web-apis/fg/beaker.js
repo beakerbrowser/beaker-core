@@ -2,6 +2,7 @@ const { EventTarget, bindEventStream, fromEventStream } = require('./event-targe
 const errors = require('beaker-error-constants')
 
 const loggerManifest = require('../manifests/internal/logger')
+const applicationsManifest = require('../manifests/internal/applications')
 const archivesManifest = require('../manifests/internal/archives')
 const beakerBrowserManifest = require('../manifests/internal/browser')
 const downloadsManifest = require('../manifests/internal/downloads')
@@ -19,6 +20,7 @@ exports.setup = function (rpc) {
   // internal only
   if (window.location.protocol === 'beaker:') {
     const loggerRPC = rpc.importAPI('logger', loggerManifest, opts)
+    const applicationsRPC = rpc.importAPI('applications', applicationsManifest, opts)
     const archivesRPC = rpc.importAPI('archives', archivesManifest, opts)
     const beakerBrowserRPC = rpc.importAPI('beaker-browser', beakerBrowserManifest, opts)
     const downloadsRPC = rpc.importAPI('downloads', downloadsManifest, opts)
@@ -33,6 +35,15 @@ exports.setup = function (rpc) {
     beaker.logger = {}
     beaker.logger.stream = (opts) => fromEventStream(loggerRPC.stream(opts))
     beaker.logger.query = loggerRPC.query
+
+    // beaker.applications
+    beaker.applications = {}
+    beaker.applications.getInfo = applicationsRPC.getInfo
+    beaker.applications.install = applicationsRPC.install
+    beaker.applications.list = applicationsRPC.list
+    beaker.applications.enable = applicationsRPC.enable
+    beaker.applications.disable = applicationsRPC.disable
+    beaker.applications.uninstall = applicationsRPC.uninstall
 
     // beaker.archives
     beaker.archives = new EventTarget()

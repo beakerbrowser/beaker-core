@@ -84,6 +84,15 @@ const get = exports.get = async function (url, key, opts) {
 
 /**
  * @param {string} url
+ * @param {string} key
+ * @returns {Promise<string>}
+ */
+const getPermission = exports.getPermission = function (url, key) {
+  return get(url, 'perm:' + key)
+}
+
+/**
+ * @param {string} url
  * @returns {Promise<Object>}
  */
 const getPermissions = exports.getPermissions = async function (url) {
@@ -143,9 +152,8 @@ const getAppPermissions = exports.getAppPermissions = async function (url) {
       var appPerms = {}
       if (rows) {
         rows.forEach(row => {
-          let [api, perm] = row.key.split(':').slice(2)
-          if (!appPerms[api]) appPerms[api] = []
-          appPerms[api].push(perm)
+          let [perm] = row.key.split(':').slice(2)
+          appPerms[perm] = row.value.split(',')
         })
       }
       cb(null, appPerms)
@@ -155,11 +163,13 @@ const getAppPermissions = exports.getAppPermissions = async function (url) {
 
 /**
  * @param {string} url
- * @param {string} key
- * @returns {Promise<string>}
+ * @returns {Promise<Object>}
  */
-const getPermission = exports.getPermission = function (url, key) {
-  return get(url, 'perm:' + key)
+const getAppPermission = exports.getAppPermission = async function (url, key) {
+  await setupPromise
+  var perm = await get(url, 'perm:app:' + key)
+  if (!perm) return []
+  return perm.split(',')
 }
 
 /**
@@ -192,13 +202,8 @@ const setAppPermissions = exports.setAppPermissions = async function (url, appPe
   })
 
   // set perms given
-  for (let api in appPerms) {
-    if (!Array.isArray(appPerms[api])) {
-      continue
-    }
-    for (let perm of appPerms[api]) {
-      await set(url, `perm:app:${api}:${perm}`, 1)
-    }
+  for (let perm in appPerms) {
+    await set(url, `perm:app:${perm}`, Array.isArray(appPerms[perm]) ? appPerms[perm].join(',') : appPerms[perm])
   }
 }
 
@@ -231,6 +236,7 @@ exports.WEBAPI = {
   getPermissions,
   getPermission,
   getAppPermissions,
+  getAppPermission,
   setPermission,
   setAppPermissions,
   clearPermission,

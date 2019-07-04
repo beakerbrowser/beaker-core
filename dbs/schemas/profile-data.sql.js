@@ -90,6 +90,17 @@ CREATE TABLE visit_stats (
 CREATE VIRTUAL TABLE visit_fts USING fts4 (url, title);
 CREATE UNIQUE INDEX visits_stats_url ON visit_stats (url);
 
+-- list of the users installed apps
+CREATE TABLE installed_applications (
+  id INTEGER PRIMARY KEY NOT NULL,
+  userId INTEGER NOT NULL,
+  enabled INTEGER DEFAULT 1,
+  url TEXT,
+  createdAt INTEGER,
+ 
+  FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+);
+
 -- list of dats being looked for
 CREATE TABLE watchlist (
   profileId INTEGER NOT NULL,
@@ -394,7 +405,7 @@ CREATE TABLE archive_drafts (
 );
 
 -- list of the users installed apps
--- deprecated (may return)
+-- deprecated
 CREATE TABLE apps (
   profileId INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -407,7 +418,7 @@ CREATE TABLE apps (
 );
 
 -- log of the users app installations
--- deprecated (may return)
+-- deprecated
 CREATE TABLE apps_log (
   profileId INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -443,5 +454,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 33;
+PRAGMA user_version = 34;
 `
