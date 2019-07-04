@@ -1,5 +1,3 @@
-const {URL} = require('url')
-const globals = require('../../globals')
 const dat = require('../../dat')
 const appPerms = require('../../lib/app-perms')
 const sitedataDb = require('../../dbs/sitedata')
@@ -36,9 +34,11 @@ module.exports = {
    * @returns {Promise<WebAPIApplication>}
    */
   async getInfo (url) {
-    url = await toDatOrigin(url)
+    url = await appPerms.toDatOrigin(url)
+    var userId = await appPerms.getSessionUserId(this.sender)
+    var record = await db.get(knex('installed_applications').where({userId, url}))
     var archiveInfo = await dat.library.getArchiveInfo(url)
-    return massageArchiveInfo(archiveInfo)
+    return massageArchiveInfo(archiveInfo, record)
   },
 
   /**
@@ -46,8 +46,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async install (url) {
-    url = await toDatOrigin(url)
-    var userId = await getSessionUserId(this.sender)
+    url = await appPerms.toDatOrigin(url)
+    var userId = await appPerms.getSessionUserId(this.sender)
     var archiveInfo = await dat.library.getArchiveInfo(url)
     var record = await db.get(knex('installed_applications').where({userId, url}))
     if (!record) {
@@ -65,7 +65,7 @@ module.exports = {
    * @returns {Promise<WebAPIApplication[]>}
    */
   async list () {
-    var userId = await getSessionUserId(this.sender)
+    var userId = await appPerms.getSessionUserId(this.sender)
     var records = await db.all(knex('installed_applications').where({userId}))
     await Promise.all(records.map(async (record) => {
       var archiveInfo = await dat.library.getArchiveInfo(record.url)
@@ -81,8 +81,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async enable (url) {
-    url = await toDatOrigin(url)
-    var userId = await getSessionUserId(this.sender)
+    url = await appPerms.toDatOrigin(url)
+    var userId = await appPerms.getSessionUserId(this.sender)
     await db.run(knex('installed_applications').update({enabled: 1}).where({userId, url}))
   },
 
@@ -91,8 +91,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async disable (url) {
-    url = await toDatOrigin(url)
-    var userId = await getSessionUserId(this.sender)
+    url = await appPerms.toDatOrigin(url)
+    var userId = await appPerms.getSessionUserId(this.sender)
     await db.run(knex('installed_applications').update({enabled: 0}).where({userId, url}))
   },
 
@@ -101,36 +101,15 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async uninstall (url) {
-    url = await toDatOrigin(url)
-    var userId = await getSessionUserId(this.sender)
+    url = await appPerms.toDatOrigin(url)
+    var userId = await appPerms.getSessionUserId(this.sender)
+    await sitedataDb.setAppPermissions(url, {})
     await db.run(knex('installed_applications').delete().where({userId, url}))
   }
 }
 
 // internal methods
 // =
-
-/**
- * @param {string} url
- * @returns {Promise<string>}
- */
-async function toDatOrigin (url) {
-  try {
-    var urlParsed = new URL(url)
-  } catch (e) {
-    throw new Error('Invalid URL: ' + url)
-  }
-  if (urlParsed.protocol !== 'dat:') throw new Error('Can only install dat applications')
-  urlParsed.hostname = await dat.dns.resolveName(urlParsed.hostname)
-  return urlParsed.protocol + '//' + urlParsed.hostname
-}
-
-async function getSessionUserId (sender) {
-  var userSession = globals.userSessionAPI.getFor(sender)
-  if (!userSession) throw new Error('No active user session')
-  var record = await db.get(knex('users').where({url: userSession.url}))
-  return record.id
-}
 
 function getArchivePerms (archiveInfo) {
   try {
