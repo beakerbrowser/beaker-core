@@ -1,3 +1,4 @@
+const globals = require('../../globals')
 const dat = require('../../dat')
 const appPerms = require('../../lib/app-perms')
 const sitedataDb = require('../../dbs/sitedata')
@@ -59,6 +60,21 @@ module.exports = {
       }))
     }
     await sitedataDb.setAppPermissions(url, getArchivePerms(archiveInfo))
+  },
+
+  /**
+   * @param {string} url
+   * @returns {Promise<boolean>}
+   */
+  async requestInstall (url) {
+    // run the install modal
+    try {
+      console.log('showing modal')
+      return globals.uiAPI.showModal(this.sender, 'install-application', {url})
+    } catch (e) {
+      console.log('ohno', e)
+      return false
+    }
   },
 
   /**

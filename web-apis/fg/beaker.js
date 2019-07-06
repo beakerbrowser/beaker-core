@@ -40,6 +40,7 @@ exports.setup = function (rpc) {
     beaker.applications = {}
     beaker.applications.getInfo = applicationsRPC.getInfo
     beaker.applications.install = applicationsRPC.install
+    beaker.applications.requestInstall = applicationsRPC.requestInstall
     beaker.applications.list = applicationsRPC.list
     beaker.applications.enable = applicationsRPC.enable
     beaker.applications.disable = applicationsRPC.disable
