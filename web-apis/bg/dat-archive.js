@@ -63,7 +63,10 @@ module.exports = {
 
       // create
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.createNewArchive({title, description, type, author, links}, {networked, hidden})
+      newArchiveUrl = await datLibrary.createNewArchive(
+        Object.assign({title, description, type, author, links}, generateManifest(type)),
+        {networked, hidden}
+      )
     }
     let newArchiveKey = await lookupUrlDatKey(newArchiveUrl)
 
@@ -668,6 +671,18 @@ function assertValidPath (fileOrFolderPath) {
   if (!DAT_VALID_PATH_REGEX.test(fileOrFolderPath)) {
     throw new InvalidPathError('Path contains invalid characters')
   }
+}
+
+function generateManifest (type) {
+  type = Array.isArray(type) ? type : [type]
+  if (type.includes('unwalled.garden/application')) {
+    return {
+      'unwalled.garden/application': {
+        permissions: {}
+      }
+    }
+  }
+  return {}
 }
 
 // async function assertSenderIsFocused (sender) {
