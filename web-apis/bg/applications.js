@@ -129,9 +129,8 @@ module.exports = {
 
 function getArchivePerms (archiveInfo) {
   try {
-    return archiveInfo.manifest['unwalled.garden/application'].permissions
+    return archiveInfo.manifest.application.permissions
   } catch (e) {
-    console.debug('No permissions found on application', archiveInfo.manifest)
     return []
   }
 }

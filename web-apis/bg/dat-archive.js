@@ -675,9 +675,9 @@ function assertValidPath (fileOrFolderPath) {
 
 function generateManifest (type) {
   type = Array.isArray(type) ? type : [type]
-  if (type.includes('unwalled.garden/application')) {
+  if (type.includes('application')) {
     return {
-      'unwalled.garden/application': {
+      application: {
         permissions: {}
       }
     }
