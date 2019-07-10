@@ -1,7 +1,7 @@
 const globals = require('../../globals')
 const datLibrary = require('../../dat/library')
 const crawler = require('../../crawler')
-const {PermissionsError} = require('beaker-error-constants')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -36,7 +36,7 @@ module.exports = {
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
   async me () {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertInstalled(this.sender)
     var sess = globals.userSessionAPI.getFor(this.sender)
     if (!sess) return null
     return get(sess.url)
@@ -47,7 +47,7 @@ module.exports = {
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
   async get (url) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertInstalled(this.sender)
     return get(url)
   },
 
@@ -56,18 +56,10 @@ module.exports = {
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
   async index (url) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertInstalled(this.sender)
     await crawler.crawlSite(url)
     return get(url)
   }
-}
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
 }
 
 function toOrigin (url) {

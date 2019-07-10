@@ -1,9 +1,9 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
-const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const mediaCrawler = require('../../crawler/media')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -47,7 +47,7 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord[]>}
    */
   async list (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -95,7 +95,7 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord>}
    */
   async get (url) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'read')
     return massageMediaRecord(await mediaCrawler.get(url))
   },
 
@@ -110,7 +110,7 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord>}
    */
   async add (media) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'write')
     var userArchive = getUserArchive(this.sender)
 
     assert(media && typeof media === 'object', 'The `media` parameter must be a string or object')
@@ -142,7 +142,7 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord>}
    */
   async edit (url, media) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'write')
     var userArchive = getUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
@@ -164,7 +164,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'write')
     var userArchive = getUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
@@ -176,14 +176,6 @@ module.exports = {
 
 // internal methods
 // =
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
-}
 
 function getUserArchive (sender) {
   var userSession = globals.userSessionAPI.getFor(sender)

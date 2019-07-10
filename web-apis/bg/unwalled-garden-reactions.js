@@ -1,10 +1,10 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
-const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const reactionsCrawler = require('../../crawler/reactions')
 const siteDescriptionsCrawler = require('../../crawler/site-descriptions')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -48,7 +48,7 @@ module.exports = {
    * @returns {Promise<ReactionPublicAPIRecord[]>}
    */
   async list (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -85,7 +85,7 @@ module.exports = {
    * @returns {Promise<TopicReactionsPublicAPIRecord[]>}
    */
   async tabulate (topic, opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'read')
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
     opts = (opts && typeof opts === 'object') ? opts : {}
@@ -124,7 +124,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async add (topic, emoji) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'write')
     var userArchive = getUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
@@ -139,7 +139,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (topic, emoji) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'write')
     var userArchive = getUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
@@ -151,14 +151,6 @@ module.exports = {
 
 // internal methods
 // =
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
-}
 
 function getUserArchive (sender) {
   var userSession = globals.userSessionAPI.getFor(sender)

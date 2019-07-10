@@ -1,10 +1,10 @@
 const globals = require('../../globals')
-const {PermissionsError} = require('beaker-error-constants')
 const bookmarksDb = require('../../dbs/bookmarks')
 const bookmarksCrawler = require('../../crawler/bookmarks')
 const siteDescriptions = require('../../crawler/site-descriptions')
 const {toOrigin} = require('../../crawler/util')
 const _get = require('lodash.get')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -49,7 +49,7 @@ module.exports = {
    * @returns {Promise<BookmarkPublicAPIRecord[]>}
    */
   async query (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'read')
 
     // NOTE
     // The crawled and local-user bookmarks are stored in separate tables
@@ -135,7 +135,7 @@ module.exports = {
    * @returns {Promise<string[]>}
    */
   async listTags () {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'read')
     return bookmarksDb.listBookmarkTags(0)
   },
 
@@ -144,7 +144,7 @@ module.exports = {
    * @returns {Promise<BookmarkPublicAPIRecord>}
    */
   async get (href) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'read')
 
     // fetch user
     var userSession = globals.userSessionAPI.getFor(this.sender)
@@ -160,7 +160,7 @@ module.exports = {
    * @returns {Promise<boolean>}
    */
   async has (href) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'read')
     try {
       var bookmark = await bookmarksDb.getBookmark(0, href)
       return !!bookmark
@@ -180,7 +180,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async add (data) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'write')
     await bookmarksDb.addBookmark(0, data)
   },
 
@@ -196,7 +196,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async edit (href, data = {}) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'write')
     await bookmarksDb.editBookmark(0, href, data)
   },
 
@@ -205,7 +205,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (href) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'write')
     await bookmarksDb.removeBookmark(0, href)
   },
 
@@ -215,20 +215,12 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async configure (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'write')
     if (opts.pins) {
       if (!Array.isArray(opts.pins)) throw new Error('.pins must be an array of URLs')
       await bookmarksDb.setBookmarkPinOrder(0, opts.pins)
     }
   }
-}
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
 }
 
 function normalizeInternalBookmark (bookmark, user) {

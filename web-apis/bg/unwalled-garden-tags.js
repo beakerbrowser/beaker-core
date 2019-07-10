@@ -1,7 +1,7 @@
 const globals = require('../../globals')
 const assert = require('assert')
-const {PermissionsError} = require('beaker-error-constants')
 const tagsCrawler = require('../../crawler/tags')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -30,7 +30,7 @@ module.exports = {
    * @returns {Promise<TagPublicAPIRecord[]>}
    */
   async listBookmarkTags (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -64,7 +64,7 @@ module.exports = {
    * @returns {Promise<TagPublicAPIRecord[]>}
    */
   async listDiscussionTags (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -99,7 +99,7 @@ module.exports = {
    * @returns {Promise<TagPublicAPIRecord[]>}
    */
   async listMediaTags (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -131,14 +131,6 @@ module.exports = {
 
 // internal methods
 // =
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
-}
 
 /**
  * @param {Tag} tag

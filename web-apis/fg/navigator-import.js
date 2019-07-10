@@ -28,18 +28,20 @@ const APIs = {
     manifest: require('../manifests/external/unwalled-garden-comments'),
     create: makeCreateFn('unwalled-garden-comments')
   },
-  'unwalled-garden-discussions': {
-    manifest: require('../manifests/external/unwalled-garden-discussions'),
-    create: makeCreateFn('unwalled-garden-discussions')
-  },
+  // TODO readd when stablized -prf
+  // 'unwalled-garden-discussions': {
+  //   manifest: require('../manifests/external/unwalled-garden-discussions'),
+  //   create: makeCreateFn('unwalled-garden-discussions')
+  // },
   'unwalled-garden-follows': {
     manifest: require('../manifests/external/unwalled-garden-follows'),
     create: makeCreateFn('unwalled-garden-follows')
   },
-  'unwalled-garden-media': {
-    manifest: require('../manifests/external/unwalled-garden-media'),
-    create: makeCreateFn('unwalled-garden-media')
-  },
+  // TODO readd when stablized -prf
+  // 'unwalled-garden-media': {
+  //   manifest: require('../manifests/external/unwalled-garden-media'),
+  //   create: makeCreateFn('unwalled-garden-media')
+  // },
   'unwalled-garden-posts': {
     manifest: require('../manifests/external/unwalled-garden-posts'),
     create: makeCreateFn('unwalled-garden-posts')
@@ -72,7 +74,8 @@ exports.setup = function (rpc) {
       cache[name] = API.create(rpc)
       return cache[name]
     }
-    throw new Error(`Unknown API: ${name}`)
+    console.error(`Unknown API: ${name}`)
+    return null
   }
 }
 

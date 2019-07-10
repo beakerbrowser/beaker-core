@@ -1,9 +1,9 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
-const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const commentsCrawler = require('../../crawler/comments')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -55,7 +55,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord[]>}
    */
   async list (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -80,6 +80,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
+
     var comments = await commentsCrawler.list(opts)
     return Promise.all(comments.map(massageCommentRecord))
   },
@@ -97,7 +98,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord[]>}
    */
   async thread (topic, opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a URL string')
     if (opts && 'parent' in opts) assert(typeof opts.parent === 'string', 'Parent must be a string')
@@ -116,6 +117,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
+
     var comments = await commentsCrawler.thread(topic, opts)
     return Promise.all(comments.map(massageThreadedCommentRecord))
   },
@@ -125,7 +127,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord>}
    */
   async get (url) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'read', 'data:unwalled.garden:comments')
     return massageCommentRecord(await commentsCrawler.get(url))
   },
 
@@ -138,7 +140,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord>}
    */
   async add (topic, comment) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
     var userArchive = getUserArchive(this.sender)
 
     // string usage
@@ -170,7 +172,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord>}
    */
   async edit (url, comment) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
     var userArchive = getUserArchive(this.sender)
 
     // string usage
@@ -194,7 +196,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
     var userArchive = getUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
@@ -206,14 +208,6 @@ module.exports = {
 
 // internal methods
 // =
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
-}
 
 function getUserArchive (sender) {
   var userSession = globals.userSessionAPI.getFor(sender)

@@ -1,9 +1,9 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
-const {PermissionsError} = require('beaker-error-constants')
 const dat = require('../../dat')
 const followsCrawler = require('../../crawler/follows')
+const appPerms = require('../../lib/app-perms')
 
 // typedefs
 // =
@@ -38,7 +38,7 @@ module.exports = {
    * @returns {Promise<FollowsPublicAPIRecord[]>}
    */
   async list (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -73,7 +73,7 @@ module.exports = {
    * @returns {Promise<FollowsPublicAPIRecord>}
    */
   async get (author, topic) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'read')
 
     author = normalizeFollowUrl(author)
     topic = normalizeFollowUrl(topic)
@@ -91,7 +91,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async add (topic, opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
     var userArchive = getUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
@@ -110,7 +110,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async edit (topic, opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
     var userArchive = getUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
@@ -127,7 +127,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (topic) {
-    await assertPermission(this.sender, 'dangerousAppControl')
+    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
     var userArchive = getUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
@@ -139,14 +139,6 @@ module.exports = {
 
 // internal methods
 // =
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
-}
 
 function getUserArchive (sender) {
   var userSession = globals.userSessionAPI.getFor(sender)
