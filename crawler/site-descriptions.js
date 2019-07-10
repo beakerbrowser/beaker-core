@@ -24,7 +24,7 @@ const JSON_PATH_REGEX = /^\/(dat\.json|data\/known-sites\/([^/]+)\/dat\.json)$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  *
  * @typedef {Object} SiteDescription
@@ -55,7 +55,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for site descriptions.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise<void>}
  */
@@ -247,8 +247,8 @@ exports.getBest = async function ({subject, author} = {}) {
  * @description
  * Capture a site description into the archive's known-sites cache.
  *
- * @param {InternalDatArchive} archive - where to write the capture to.
- * @param {(InternalDatArchive|string)} subject - which archive to capture.
+ * @param {DaemonDatArchive} archive - where to write the capture to.
+ * @param {(DaemonDatArchive|string)} subject - which archive to capture.
  * @returns Promise
  */
 exports.capture = async function (archive, subject) {
@@ -289,8 +289,8 @@ exports.capture = async function (archive, subject) {
  * @description
  * Delete a captured site description in the given archive's known-sites cache.
  *
- * @param {InternalDatArchive} archive - where to remove the capture from.
- * @param {(InternalDatArchive|string)} subject - which archive's capture to remove.
+ * @param {DaemonDatArchive} archive - where to remove the capture from.
+ * @param {(DaemonDatArchive|string)} subject - which archive's capture to remove.
  * @returns Promise
  */
 exports.deleteCapture = async function (archive, subject) {
@@ -318,7 +318,9 @@ function isString (v) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+
+/**
+ * @param {DaemonDatArchive} archive
  * @param {string} name
  * @returns {string}
  */
@@ -329,7 +331,7 @@ function getUrlFromDescriptionPath (archive, name) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @returns {Promise<void>}
  */
@@ -339,7 +341,7 @@ async function ensureDirectory (archive, pathname) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @returns {Promise<boolean>}
  */

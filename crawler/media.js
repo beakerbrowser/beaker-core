@@ -22,7 +22,7 @@ const JSON_PATH_REGEX = /^\/data\/media\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
@@ -57,7 +57,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for media.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -319,7 +319,7 @@ const get = exports.get = async function (url) {
  * @description
  * Create a new media.
  *
- * @param {InternalDatArchive} archive - where to write the media to.
+ * @param {DaemonDatArchive} archive - where to write the media to.
  * @param {Object} media
  * @param {string} media.subtype
  * @param {string} media.href
@@ -357,7 +357,7 @@ exports.add = async function (archive, media) {
  * @description
  * Update the content of an existing media.
  *
- * @param {InternalDatArchive} archive - where to write the media to.
+ * @param {DaemonDatArchive} archive - where to write the media to.
  * @param {string} pathname - the pathname of the media.
  * @param {Object} media
  * @param {string} [media.subtype]
@@ -405,7 +405,7 @@ exports.edit = async function (archive, pathname, media) {
  * @description
  * Delete an existing media
  *
- * @param {InternalDatArchive} archive - where to write the media to.
+ * @param {DaemonDatArchive} archive - where to write the media to.
  * @param {string} pathname - the pathname of the media.
  * @returns {Promise<void>}
  */

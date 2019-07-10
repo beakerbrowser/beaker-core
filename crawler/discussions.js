@@ -23,7 +23,7 @@ const JSON_PATH_REGEX = /^\/data\/discussions\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
@@ -57,7 +57,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for discussions.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -292,7 +292,7 @@ const get = exports.get = async function (url) {
  * @description
  * Create a new discussion.
  *
- * @param {InternalDatArchive} archive - where to write the discussion to.
+ * @param {DaemonDatArchive} archive - where to write the discussion to.
  * @param {Object} discussion
  * @param {string} discussion.title
  * @param {string} discussion.body
@@ -328,7 +328,7 @@ exports.add = async function (archive, discussion) {
  * @description
  * Update the content of an existing discussion.
  *
- * @param {InternalDatArchive} archive - where to write the discussion to.
+ * @param {DaemonDatArchive} archive - where to write the discussion to.
  * @param {string} pathname - the pathname of the discussion.
  * @param {Object} discussion
  * @param {string} [discussion.title]
@@ -374,7 +374,7 @@ exports.edit = async function (archive, pathname, discussion) {
  * @description
  * Delete an existing discussion
  *
- * @param {InternalDatArchive} archive - where to write the discussion to.
+ * @param {DaemonDatArchive} archive - where to write the discussion to.
  * @param {string} pathname - the pathname of the discussion.
  * @returns {Promise<void>}
  */

@@ -11,7 +11,7 @@ const READ_TIMEOUT = 30e3
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  *
  * @typedef {Object} CrawlSourceRecord
  * @prop {string} id
@@ -27,7 +27,7 @@ const crawlerEvents = new EventEmitter()
 exports.crawlerEvents = crawlerEvents
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {CrawlSourceRecord} crawlSource
  * @param {string} crawlDataset
  * @param {number} crawlDatasetVersion
@@ -53,7 +53,7 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   }
 
   // fetch current archive version
-  var archiveInfo = await dat.library.getDaemon().getArchiveInfo(archive.key)
+  var archiveInfo = {}// TODO await dat.library.getDaemon().getArchiveInfo(archive.key)
   var version = archiveInfo ? archiveInfo.version : 0
 
   // fetch change log
@@ -190,7 +190,7 @@ exports.normalizeSchemaUrl = function (url) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @returns {Promise}
  */

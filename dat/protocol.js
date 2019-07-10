@@ -134,7 +134,7 @@ exports.electronHandler = async function (request, respond) {
 
   // checkout version if needed
   try {
-    var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
+    var {checkoutFS} = await datLibrary.getArchiveCheckout(archive, urlp.version)
     if (urlp.version === 'preview') {
       await checkoutFS.pda.stat('/') // run a stat to ensure preview mode exists
     }

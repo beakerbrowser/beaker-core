@@ -2,7 +2,7 @@ const {pluralize, makeSafe} = require('../lib/strings')
 const {stat, readdir} = require('pauls-dat-api')
 const {join, relative} = require('path')
 
-/** @typedef {import('./library').InternalDatArchive} InternalDatArchive */
+/** @typedef {import('./daemon').DaemonDatArchive} DaemonDatArchive */
 
 const styles = `<style>
   .entry {
@@ -23,7 +23,7 @@ const styles = `<style>
 </style>`
 
 /**
- * @prop {InternalDatArchive} archive
+ * @prop {DaemonDatArchive} archive
  * @prop {string} dirPath
  * @prop {string} webRoot
  * @returns {Promise<string>}

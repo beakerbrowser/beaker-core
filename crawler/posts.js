@@ -23,7 +23,7 @@ const JSON_PATH_REGEX = /^\/data\/posts\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
@@ -54,7 +54,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for posts.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -231,7 +231,7 @@ const get = exports.get = async function (url) {
  * @description
  * Create a new post.
  *
- * @param {InternalDatArchive} archive - where to write the post to.
+ * @param {DaemonDatArchive} archive - where to write the post to.
  * @param {Object} post
  * @param {string} post.body
  * @param {string} post.visibility
@@ -261,7 +261,7 @@ exports.add = async function (archive, post) {
  * @description
  * Update the content of an existing post.
  *
- * @param {InternalDatArchive} archive - where to write the post to.
+ * @param {DaemonDatArchive} archive - where to write the post to.
  * @param {string} pathname - the pathname of the post.
  * @param {Object} post
  * @param {string} [post.body]
@@ -301,7 +301,7 @@ exports.edit = async function (archive, pathname, post) {
  * @description
  * Delete an existing post
  *
- * @param {InternalDatArchive} archive - where to write the post to.
+ * @param {DaemonDatArchive} archive - where to write the post to.
  * @param {string} pathname - the pathname of the post.
  * @returns {Promise<void>}
  */

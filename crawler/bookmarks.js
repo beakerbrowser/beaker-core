@@ -22,7 +22,7 @@ const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
@@ -56,7 +56,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for bookmarks.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -258,7 +258,7 @@ const getBookmark = exports.getBookmark = async function (url) {
  * @description
  * Create a new bookmark.
  *
- * @param {InternalDatArchive} archive - where to write the bookmark to.
+ * @param {DaemonDatArchive} archive - where to write the bookmark to.
  * @param {Object} bookmark
  * @param {string} bookmark.href
  * @param {string} bookmark.title
@@ -294,7 +294,7 @@ exports.addBookmark = async function (archive, bookmark) {
  * @description
  * Update the content of an existing bookmark.
  *
- * @param {InternalDatArchive} archive - where to write the bookmark to.
+ * @param {DaemonDatArchive} archive - where to write the bookmark to.
  * @param {string} pathname - the pathname of the bookmark.
  * @param {Object} bookmark
  * @param {string} bookmark.href
@@ -328,7 +328,7 @@ exports.editBookmark = async function (archive, pathname, bookmark) {
  * @description
  * Delete an existing bookmark
  *
- * @param {InternalDatArchive} archive - where to write the bookmark to.
+ * @param {DaemonDatArchive} archive - where to write the bookmark to.
  * @param {string} pathname - the pathname of the bookmark.
  * @returns {Promise<void>}
  */

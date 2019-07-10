@@ -22,7 +22,7 @@ const JSON_PATH_REGEX = /^\/data\/votes\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
@@ -61,7 +61,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for votes.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -311,7 +311,7 @@ const get = exports.get = async function (author, topic) {
  * @description
  * Set a vote.
  *
- * @param {InternalDatArchive} archive - where to write the vote to.
+ * @param {DaemonDatArchive} archive - where to write the vote to.
  * @param {string} topic
  * @param {number} vote
  * @returns {Promise<void>}

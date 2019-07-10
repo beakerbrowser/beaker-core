@@ -16,7 +16,7 @@ const {
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  *
  * @typedef {Object} LibraryArchiveRecord
  * @prop {string} key
@@ -97,7 +97,7 @@ exports.getDatPath = function () {
 
 /**
  * @description Get the path to an archive's files.
- * @param {string | Buffer | InternalDatArchive} archiveOrKey
+ * @param {string | Buffer | DaemonDatArchive} archiveOrKey
  * @returns {string}
  */
 //
@@ -115,7 +115,7 @@ const getArchiveMetaPath = exports.getArchiveMetaPath = function (archiveOrKey) 
 
 /**
  * @description Get the path to an archive's temporary local sync path.
- * @param {string | Buffer | InternalDatArchive} archiveOrKey
+ * @param {string | Buffer | DaemonDatArchive} archiveOrKey
  * @returns {string}
  */
 const getInternalLocalSyncPath = exports.getInternalLocalSyncPath = function (archiveOrKey) {

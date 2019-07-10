@@ -22,7 +22,7 @@ const JSON_PATH_REGEX = /^\/data\/reactions\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  *
  * @typedef {Object} Reaction
@@ -55,7 +55,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for reactions.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -269,7 +269,7 @@ exports.tabulate = async function (topic, opts) {
  * @description
  * Create a new reaction.
  *
- * @param {InternalDatArchive} archive - where to write the reaction to.
+ * @param {DaemonDatArchive} archive - where to write the reaction to.
  * @param {string} topic
  * @param {string} emoji
  * @returns {Promise<void>}
@@ -293,7 +293,7 @@ exports.add = async function (archive, topic, emoji) {
  * @description
  * Delete an existing reaction
  *
- * @param {InternalDatArchive} archive - where to write the reaction to.
+ * @param {DaemonDatArchive} archive - where to write the reaction to.
  * @param {string} topic
  * @param {string} emoji
  * @returns {Promise<void>}
@@ -315,7 +315,7 @@ exports.remove = async function (archive, topic, emoji) {
 // =
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @returns {Promise<Object>}
  */
@@ -337,7 +337,7 @@ async function readReactionFile (archive, pathname) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @param {string} topic
  * @param {string|boolean} addEmoji

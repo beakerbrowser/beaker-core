@@ -98,7 +98,7 @@ module.exports = {
 
     // make sure the path is good
     try {
-      await datLibrary.getDaemon().fs_assertSafePath(localSyncPath)
+      // TODO await datLibrary.getDaemon().fs_assertSafePath(localSyncPath)
     } catch (e) {
       if (e.notFound) {
         return {doesNotExist: true}
@@ -108,7 +108,7 @@ module.exports = {
 
     // check for conflicts
     var archive = await datLibrary.getOrLoadArchive(key)
-    var diff = await datLibrary.getDaemon().fs_diffListing(archive, {localSyncPath})
+    var diff = [] // TODO await datLibrary.getDaemon().fs_diffListing(archive, {localSyncPath})
     diff = diff.filter(d => d.change === 'mod' && d.path !== '/dat.json')
     if (diff.length) {
       return {hasConflicts: true, conflicts: diff.map(d => d.path)}
@@ -128,7 +128,7 @@ module.exports = {
 
       if (opts.deleteSyncPath && oldSettings.localSyncPath) {
         try {
-          await datLibrary.getDaemon().fs_assertSafePath(oldSettings.localSyncPath)
+          // TODO await datLibrary.getDaemon().fs_assertSafePath(oldSettings.localSyncPath)
           await jetpack.removeAsync(oldSettings.localSyncPath)
         } catch (_) {}
       }
@@ -143,7 +143,7 @@ module.exports = {
 
     // make sure the path is good
     try {
-      await datLibrary.getDaemon().fs_assertSafePath(localSyncPath)
+      // TODO await datLibrary.getDaemon().fs_assertSafePath(localSyncPath)
     } catch (e) {
       if (e.notFound) {
         // just create the folder
@@ -172,7 +172,7 @@ module.exports = {
     })
 
     // ensure sync
-    await datLibrary.getDaemon().fs_ensureSyncFinished(archive)
+    // TODO await datLibrary.getDaemon().fs_ensureSyncFinished(archive)
   },
 
   // diff & publish
@@ -188,7 +188,7 @@ module.exports = {
       archive = await datLibrary.getOrLoadArchive(key)
     })
 
-    return datLibrary.getDaemon().fs_diffListing(archive, opts)
+    return [] // TODO datLibrary.getDaemon().fs_diffListing(archive, opts)
   },
 
   async diffLocalSyncPathFile (key, filepath) {
@@ -201,7 +201,7 @@ module.exports = {
       archive = await datLibrary.getOrLoadArchive(key)
     })
 
-    return datLibrary.getDaemon().fs_diffFile(archive, filepath)
+    return [] // TODO datLibrary.getDaemon().fs_diffFile(archive, filepath)
   },
 
   async publishLocalSyncPathListing (key, opts = {}) {
@@ -215,7 +215,7 @@ module.exports = {
     })
 
     opts.shallow = false
-    return datLibrary.getDaemon().fs_syncFolderToArchive(archive, opts)
+    return [] // TODO datLibrary.getDaemon().fs_syncFolderToArchive(archive, opts)
   },
 
   async revertLocalSyncPathListing (key, opts = {}) {
@@ -229,7 +229,7 @@ module.exports = {
     })
 
     opts.shallow = false
-    return datLibrary.getDaemon().fs_syncArchiveToFolder(archive, opts)
+    return null // TODO datLibrary.getDaemon().fs_syncArchiveToFolder(archive, opts)
   },
 
   // drafts

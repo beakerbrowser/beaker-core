@@ -16,6 +16,7 @@ const archivesDb = require('../dbs/archives')
 const datDnsDb = require('../dbs/dat-dns')
 
 // dat modules
+const daemon = require('./daemon')
 const datGC = require('./garbage-collector')
 const datAssets = require('./assets')
 
@@ -27,53 +28,13 @@ const {
   DAT_PRESERVED_FIELDS_ON_FORK
 } = require('../lib/const')
 const {InvalidURLError, TimeoutError} = require('beaker-error-constants')
-const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('./daemon/manifest').DatDaemon} DatDaemon
  * @typedef {import('../dbs/archives').LibraryArchiveRecord} LibraryArchiveRecord
- *
- * @typedef {Object} InternalDatArchive
- * @prop {Buffer} key
- * @prop {string} url
- * @prop {string?} domain
- * @prop {Buffer} discoveryKey
- * @prop {boolean} writable
- * @prop {function(Function): void} ready
- * @prop {function(Object, Function=): void} download
- * @prop {function(Object=): NodeJS.ReadableStream} history
- * @prop {function(Object=): NodeJS.ReadableStream} createReadStream
- * @prop {function(string, Object=, Function=): any} readFile
- * @prop {function(number, Object=): NodeJS.ReadableStream} createDiffStream
- * @prop {function(string, Object=): NodeJS.WritableStream} createWriteStream
- * @prop {function(string, any, Object=, Function=): void} writeFile
- * @prop {function(string, Function=): void} unlink
- * @prop {function(string, Object=, Function=): void} mkdir
- * @prop {function(string, Function=): void} rmdir
- * @prop {function(string, Object=, Function=): void} readdir
- * @prop {function(string, Object=, Function=): void} stat
- * @prop {function(string, Object=, Function=): void} lstat
- * @prop {function(string, Object=, Function=): void} access
- * @prop {Object} pda
- * @prop {function(string): Promise<Object>} pda.stat
- * @prop {function(string, Object=): Promise<any>} pda.readFile
- * @prop {function(string, Object=): Promise<Array<Object>>} pda.readdir
- * @prop {function(string): Promise<number>} pda.readSize
- * @prop {function(string, any, Object=): Promise<void>} pda.writeFile
- * @prop {function(string): Promise<void>} pda.mkdir
- * @prop {function(string, string): Promise<void>} pda.copy
- * @prop {function(string, string): Promise<void>} pda.rename
- * @prop {function(string): Promise<void>} pda.unlink
- * @prop {function(string, Object=): Promise<void>} pda.rmdir
- * @prop {function(string=): Promise<void>} pda.download
- * @prop {function(string=): NodeJS.ReadableStream} pda.watch
- * @prop {function(): NodeJS.ReadableStream} pda.createNetworkActivityStream
- * @prop {function(): Promise<Object>} pda.readManifest
- * @prop {function(Object): Promise<void>} pda.writeManifest
- * @prop {function(Object): Promise<void>} pda.updateManifest
+ * @typedef {import('./daemon').DaemonDatArchive} DaemonDatArchive
  */
 
 // globals
@@ -81,9 +42,9 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
 
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archiveLoadPromises = {} // key -> promise
+var archiveSessionCheckouts = {} // key+version -> DaemonDatArchive
 var archivesEvents = new EventEmitter()
-var daemonEvents
-var daemon = /** @type DatDaemon */({})
+// var daemonEvents TODO
 
 // exported API
 // =
@@ -95,17 +56,17 @@ var daemon = /** @type DatDaemon */({})
  * @param {string[]} opts.disallowedSavePaths
  * @return {Promise<void>}
  */
-exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSavePaths}) {
+exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
   // connect to the daemon
-  daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {proc: datDaemonProcess, timeout: false})
-  daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
-  daemonEvents = emitStream(daemon.createEventStream())
+  await daemon.setup()
+  // daemonEvents = emitStream(daemon.createEventStream()) TODO
 
   // pipe the log
-  var daemonLogEvents = emitStream(daemon.createLogStream())
-  daemonLogEvents.on('log', ({level, message, etc}) => {
-    baseLogger.log(level, message, etc)
-  })
+  // TODO needed?
+  // var daemonLogEvents = emitStream(daemon.createLogStream())
+  // daemonLogEvents.on('log', ({level, message, etc}) => {
+  //   baseLogger.log(level, message, etc)
+  // })
 
   // wire up event handlers
   archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {
@@ -131,7 +92,7 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
     }
 
     // update the download based on these settings
-    daemon.configureArchive(key, userSettings)
+    // daemon.configureArchive(key, userSettings) TODO
   })
   datDnsDb.on('update', ({key, name}) => {
     var archive = getArchive(key)
@@ -141,9 +102,10 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
   })
 
   // re-export events
-  daemonEvents.on('network-changed', evt => archivesEvents.emit('network-changed', evt))
-  daemonEvents.on('folder-synced', evt => archivesEvents.emit('folder-synced', evt))
-  daemonEvents.on('folder-sync-error', evt => archivesEvents.emit('folder-sync-error', evt))
+  // TODO
+  // daemonEvents.on('network-changed', evt => archivesEvents.emit('network-changed', evt))
+  // daemonEvents.on('folder-synced', evt => archivesEvents.emit('folder-synced', evt))
+  // daemonEvents.on('folder-sync-error', evt => archivesEvents.emit('folder-sync-error', evt))
 
   // configure the bandwidth throttle
   settingsDb.getAll().then(({dat_bandwidth_limit_up, dat_bandwidth_limit_down}) => {
@@ -159,11 +121,6 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
   datGC.setup()
   logger.info('Initialized dat library')
 }
-
-/**
- * @returns {DatDaemon}
- */
-exports.getDaemon = () => daemon
 
 /**
  * @returns {Promise<void>}
@@ -201,14 +158,15 @@ exports.createEventStream = function createEventStream () {
  * @returns {Promise<string>}
  */
 exports.getDebugLog = function getDebugLog (key) {
-  return daemon.getDebugLog(key)
+  return '' // TODO needed? daemon.getDebugLog(key)
 }
 
 /**
  * @returns {NodeJS.ReadableStream}
  */
 exports.createDebugStream = function createDebugStream () {
-  return daemon.createDebugStream()
+  // TODO needed?
+  // return daemon.createDebugStream()
 }
 
 // read metadata for the archive, and store it in the meta db
@@ -226,7 +184,7 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
     var [manifest, oldMeta, size] = await Promise.all([
       archive.pda.readManifest().catch(_ => {}),
       archivesDb.getMeta(key),
-      daemon.updateSizeTracking(key)
+      0 // TODO daemon.updateSizeTracking(key)
     ])
     var {title, description, type} = (manifest || {})
     var isOwner = archive.writable
@@ -318,12 +276,14 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
 
   // copy files
   var ignore = ['/.dat', '/.git', '/dat.json']
-  await daemon.exportArchiveToArchive({
-    srcArchive: datEncoding.toStr(srcArchive.key),
-    dstArchive: datEncoding.toStr(dstArchive.key),
-    skipUndownloadedFiles: true,
-    ignore
-  })
+  // TODO replace this
+  console.warn('Fork did not copy data, exportArchiveToArchive() not yet implemented')
+  // await daemon.exportArchiveToArchive({
+  //   srcArchive: datEncoding.toStr(srcArchive.key),
+  //   dstArchive: datEncoding.toStr(dstArchive.key),
+  //   skipUndownloadedFiles: true,
+  //   ignore
+  // })
 
   // write a .datignore if DNE
   try {
@@ -395,16 +355,11 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   var metaPath = archivesDb.getArchiveMetaPath(key)
   mkdirp.sync(metaPath)
 
-  // load the archive in the daemon
-  var archiveInfo = await daemon.loadArchive({
-    key,
-    secretKey,
-    metaPath,
-    userSettings
-  })
+  // create the archive session with the daemon
+  var archive = daemon.createDatArchiveSession({key})
 
-  // create the archive proxy instance
-  var archive = createArchiveProxy(key, undefined, archiveInfo)
+  // put the archive on the network
+  archive.session.publish()
 
   // fetch dns name if known
   let dnsRecord = await datDnsDb.getCurrentByKey(datEncoding.toStr(key))
@@ -435,7 +390,7 @@ const getArchive = exports.getArchive = function getArchive (key) {
   return archives[key]
 }
 
-exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
+exports.getArchiveCheckout = async function getArchiveCheckout (archive, version) {
   var isHistoric = false
   var isPreview = false
   var checkoutFS = archive
@@ -446,13 +401,21 @@ exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
         // ignore, we use latest by default
       } else if (version === 'preview') {
         isPreview = true
-        checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
-        checkoutFS.domain = archive.domain
+        // TODO need to move scoped-fs management here
+        // checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
+        // checkoutFS.domain = archive.domain
       } else {
         throw new Error('Invalid version identifier:' + version)
       }
     } else {
-      checkoutFS = createArchiveProxy(archive.key, version, archive)
+      let checkoutKey = `${archive.key}+${version}`
+      if (!(checkoutKey in archiveSessionCheckouts)) {
+        archiveSessionCheckouts[checkoutKey] = daemon.createDatArchiveSession({
+          key: archive.key,
+          version
+        })
+      }
+      checkoutFS = archiveSessionCheckouts[checkoutKey]
       checkoutFS.domain = archive.domain
       isHistoric = true
     }
@@ -482,7 +445,8 @@ exports.unloadArchive = async function unloadArchive (key) {
     archive.fileActStream = null
   }
   delete archives[key]
-  await daemon.unloadArchive(key)
+  archive.session.unpublish()
+  archive.session.close()
 }
 
 const isArchiveLoaded = exports.isArchiveLoaded = function isArchiveLoaded (key) {
@@ -491,7 +455,8 @@ const isArchiveLoaded = exports.isArchiveLoaded = function isArchiveLoaded (key)
 }
 
 exports.updateSizeTracking = function updateSizeTracking (archive) {
-  return daemon.updateSizeTracking(datEncoding.toStr(archive.key))
+  return 0 // TODO
+  // return daemon.updateSizeTracking(datEncoding.toStr(archive.key))
 }
 
 // archive fetch/query
@@ -512,7 +477,7 @@ exports.queryArchives = async function queryArchives (query) {
   await Promise.all(archiveInfos.map(async (archiveInfo) => {
     var archive = getArchive(archiveInfo.key)
     if (archive) {
-      var info = await daemon.getArchiveInfo(archiveInfo.key)
+      var info = {}//await daemon.getArchiveInfo(archiveInfo.key) TODO
       archiveInfo.isSwarmed = archiveInfo.userSettings.networked
       archiveInfo.size = info.size
       archiveInfo.peers = info.peers
@@ -536,7 +501,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     archivesDb.getMeta(key),
     archivesDb.getUserSettings(0, key),
     archive.pda.readManifest().catch(_ => {}),
-    daemon.getArchiveInfo(key)
+    {} // TODO daemon.getArchiveInfo(key)
   ])
   manifest = manifest || {}
   meta.key = key
@@ -566,12 +531,12 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
 
 exports.getArchiveNetworkStats = async function getArchiveNetworkStats (key) {
   key = await fromURLToKey(key, true)
-  return daemon.getArchiveNetworkStats(key)
+  return {} // TODO daemon.getArchiveNetworkStats(key)
 }
 
 exports.clearFileCache = async function clearFileCache (key) {
   var userSettings = await archivesDb.getUserSettings(0, key)
-  return daemon.clearFileCache(key, userSettings)
+  return {} // TODO daemon.clearFileCache(key, userSettings)
 }
 
 /**
@@ -657,108 +622,4 @@ const fromKeyToURL = exports.fromKeyToURL = function fromKeyToURL (key) {
     return `dat://${key}/`
   }
   return key
-}
-
-// archive proxy
-// =
-
-function makeArchiveProxyCbFn (key, version, method) {
-  return (...args) => daemon.callArchiveAsyncMethod(key, version, method, ...args)
-}
-
-function makeArchiveProxyReadStreamFn (key, version, method) {
-  return (...args) => daemon.callArchiveReadStreamMethod(key, version, method, ...args)
-}
-
-function makeArchiveProxyWriteStreamFn (key, version, method) {
-  return (...args) => daemon.callArchiveWriteStreamMethod(key, version, method, ...args)
-}
-
-function makeArchiveProxyPDAPromiseFn (key, version, method) {
-  return (...args) => daemon.callArchivePDAPromiseMethod(key, version, method, ...args)
-}
-
-function makeArchiveProxyPDAReadStreamFn (key, version, method) {
-  return (...args) => daemon.callArchivePDAReadStreamMethod(key, version, method, ...args)
-}
-
-function fixStatObject (st) {
-  st.atime = (new Date(st.atime)).getTime()
-  st.mtime = (new Date(st.mtime)).getTime()
-  st.ctime = (new Date(st.ctime)).getTime()
-  st.isSocket = () => false
-  st.isSymbolicLink = () => false
-  st.isFile = () => (st.mode & 32768) === 32768
-  st.isBlockDevice = () => false
-  st.isDirectory = () => (st.mode & 16384) === 16384
-  st.isCharacterDevice = () => false
-  st.isFIFO = () => false
-}
-
-/**
- *
- * @param {string|Buffer} key
- * @param {number} version
- * @param {Object} archiveInfo
- * @returns {InternalDatArchive}
- */
-function createArchiveProxy (key, version, archiveInfo) {
-  key = datEncoding.toStr(key)
-  const stat = makeArchiveProxyCbFn(key, version, 'stat')
-  const pdaStat = makeArchiveProxyPDAPromiseFn(key, version, 'stat')
-  return {
-    key: datEncoding.toBuf(key),
-    get url () {
-      return `dat://${this.domain || key}${version ? '+' + version : ''}`
-    },
-    domain: undefined,
-    discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
-    writable: archiveInfo.writable,
-
-    ready: makeArchiveProxyCbFn(key, version, 'ready'),
-    download: makeArchiveProxyCbFn(key, version, 'download'),
-    history: makeArchiveProxyReadStreamFn(key, version, 'history'),
-    createReadStream: makeArchiveProxyReadStreamFn(key, version, 'createReadStream'),
-    readFile: makeArchiveProxyCbFn(key, version, 'readFile'),
-    createDiffStream: makeArchiveProxyReadStreamFn(key, version, 'createDiffStream'),
-    createWriteStream: makeArchiveProxyWriteStreamFn(key, version, 'createWriteStream'),
-    writeFile: makeArchiveProxyCbFn(key, version, 'writeFile'),
-    unlink: makeArchiveProxyCbFn(key, version, 'unlink'),
-    mkdir: makeArchiveProxyCbFn(key, version, 'mkdir'),
-    rmdir: makeArchiveProxyCbFn(key, version, 'rmdir'),
-    readdir: makeArchiveProxyCbFn(key, version, 'readdir'),
-    stat: (...args) => {
-      var cb = args.pop()
-      args.push((err, st) => {
-        if (st) fixStatObject(st)
-        cb(err, st)
-      })
-      stat(...args)
-    },
-    lstat: makeArchiveProxyCbFn(key, version, 'lstat'),
-    access: makeArchiveProxyCbFn(key, version, 'access'),
-
-    pda: {
-      stat: async (...args) => {
-        var st = await pdaStat(...args)
-        if (st) fixStatObject(st)
-        return st
-      },
-      readFile: makeArchiveProxyPDAPromiseFn(key, version, 'readFile'),
-      readdir: makeArchiveProxyPDAPromiseFn(key, version, 'readdir'),
-      readSize: makeArchiveProxyPDAPromiseFn(key, version, 'readSize'),
-      writeFile: makeArchiveProxyPDAPromiseFn(key, version, 'writeFile'),
-      mkdir: makeArchiveProxyPDAPromiseFn(key, version, 'mkdir'),
-      copy: makeArchiveProxyPDAPromiseFn(key, version, 'copy'),
-      rename: makeArchiveProxyPDAPromiseFn(key, version, 'rename'),
-      unlink: makeArchiveProxyPDAPromiseFn(key, version, 'unlink'),
-      rmdir: makeArchiveProxyPDAPromiseFn(key, version, 'rmdir'),
-      download: makeArchiveProxyPDAPromiseFn(key, version, 'download'),
-      watch: makeArchiveProxyPDAReadStreamFn(key, version, 'watch'),
-      createNetworkActivityStream: makeArchiveProxyPDAReadStreamFn(key, version, 'createNetworkActivityStream'),
-      readManifest: makeArchiveProxyPDAPromiseFn(key, version, 'readManifest'),
-      writeManifest: makeArchiveProxyPDAPromiseFn(key, version, 'writeManifest'),
-      updateManifest: makeArchiveProxyPDAPromiseFn(key, version, 'updateManifest')
-    }
-  }
 }

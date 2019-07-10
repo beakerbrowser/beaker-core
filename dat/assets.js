@@ -13,7 +13,7 @@ const IDEAL_FAVICON_SIZE = 64
 // =
 
 /**
- * @typedef {import('./library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('./daemon').DaemonDatArchive} DaemonDatArchive
  */
 
 // globals
@@ -32,7 +32,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for assets.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {string[]?} filenames - which files to check.
  * @returns {Promise<void>}
  */
@@ -73,7 +73,7 @@ function extractAssetType (pathname) {
 /**
  * Reads the asset file as a dataurl
  * - Converts any .ico to .png
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @returns string The asset as a data URL
  */

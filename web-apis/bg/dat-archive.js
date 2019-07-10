@@ -232,7 +232,7 @@ module.exports = {
       var reverse = opts.reverse === true
       var {start, end} = opts
       var {archive, checkoutFS, isPreview} = await lookupArchive(this.sender, url, opts)
-      var archiveInfo = await datLibrary.getDaemon().getArchiveInfo(archive.key)
+      var archiveInfo = {} // TODO await datLibrary.getDaemon().getArchiveInfo(archive.key)
 
       if (isPreview) {
         // dont use the checkout FS in previews, it has no history() api
@@ -743,7 +743,7 @@ async function lookupArchive (sender, url, opts = {}) {
   if (!archive) archive = await datLibrary.loadArchive(archiveKey)
 
   // get specific checkout
-  var {checkoutFS, isHistoric, isPreview} = datLibrary.getArchiveCheckout(archive, version)
+  var {checkoutFS, isHistoric, isPreview} = await datLibrary.getArchiveCheckout(archive, version)
 
   return {archive, filepath, version, isHistoric, isPreview, checkoutFS}
 }

@@ -9,7 +9,6 @@ const {normalizeSchemaUrl} = require('./util')
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *

@@ -23,7 +23,7 @@ const JSON_PATH_REGEX = /^\/data\/comments\/([^/]+)\.json$/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
  *
@@ -68,7 +68,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for comments.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise}
  */
@@ -369,7 +369,7 @@ const get = exports.get = async function (url) {
  * @description
  * Create a new comment.
  *
- * @param {InternalDatArchive} archive - where to write the comment to.
+ * @param {DaemonDatArchive} archive - where to write the comment to.
  * @param {string} topic
  * @param {Object} comment
  * @param {string} comment.replyTo
@@ -403,7 +403,7 @@ exports.add = async function (archive, topic, comment) {
  * @description
  * Update the content of an existing comment.
  *
- * @param {InternalDatArchive} archive - where to write the comment to.
+ * @param {DaemonDatArchive} archive - where to write the comment to.
  * @param {string} pathname - the pathname of the comment.
  * @param {Object} comment
  * @param {string} [comment.replyTo]
@@ -446,7 +446,7 @@ exports.edit = async function (archive, pathname, comment) {
  * @description
  * Delete an existing comment
  *
- * @param {InternalDatArchive} archive - where to write the comment to.
+ * @param {DaemonDatArchive} archive - where to write the comment to.
  * @param {string} pathname - the pathname of the comment.
  * @returns {Promise<void>}
  */

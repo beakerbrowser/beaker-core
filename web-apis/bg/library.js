@@ -275,7 +275,7 @@ async function validateLocalPath (key, v) {
 
   // make sure the folder is usable
   try {
-    await datLibrary.getDaemon().fs_assertSafePath(v)
+    // TODO await datLibrary.getDaemon().fs_assertSafePath(v)
   } catch (e) {
     if (e.notFound) {
       var e2 = new Error('The target local folder can not be found')
@@ -287,7 +287,7 @@ async function validateLocalPath (key, v) {
 
   // make sure there are no conflicts with existing files
   var archive = await datLibrary.getOrLoadArchive(key)
-  var diff = await datLibrary.getDaemon().fs_diffListing(archive, {localSyncPath: v})
+  var diff = [] // TODO await datLibrary.getDaemon().fs_diffListing(archive, {localSyncPath: v})
   diff = diff.filter(d => d.change === 'mod' && d.path !== '/dat.json')
   if (diff.length) {
     var e = new Error('There are conflicting files in the target local folder')

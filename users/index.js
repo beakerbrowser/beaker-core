@@ -23,13 +23,13 @@ const LABEL_REGEX = /[a-z0-9-]/i
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  *
  * @typedef {Object} User
  * @prop {number} id
  * @prop {string} label
  * @prop {string} url
- * @prop {InternalDatArchive} archive
+ * @prop {DaemonDatArchive} archive
  * @prop {boolean} isDefault
  * @prop {boolean} isTemporary
  * @prop {string} title

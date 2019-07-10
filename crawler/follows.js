@@ -24,7 +24,7 @@ const JSON_PATH = '/data/follows.json'
 // =
 
 /**
- * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
  * @typedef {import('./site-descriptions').SiteDescription} SiteDescription
  *
@@ -52,7 +52,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @description
  * Crawl the given site for follows.
  *
- * @param {InternalDatArchive} archive - site to crawl.
+ * @param {DaemonDatArchive} archive - site to crawl.
  * @param {CrawlSourceRecord} crawlSource - internal metadata about the crawl target.
  * @returns {Promise<void>}
  */
@@ -245,7 +245,7 @@ const get = exports.get = async function (author, topic) {
  * @description
  * Add a follow to the given archive.
  *
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} topic
  * @param {Object} [opts]
  * @param {string} [opts.visibility]
@@ -273,7 +273,7 @@ exports.add = async function (archive, topic, opts) {
  * @description
  * Edit a follow for the given archive.
  *
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} topic
  * @param {Object} [opts]
  * @param {string} [opts.visibility]
@@ -298,7 +298,7 @@ exports.edit = async function (archive, topic, opts) {
  * @description
  * Remove a follow from the given archive.
  *
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {string} topic
  * @returns {Promise<void>}
  */
@@ -335,7 +335,7 @@ function toOrigin (url) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @returns {Promise<Object>}
  */
 async function readFollowsFile (archive) {
@@ -352,7 +352,7 @@ async function readFollowsFile (archive) {
 }
 
 /**
- * @param {InternalDatArchive} archive
+ * @param {DaemonDatArchive} archive
  * @param {function(Object): void} updateFn
  * @returns {Promise<void>}
  */
