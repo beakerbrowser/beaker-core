@@ -6,6 +6,7 @@ const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
 const _debounce = require('lodash.debounce')
 const mkdirp = require('mkdirp')
+const scopedFSes = require('../lib/scoped-fses')
 const baseLogger = require('../logger').get()
 const logger = baseLogger.child({category: 'dat', subcategory: 'library'})
 
@@ -19,6 +20,7 @@ const datDnsDb = require('../dbs/dat-dns')
 const daemon = require('./daemon')
 const datGC = require('./garbage-collector')
 const datAssets = require('./assets')
+const folderSync = require('./folder-sync')
 
 // constants
 // =
@@ -43,6 +45,7 @@ const {InvalidURLError, TimeoutError} = require('beaker-error-constants')
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archiveLoadPromises = {} // key -> promise
 var archiveSessionCheckouts = {} // key+version -> DaemonDatArchive
+var localSyncSettings = {} // key -> object
 var archivesEvents = new EventEmitter()
 // var daemonEvents TODO
 
@@ -59,6 +62,10 @@ var archivesEvents = new EventEmitter()
 exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
   // connect to the daemon
   await daemon.setup()
+  folderSync.setup({
+    datPath: archivesDb.getDatPath(),
+    disallowedSavePaths
+  })
   // daemonEvents = emitStream(daemon.createEventStream()) TODO
 
   // pipe the log
@@ -91,8 +98,11 @@ exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
       siteData.clearPermissionAllOrigins('modifyDat:' + key)
     }
 
-    // update the download based on these settings
-    // daemon.configureArchive(key, userSettings) TODO
+    // update the archive based on these settings
+    let archive = getArchive(key)
+    if (archive) {
+      folderSync.reconfigureArchive(archive, userSettings)
+    }
   })
   datDnsDb.on('update', ({key, name}) => {
     var archive = getArchive(key)
@@ -356,7 +366,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   mkdirp.sync(metaPath)
 
   // create the archive session with the daemon
-  var archive = daemon.createDatArchiveSession({key})
+  var archive = await daemon.createDatArchiveSession({key})
 
   // put the archive on the network
   archive.session.publish()
@@ -370,6 +380,9 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   await pullLatestArchiveMeta(archive)
   datAssets.update(archive)
 
+  // configure subsystems
+  folderSync.reconfigureArchive(archive, userSettings)
+
   // wire up events
   archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
   archive.fileActStream = archive.pda.watch()
@@ -379,6 +392,21 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
       datAssets.update(archive, [path])
     }
   })
+  // TODO
+  // archive.fileActStream = pda.watch(archive)
+  // archive.fileActStream.on('data', ([event, {path}]) => {
+  //   if (event === 'changed') {
+  //     if (!archive.localSyncSettings) return
+  //     // need to sync this change to the local folder
+  //     if (archive.localSyncSettings.autoPublish) {
+  //       // bidirectional sync: use the sync queue
+  //       folderSync.queueSyncEvent(archive, {toFolder: true})
+  //     } else {
+  //       // preview mode: just write this update to disk
+  //       folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
+  //     }
+  //   }
+  // })
 
   // now store in main archives listing, as loaded
   archives[datEncoding.toStr(archive.key)] = archive
@@ -401,9 +429,9 @@ exports.getArchiveCheckout = async function getArchiveCheckout (archive, version
         // ignore, we use latest by default
       } else if (version === 'preview') {
         isPreview = true
-        // TODO need to move scoped-fs management here
-        // checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
-        // checkoutFS.domain = archive.domain
+        checkoutFS = scopedFSes.get(localSyncSettings[archive.key].path)
+        checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
+        checkoutFS.domain = archive.domain
       } else {
         throw new Error('Invalid version identifier:' + version)
       }
