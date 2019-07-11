@@ -17,7 +17,7 @@ const LAB_API_ID = 'globalFetch'
 module.exports = {
   async fetch (reqOptions, reqBody) {
     // parse url
-    var urlp = new URL(reqOptions.url)
+    let urlp = new URL(reqOptions.url)
     reqOptions.protocol = urlp.protocol
     reqOptions.host = urlp.host
     reqOptions.path = urlp.pathname + urlp.search + urlp.hash
@@ -36,15 +36,15 @@ module.exports = {
 
     return new Promise((resolve, reject) => {
       // start request
-      var proto = urlp.protocol === 'https:' ? https : http
-      var reqStream = proto.request(reqOptions, resStream => {
+      let proto = urlp.protocol === 'https:' ? https : http
+      let reqStream = proto.request(reqOptions, resStream => {
         resStream.pipe(concat(resStream, resBody => {
           // resolve with response
           resolve({
             status: resStream.statusCode,
             statusText: resStream.statusMessage,
             headers: resStream.headers,
-            body: resBody
+            body: (resStream.statusCode != 204 && resStream.statusCode != 304 ? resBody : null)
           })
         }))
 
