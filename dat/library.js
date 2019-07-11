@@ -477,15 +477,13 @@ exports.queryArchives = async function queryArchives (query) {
   await Promise.all(archiveInfos.map(async (archiveInfo) => {
     var archive = getArchive(archiveInfo.key)
     if (archive) {
-      var info = {}//await daemon.getArchiveInfo(archiveInfo.key) TODO
+      var info = await archive.getInfo()
       archiveInfo.isSwarmed = archiveInfo.userSettings.networked
       archiveInfo.size = info.size
       archiveInfo.peers = info.peers
-      archiveInfo.peerHistory = info.peerHistory
     } else {
       archiveInfo.isSwarmed = false
       archiveInfo.peers = 0
-      archiveInfo.peerHistory = []
     }
   }))
   return isArray ? archiveInfos : archiveInfos[0]
@@ -501,7 +499,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     archivesDb.getMeta(key),
     archivesDb.getUserSettings(0, key),
     archive.pda.readManifest().catch(_ => {}),
-    {} // TODO daemon.getArchiveInfo(key)
+    archive.getInfo()
   ])
   manifest = manifest || {}
   meta.key = key
@@ -522,8 +520,6 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
     previewMode: userSettings.previewMode
   }
   meta.peers = archiveInfo.peers
-  meta.peerInfo = archiveInfo.peerInfo
-  meta.peerHistory = archiveInfo.peerHistory
   meta.networkStats = archiveInfo.networkStats
 
   return meta

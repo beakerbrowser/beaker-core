@@ -23,6 +23,7 @@ const DAEMON_PORT = 3101
 * @prop {function(): Promise<void>} session.close
 * @prop {function(): Promise<void>} session.publish
 * @prop {function(): Promise<void>} session.unpublish
+* @prop {function(): Promise<Object>} getInfo
 * @prop {function(string, Object=, Function=): any} readFile
 * @prop {function(string, any, Object=, Function=): void} writeFile
 * @prop {function(string, Object=, Function=): void} readdir
@@ -108,6 +109,15 @@ exports.createDatArchiveSession = async function (opts) {
       }
     },
 
+    async getInfo () {
+      // TODO pull from daemon
+      return {
+        version: 0,
+        size: 0,
+        peers: 0,
+        networkStats: {}
+      }
+    },
     stat: (...args) => {
       // wrap the callback with a method which fixes the stat object output
       var cb = args.pop()

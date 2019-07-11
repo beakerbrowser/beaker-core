@@ -53,7 +53,7 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   }
 
   // fetch current archive version
-  var archiveInfo = {}// TODO await dat.library.getDaemon().getArchiveInfo(archive.key)
+  var archiveInfo = await archive.getInfo()
   var version = archiveInfo ? archiveInfo.version : 0
 
   // fetch change log
