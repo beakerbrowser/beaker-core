@@ -6,6 +6,7 @@ const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
 const _debounce = require('lodash.debounce')
 const mkdirp = require('mkdirp')
+const pda = require('pauls-dat-api')
 const scopedFSes = require('../lib/scoped-fses')
 const baseLogger = require('../logger').get()
 const logger = baseLogger.child({category: 'dat', subcategory: 'library'})
@@ -286,14 +287,12 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
 
   // copy files
   var ignore = ['/.dat', '/.git', '/dat.json']
-  // TODO replace this
-  console.warn('Fork did not copy data, exportArchiveToArchive() not yet implemented')
-  // await daemon.exportArchiveToArchive({
-  //   srcArchive: datEncoding.toStr(srcArchive.key),
-  //   dstArchive: datEncoding.toStr(dstArchive.key),
-  //   skipUndownloadedFiles: true,
-  //   ignore
-  // })
+  await pda.exportArchiveToArchive({
+    srcArchive,
+    dstArchive,
+    skipUndownloadedFiles: true,
+    ignore
+  })
 
   // write a .datignore if DNE
   try {
