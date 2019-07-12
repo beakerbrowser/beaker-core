@@ -31,15 +31,18 @@ exports.setup = function (rpc) {
 
     // experimental.globalFetch
     experimental.globalFetch = async function globalFetch (input, init) {
-      var request = new Request(input, init)
+      let request = new Request(input, init)
       if (request.method !== 'HEAD' && request.method !== 'GET') {
         throw new Error('Only HEAD and GET requests are currently supported by globalFetch()')
       }
       try {
-        var responseData = await globalFetchRPC.fetch({
+        if (request.compress)
+          request.headers.set('accept-encoding', 'gzip,deflate')
+        let headers = {}
+        request.headers.forEach((val, name) => headers[name] = val)
+        let responseData = await globalFetchRPC.fetch({headers,
           method: request.method,
-          url: request.url,
-          headers: request.headers
+          url: request.url
         })
         return new Response(responseData.body, responseData)
       } catch (e) {
