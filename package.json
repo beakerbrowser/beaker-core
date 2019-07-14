@@ -49,7 +49,7 @@
     "fs-reverse": "0.0.3",
     "function-queue": "0.0.12",
     "hyperdrive-daemon": "^0.9.13",
-    "hyperdrive-daemon-client": "^0.9.9",
+    "hyperdrive-daemon-client": "^0.9.10",
     "hyperdrive-network-speed": "^2.1.0",
     "icojs": "^0.12.3",
     "identify-filetype": "^1.0.0",

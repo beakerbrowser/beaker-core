@@ -60,10 +60,20 @@ exports.setup = async function () {
   // fetch daemon metadata from disk
   var metadata
   try {
-    metadata = await loadMetadata()
+    metadata = await new Promise((resolve, reject) => {
+      loadMetadata((err, metadata) => {
+        if (err) reject(err)
+        else resolve(metadata)
+      })
+    })
   } catch (e) {
     await createMetadata(`localhost:${DAEMON_PORT}`)
-    metadata = await loadMetadata()
+    metadata = await new Promise((resolve, reject) => {
+      loadMetadata((err, metadata) => {
+        if (err) reject(err)
+        else resolve(metadata)
+      })
+    })
   }
 
   // instantiate the daemon
@@ -71,6 +81,7 @@ exports.setup = async function () {
   await startDaemon({
     storage: DAEMON_STORAGE_PATH,
     port: DAEMON_PORT,
+    bootstrap: [],
     metadata
   })
 
@@ -91,11 +102,11 @@ exports.setup = async function () {
 exports.createDatArchiveSession = async function (opts) {
   const session = await client.drive.get(opts)
   const sessionId = session.id
-  const key = datEncoding.toStr(opts.key)
+  const key = datEncoding.toStr(session.opts.key)
   var datArchive = {
     key: datEncoding.toBuf(key),
     url: `dat://${key}`,
-    writable: false, // TODO
+    writable: true, // TODO
 
     session: {
       async close () {
@@ -127,8 +138,13 @@ exports.createDatArchiveSession = async function (opts) {
       })
       client.drive.stat(sessionId, ...args)
     },
-    readFile: (...args) => client.drive.readFile(sessionId, ...args),
-    writeFile: (...args) => client.drive.writeFile(sessionId, ...args),
+    // readFile: (...args) => client.drive.readFile(sessionId, ...args), TODO opts not accepted by daemon yet
+    readFile: (path, opts, cb) => {
+      client.drive.readFile(sessionId, path, cb ? cb : opts)
+    },
+    // writeFile: (...args) => client.drive.writeFile(sessionId, ...args), TODO encoding/opts not accepted by daemon yet
+    writeFile: (path, content, encoding, cb) => client.drive.writeFile(sessionId, path, content, cb),
+
     readdir: (...args) => client.drive.readdir(sessionId, ...args),
     // ready: makeArchiveProxyCbFn(key, version, 'ready'),
     // download: makeArchiveProxyCbFn(key, version, 'download'),

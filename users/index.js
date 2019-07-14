@@ -436,6 +436,7 @@ async function validateUserUrl (url) {
  * @returns {void}
  */
 function startWatch (user) {
+  return // TODO
   /* dont await */crawler.watchSite(user.archive)
   watchThumb(user)
   watchAndSyncBookmarks(user)

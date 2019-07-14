@@ -321,6 +321,16 @@ ${html}`
     })
   }
 
+  // TODO
+  // replace this with createReadStream when that method is available
+  var content = await checkoutFS.pda.readFile(entry.path)
+  Object.assign(headers, {
+    'Content-Type': mime.identify(entry.path)
+  })
+  respond({statusCode, headers, data: intoStream(content)})
+  cleanup()
+  return
+
   // fetch the entry and stream the response
   fileReadStream = checkoutFS.createReadStream(entry.path, range)
   var dataStream = fileReadStream

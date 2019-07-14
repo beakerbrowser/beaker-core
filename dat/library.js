@@ -119,14 +119,15 @@ exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
   // daemonEvents.on('folder-sync-error', evt => archivesEvents.emit('folder-sync-error', evt))
 
   // configure the bandwidth throttle
-  settingsDb.getAll().then(({dat_bandwidth_limit_up, dat_bandwidth_limit_down}) => {
-    daemon.setBandwidthThrottle({
-      up: dat_bandwidth_limit_up,
-      down: dat_bandwidth_limit_down
-    })
-  })
-  settingsDb.on('set:dat_bandwidth_limit_up', up => daemon.setBandwidthThrottle({up}))
-  settingsDb.on('set:dat_bandwidth_limit_down', down => daemon.setBandwidthThrottle({down}))
+  // TODO
+  // settingsDb.getAll().then(({dat_bandwidth_limit_up, dat_bandwidth_limit_down}) => {
+  //   daemon.setBandwidthThrottle({
+  //     up: dat_bandwidth_limit_up,
+  //     down: dat_bandwidth_limit_down
+  //   })
+  // })
+  // settingsDb.on('set:dat_bandwidth_limit_up', up => daemon.setBandwidthThrottle({up}))
+  // settingsDb.on('set:dat_bandwidth_limit_down', down => daemon.setBandwidthThrottle({down}))
 
   // start the GC manager
   datGC.setup()
@@ -184,9 +185,6 @@ exports.createDebugStream = function createDebugStream () {
 const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pullLatestArchiveMeta (archive, {updateMTime} = {}) {
   try {
     var key = archive.key.toString('hex')
-
-    // ready() just in case (we need .blocks)
-    await pify(archive.ready.bind(archive))()
 
     // trigger DNS update
     confirmDomain(key)
@@ -309,7 +307,6 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
 
 const loadArchive = exports.loadArchive = async function loadArchive (key, userSettings = null) {
   // validate key
-  var secretKey
   if (key) {
     if (!Buffer.isBuffer(key)) {
       // existing dat
@@ -319,35 +316,32 @@ const loadArchive = exports.loadArchive = async function loadArchive (key, userS
       }
       key = datEncoding.toBuf(key)
     }
-  } else {
-    // new dat, generate keys
-    var kp = signatures.keyPair()
-    key = kp.publicKey
-    secretKey = kp.secretKey
   }
 
   // fallback to the promise, if possible
-  var keyStr = datEncoding.toStr(key)
-  if (keyStr in archiveLoadPromises) {
+  var keyStr = key ? datEncoding.toStr(key) : null
+  if (keyStr && keyStr in archiveLoadPromises) {
     return archiveLoadPromises[keyStr]
   }
 
   // run and cache the promise
-  var p = loadArchiveInner(key, secretKey, userSettings)
-  archiveLoadPromises[keyStr] = p
+  var p = loadArchiveInner(key, userSettings)
+  if (key) archiveLoadPromises[keyStr] = p
   p.catch(err => {
     console.error('Failed to load archive', keyStr, err.toString())
   })
 
   // when done, clear the promise
-  const clear = () => delete archiveLoadPromises[keyStr]
-  p.then(clear, clear)
+  if (key) {
+    const clear = () => delete archiveLoadPromises[keyStr]
+    p.then(clear, clear)
+  }
 
   return p
 }
 
 // main logic, separated out so we can capture the promise
-async function loadArchiveInner (key, secretKey, userSettings = null) {
+async function loadArchiveInner (key, userSettings = null) {
   // load the user settings as needed
   if (!userSettings) {
     try {
@@ -361,8 +355,9 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   }
 
   // ensure the folders exist
-  var metaPath = archivesDb.getArchiveMetaPath(key)
-  mkdirp.sync(metaPath)
+  // TODO needed?
+  // var metaPath = archivesDb.getArchiveMetaPath(key)
+  // mkdirp.sync(metaPath)
 
   // create the archive session with the daemon
   var archive = await daemon.createDatArchiveSession({key})
@@ -375,22 +370,22 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   archive.domain = dnsRecord ? dnsRecord.name : undefined
 
   // update db
-  archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
+  archivesDb.touch(archive.key).catch(err => console.error('Failed to update lastAccessTime for archive', archive.key, err))
   await pullLatestArchiveMeta(archive)
   datAssets.update(archive)
-
   // configure subsystems
   folderSync.reconfigureArchive(archive, userSettings)
 
   // wire up events
   archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
-  archive.fileActStream = archive.pda.watch()
-  archive.fileActStream.on('data', ([event, {path}]) => {
-    if (event === 'changed') {
-      archive.pullLatestArchiveMeta({updateMTime: true})
-      datAssets.update(archive, [path])
-    }
-  })
+  // TODO
+  // archive.fileActStream = archive.pda.watch()
+  // archive.fileActStream.on('data', ([event, {path}]) => {
+  //   if (event === 'changed') {
+  //     archive.pullLatestArchiveMeta({updateMTime: true})
+  //     datAssets.update(archive, [path])
+  //   }
+  // })
   // TODO
   // archive.fileActStream = pda.watch(archive)
   // archive.fileActStream.on('data', ([event, {path}]) => {
