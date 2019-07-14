@@ -1,6 +1,6 @@
 const parseDatURL = require('parse-dat-url')
 const {InvalidDomainName} = require('beaker-error-constants')
-const sitedataDb = require('../dbs/sitedata')
+const datDnsDb = require('../dbs/dat-dns')
 const {DAT_HASH_REGEX} = require('../lib/const')
 const logger = require('../logger').child({category: 'dat', subcategory: 'dns'})
 
@@ -25,14 +25,13 @@ datDns.resolveName = async function (name, opts, cb) {
 }
 
 // persistent cache methods
-const sitedataDbOpts = {dontExtractOrigin: true}
 async function read (name, err) {
   // check the cache
-  var key = await sitedataDb.get('dat:' + name, 'dat-key', sitedataDbOpts)
-  if (!key) throw err
-  return key
+  var record = await datDnsDb.getCurrentByName(name)
+  if (!record) throw err
+  return record.key
 }
 async function write (name, key) {
   if (DAT_HASH_REGEX.test(name)) return // dont write for raw urls
-  await sitedataDb.set('dat:' + name, 'dat-key', key, sitedataDbOpts)
+  await datDnsDb.update({name, key})
 }

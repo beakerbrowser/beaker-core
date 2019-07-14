@@ -253,9 +253,6 @@ exports.WEBAPI = {
 async function extractOrigin (originURL) {
   var urlp = parseDatUrl(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return
-  if (urlp.protocol === 'dat:') {
-    urlp.host = await datDns.resolveName(urlp.host)
-  }
   return (urlp.protocol + urlp.host)
 }
 

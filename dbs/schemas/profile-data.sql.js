@@ -55,6 +55,17 @@ CREATE TABLE archives_meta_type (
   type TEXT
 );
 
+CREATE TABLE dat_dns (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  key TEXT,
+  isCurrent INTEGER,
+  lastConfirmedAt INTEGER,
+  firstConfirmedAt INTEGER
+);
+CREATE INDEX dat_dns_name ON dat_dns (name);
+CREATE INDEX dat_dns_key ON dat_dns (key);
+
 CREATE TABLE bookmarks (
   profileId INTEGER,
   url TEXT NOT NULL,
@@ -130,7 +141,8 @@ CREATE TABLE templates (
 -- list of sites being crawled
 CREATE TABLE crawl_sources (
   id INTEGER PRIMARY KEY NOT NULL,
-  url TEXT NOT NULL
+  url TEXT NOT NULL,
+  datDnsId INTEGER,
 );
 
 -- tracking information on the crawl-state of the sources
@@ -454,5 +466,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 34;
+PRAGMA user_version = 35;
 `

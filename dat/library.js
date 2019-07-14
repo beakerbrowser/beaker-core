@@ -13,6 +13,7 @@ const logger = baseLogger.child({category: 'dat', subcategory: 'library'})
 const siteData = require('../dbs/sitedata')
 const settingsDb = require('../dbs/settings')
 const archivesDb = require('../dbs/archives')
+const datDnsDb = require('../dbs/dat-dns')
 
 // dat modules
 const datGC = require('./garbage-collector')
@@ -38,6 +39,7 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
  * @typedef {Object} InternalDatArchive
  * @prop {Buffer} key
  * @prop {string} url
+ * @prop {string?} dnsName
  * @prop {Buffer} discoveryKey
  * @prop {boolean} writable
  * @prop {function(Function): void} ready
@@ -130,6 +132,12 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
 
     // update the download based on these settings
     daemon.configureArchive(key, userSettings)
+  })
+  datDnsDb.on('update', ({key, name}) => {
+    var archive = getArchive(key)
+    if (archive) {
+      archive.dnsName = name
+    }
   })
 
   // re-export events
@@ -395,6 +403,10 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   // create the archive proxy instance
   var archive = createArchiveProxy(key, undefined, archiveInfo)
 
+  // fetch dns name if known
+  let dnsRecord = await datDnsDb.getCurrentByKey(datEncoding.toStr(key))
+  archive.dnsName = dnsRecord ? dnsRecord.name : undefined
+
   // update db
   archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
   await pullLatestArchiveMeta(archive)
@@ -432,11 +444,13 @@ exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
       } else if (version === 'preview') {
         isPreview = true
         checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
+        checkoutFS.dnsName = archive.dnsName
       } else {
         throw new Error('Invalid version identifier:' + version)
       }
     } else {
       checkoutFS = createArchiveProxy(archive.key, version, archive)
+      checkoutFS.dnsName = archive.dnsName
       isHistoric = true
     }
   }
@@ -511,7 +525,7 @@ exports.queryArchives = async function queryArchives (query) {
 
 exports.getArchiveInfo = async function getArchiveInfo (key) {
   // get the archive
-  key = fromURLToKey(key)
+  key = await fromURLToKey(key, true)
   var archive = await getOrLoadArchive(key)
 
   // fetch archive data
@@ -523,7 +537,8 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   ])
   manifest = manifest || {}
   meta.key = key
-  meta.url = `dat://${key}`
+  meta.url = archive.url
+  meta.dnsName = archive.dnsName
   meta.links = manifest.links || {}
   meta.manifest = manifest
   meta.version = archiveInfo.version
@@ -630,13 +645,23 @@ function fixStatObject (st) {
   st.isFIFO = () => false
 }
 
+/**
+ * 
+ * @param {string|Buffer} key 
+ * @param {number} version 
+ * @param {Object} archiveInfo 
+ * @returns {InternalDatArchive}
+ */
 function createArchiveProxy (key, version, archiveInfo) {
   key = datEncoding.toStr(key)
   const stat = makeArchiveProxyCbFn(key, version, 'stat')
   const pdaStat = makeArchiveProxyPDAPromiseFn(key, version, 'stat')
   return {
     key: datEncoding.toBuf(key),
-    url: `dat://${key}`,
+    get url () {
+      return `dat://${this.dnsName || key}${version ? '+' + version : ''}`
+    },
+    dnsName: undefined,
     discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
     writable: archiveInfo.writable,
 

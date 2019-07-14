@@ -2,6 +2,7 @@ const EventEmitter = require('events')
 const pump = require('pump')
 const concat = require('concat-stream')
 const db = require('../dbs/profile-data-db')
+const knex = require('../lib/knex')
 const dat = require('../dat')
 
 const READ_TIMEOUT = 30e3
@@ -15,6 +16,8 @@ const READ_TIMEOUT = 30e3
  * @typedef {Object} CrawlSourceRecord
  * @prop {string} id
  * @prop {string} url
+ * @prop {number} datDnsId
+ * @prop {boolean} globalResetRequired
  */
 
 // exported api
@@ -36,11 +39,12 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
 
   // fetch current crawl state
   var resetRequired = false
-  var state = await db.get(`
-    SELECT crawlSourceVersion, crawlDatasetVersion FROM crawl_sources_meta
-      WHERE crawlSourceId = ? AND crawlDataset = ?
-  `, [crawlSource.id, crawlDataset])
-  if (state && state.crawlDatasetVersion !== crawlDatasetVersion) {
+  var state = await db.get(
+    knex('crawl_sources_meta')
+      .select('crawl_sources_meta.*')
+      .where({crawlSourceId: crawlSource.id, crawlDataset})
+  )
+  if (crawlSource.globalResetRequired || (state && state.crawlDatasetVersion !== crawlDatasetVersion)) {
     resetRequired = true
     state = null
   }
@@ -82,12 +86,15 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
  * @returns {Promise}
  */
 const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlDatasetVersion, crawlSource, crawlSourceVersion) {
-  await db.run(`DELETE FROM crawl_sources_meta WHERE crawlDataset = ? AND crawlSourceId = ?`, [crawlDataset, crawlSource.id])
-  await db.run(`
-    INSERT
-      INTO crawl_sources_meta (crawlDataset, crawlDatasetVersion, crawlSourceId, crawlSourceVersion, updatedAt)
-      VALUES (?, ?, ?, ?, ?)
-  `, [crawlDataset, crawlDatasetVersion, crawlSource.id, crawlSourceVersion, Date.now()])
+  // TODO chould this be an INSERT OR REPLACE?
+  await db.run(knex('crawl_sources_meta').delete().where({crawlDataset, crawlSourceId: crawlSource.id}))
+  await db.run(knex('crawl_sources_meta').insert({
+    crawlDataset,
+    crawlDatasetVersion,
+    crawlSourceId: crawlSource.id,
+    crawlSourceVersion,
+    updatedAt: Date.now()
+  }))
 }
 
 /**

@@ -370,11 +370,10 @@ async function selectNextCrawlTargets (user) {
  * @returns {Promise<User>}
  */
 async function fetchUserInfo (user) {
-  var urlp = new URL(user.url)
-  var meta = await archivesDb.getMeta(urlp.hostname)
+  var meta = await archivesDb.getMeta(user.archive.key)
   return {
     label: user.label,
-    url: normalizeUrl(user.url),
+    url: user.archive.url,
     archive: user.archive,
     isDefault: user.isDefault,
     isTemporary: user.isTemporary,

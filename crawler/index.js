@@ -2,6 +2,7 @@ const emitStream = require('emit-stream')
 const _throttle = require('lodash.throttle')
 const logger = require('../logger').category('crawler')
 const lock = require('../lib/lock')
+const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
@@ -84,11 +85,33 @@ exports.crawlSite = async function (archive) {
   crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
   try {
+    // use DNS only on non-local archives
+    const useDns = !archive.writable
+    var url = useDns ? archive.url : `dat://${archive.key.toString('hex')}`
+
+    // fetch current dns record
+    var datDnsRecord = null
+    if (useDns && archive.dnsName) {
+      datDnsRecord = await db.get(knex('dat_dns').where({name: archive.dnsName, isCurrent: 1}))
+    }
+
     // get/create crawl source
-    var crawlSource = await db.get(`SELECT id, url FROM crawl_sources WHERE url = ?`, [archive.url])
+    var crawlSource = await db.get(`SELECT id, url, datDnsId FROM crawl_sources WHERE url = ?`, [url])
     if (!crawlSource) {
-      let res = await db.run(`INSERT INTO crawl_sources (url) VALUES (?)`, [archive.url])
-      crawlSource = {id: res.lastID, url: archive.url}
+      let res = await db.run(knex('crawl_sources').insert({
+        url,
+        datDnsId: datDnsRecord ? datDnsRecord.id : undefined
+      }))
+      crawlSource = {id: res.lastID, url, datDnsId: datDnsRecord ? datDnsRecord.id : undefined}
+    }
+    crawlSource.globalResetRequired = false
+
+    // check for dns changes
+    var didDnsChange = datDnsRecord && crawlSource.datDnsId !== datDnsRecord.id
+    if (didDnsChange) {
+      crawlSource.globalResetRequired = true
+      logger.verbose('Site DNS change detected, recrawling site', {details: {url: archive.url}})
+      crawlerEvents.emit('crawl-dns-change', {sourceUrl: archive.url})
     }
 
     // crawl individual sources
@@ -103,6 +126,15 @@ exports.crawlSite = async function (archive) {
       siteDescriptions.crawlSite(archive, crawlSource),
       votes.crawlSite(archive, crawlSource)
     ])
+
+    // update dns tracking
+    if (didDnsChange) {
+      await db.run(
+        knex('crawl_sources')
+          .update({datDnsId: datDnsRecord.id})
+          .where({id: crawlSource.id})
+      )
+    }
   } catch (err) {
     logger.error('Failed to crawl site', {details: {url: archive.url, err: err.toString()}})
     crawlerEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
@@ -131,8 +163,13 @@ exports.getCrawlStates = async function () {
     for (let i = 0; i < datasets.length; i++) {
       datasetVersions[datasets[i]] = Number(versions[i])
     }
-    var meta = await archivesDb.getMeta(toHostname(url))
-    return {url, title: meta.title, datasetVersions, updatedAt}
+    try {
+      var meta = await archivesDb.getMeta(toHostname(url))
+      return {url, title: meta.title, datasetVersions, updatedAt}
+    } catch (e) {
+      console.error('Error loading archive meta', url, e)
+      return {url, title: '', datasetVersions: {}, updatedAt: null}
+    }
   }))
 }
 
