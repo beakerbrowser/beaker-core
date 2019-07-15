@@ -24,7 +24,7 @@ async function get (url) {
   var archive = /** @type LibraryArchiveRecord */(await datLibrary.queryArchives({key}))
   if (!archive) return null
   return {
-    url: toOrigin(url),
+    url: toOrigin(archive.url),
     title: archive.title,
     description: archive.description,
     type: archive.type

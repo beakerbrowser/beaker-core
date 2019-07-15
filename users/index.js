@@ -89,6 +89,7 @@ exports.setup = async function () {
     // fetch the user archive
     try {
       user.archive = await dat.library.getOrLoadArchive(user.url)
+      user.url = user.archive.url // copy the archive url, which includes the dnsName if set
       startWatch(user)
       events.emit('load-user', user)
     } catch (err) {
@@ -234,6 +235,7 @@ exports.add = async function (label, url, setDefault = false, isTemporary = fals
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
+  user.url = user.archive.url // copy the archive url, which includes the dnsName if set
   startWatch(user)
   events.emit('load-user', user)
   return fetchUserInfo(user)
@@ -277,6 +279,7 @@ exports.edit = async function (url, opts) {
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
+  user.url = user.archive.url // copy the archive url, which includes the dnsName if set
   return fetchUserInfo(user)
 }
 
