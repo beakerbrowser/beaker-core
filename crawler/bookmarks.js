@@ -4,6 +4,7 @@ const Events = require('events')
 const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'bookmarks'})
 const db = require('../dbs/profile-data-db')
+const datLibrary = require('../dat/library')
 const knex = require('../lib/knex')
 const crawler = require('./index')
 const siteDescriptions = require('./site-descriptions')
@@ -179,7 +180,7 @@ exports.query = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(toAuthorOrigin)
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('tags' in opts.filters) {
       if (Array.isArray(opts.filters.tags)) {
@@ -339,19 +340,6 @@ exports.deleteBookmark = async function (archive, pathname) {
 
 // internal methods
 // =
-
-/**
- * @param {string} url
- * @returns {string}
- */
-function toAuthorOrigin (url) {
-  try {
-    var urlParsed = new URL(url)
-    return urlParsed.protocol + '//' + urlParsed.hostname
-  } catch (e) {
-    throw new Error('Invalid URL: ' + url)
-  }
-}
 
 /**
  * @param {string} origin

@@ -39,7 +39,7 @@ const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
  * @typedef {Object} InternalDatArchive
  * @prop {Buffer} key
  * @prop {string} url
- * @prop {string?} dnsName
+ * @prop {string?} domain
  * @prop {Buffer} discoveryKey
  * @prop {boolean} writable
  * @prop {function(Function): void} ready
@@ -136,7 +136,7 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
   datDnsDb.on('update', ({key, name}) => {
     var archive = getArchive(key)
     if (archive) {
-      archive.dnsName = name
+      archive.domain = name
     }
   })
 
@@ -218,6 +218,9 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 
     // ready() just in case (we need .blocks)
     await pify(archive.ready.bind(archive))()
+
+    // trigger DNS update
+    confirmDomain(key)
 
     // read the archive meta and size on disk
     var [manifest, oldMeta, size] = await Promise.all([
@@ -405,7 +408,7 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
 
   // fetch dns name if known
   let dnsRecord = await datDnsDb.getCurrentByKey(datEncoding.toStr(key))
-  archive.dnsName = dnsRecord ? dnsRecord.name : undefined
+  archive.domain = dnsRecord ? dnsRecord.name : undefined
 
   // update db
   archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
@@ -444,13 +447,13 @@ exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
       } else if (version === 'preview') {
         isPreview = true
         checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
-        checkoutFS.dnsName = archive.dnsName
+        checkoutFS.domain = archive.domain
       } else {
         throw new Error('Invalid version identifier:' + version)
       }
     } else {
       checkoutFS = createArchiveProxy(archive.key, version, archive)
-      checkoutFS.dnsName = archive.dnsName
+      checkoutFS.domain = archive.domain
       isHistoric = true
     }
   }
@@ -538,7 +541,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   manifest = manifest || {}
   meta.key = key
   meta.url = archive.url
-  meta.dnsName = archive.dnsName
+  meta.domain = archive.domain
   meta.links = manifest.links || {}
   meta.manifest = manifest
   meta.version = archiveInfo.version
@@ -569,6 +572,49 @@ exports.getArchiveNetworkStats = async function getArchiveNetworkStats (key) {
 exports.clearFileCache = async function clearFileCache (key) {
   var userSettings = await archivesDb.getUserSettings(0, key)
   return daemon.clearFileCache(key, userSettings)
+}
+
+/**
+ * @desc
+ * Get the primary URL for a given dat URL
+ *
+ * @param {string} url
+ * @returns {Promise<string>}
+ */
+const getPrimaryUrl = exports.getPrimaryUrl = async function (url) {
+  var key = await fromURLToKey(url, true)
+  var datDnsRecord = await datDnsDb.getCurrentByKey(key)
+  if (!datDnsRecord) return `dat://${key}`
+  return `dat://${datDnsRecord.name}`
+}
+
+/**
+ * @desc
+ * Check that the archive's dat.json `domain` matches the current DNS
+ * If yes, write the confirmed entry to the dat_dns table
+ *
+ * @param {string} key
+ * @returns {Promise<boolean>}
+ */
+const confirmDomain = exports.confirmDomain = async function (key) {
+  // fetch the current domain from the manifest
+  var archive = await getOrLoadArchive(key)
+  var datJson = await archive.pda.readManifest()
+  if (!datJson.domain) {
+    await datDnsDb.unset(key)
+    return false
+  }
+
+  // confirm match with current DNS
+  var dnsKey = await require('./dns').resolveName(datJson.domain)
+  if (key !== dnsKey) {
+    await datDnsDb.unset(key)
+    return false
+  }
+
+  // update mapping
+  await datDnsDb.update({name: datJson.domain, key})
+  return true
 }
 
 // helpers
@@ -659,9 +705,9 @@ function createArchiveProxy (key, version, archiveInfo) {
   return {
     key: datEncoding.toBuf(key),
     get url () {
-      return `dat://${this.dnsName || key}${version ? '+' + version : ''}`
+      return `dat://${this.domain || key}${version ? '+' + version : ''}`
     },
-    dnsName: undefined,
+    domain: undefined,
     discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
     writable: archiveInfo.writable,
 

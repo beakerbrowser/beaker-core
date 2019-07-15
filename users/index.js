@@ -26,6 +26,7 @@ const LABEL_REGEX = /[a-z0-9-]/i
  * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
  *
  * @typedef {Object} User
+ * @prop {number} id
  * @prop {string} label
  * @prop {string} url
  * @prop {InternalDatArchive} archive
@@ -89,7 +90,7 @@ exports.setup = async function () {
     // fetch the user archive
     try {
       user.archive = await dat.library.getOrLoadArchive(user.url)
-      user.url = user.archive.url // copy the archive url, which includes the dnsName if set
+      user.url = user.archive.url // copy the archive url, which includes the domain if set
       startWatch(user)
       events.emit('load-user', user)
     } catch (err) {
@@ -132,10 +133,10 @@ async function tick () {
             // load archive
             var wasLoaded = true // TODO
             var archive = await dat.library.getOrLoadArchive(crawlTarget) // TODO timeout on load
-    
+
             // run crawl
             await crawler.crawlSite(archive)
-    
+
             if (!wasLoaded) {
               // unload archive
               // TODO
@@ -199,6 +200,16 @@ exports.getDefault = async function () {
 }
 
 /**
+ * @return {string}
+ */
+const getDefaultUrl =
+exports.getDefaultUrl = function () {
+  var user = users.find(user => user.isDefault === true)
+  if (!user) return null
+  return user.url
+}
+
+/**
  * @param {string} label
  * @param {string} url
  * @param {boolean} [setDefault=false]
@@ -235,7 +246,7 @@ exports.add = async function (label, url, setDefault = false, isTemporary = fals
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
-  user.url = user.archive.url // copy the archive url, which includes the dnsName if set
+  user.url = user.archive.url // copy the archive url, which includes the domain if set
   startWatch(user)
   events.emit('load-user', user)
   return fetchUserInfo(user)
@@ -279,7 +290,7 @@ exports.edit = async function (url, opts) {
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
-  user.url = user.archive.url // copy the archive url, which includes the dnsName if set
+  user.url = user.archive.url // copy the archive url, which includes the domain if set
   return fetchUserInfo(user)
 }
 
@@ -381,6 +392,7 @@ async function selectNextCrawlTargets (user) {
 async function fetchUserInfo (user) {
   var meta = await archivesDb.getMeta(user.archive.key)
   return {
+    id: user.id,
     label: user.label,
     url: user.archive.url,
     archive: user.archive,

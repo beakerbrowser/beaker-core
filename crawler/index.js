@@ -6,6 +6,7 @@ const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
+const users = require('../users')
 
 const {crawlerEvents, toHostname} = require('./util')
 const bookmarks = require('./bookmarks')
@@ -68,6 +69,7 @@ exports.watchSite = async function (archive) {
 
 exports.unwatchSite = async function (url) {
   // stop watching for file changes
+  url = await dat.library.getPrimaryUrl(url)
   if (url in watches) {
     logger.silly('Unwatching site', {url})
     crawlerEvents.emit('unwatch', {sourceUrl: url})
@@ -89,8 +91,8 @@ exports.crawlSite = async function (archive) {
 
     // fetch current dns record
     var datDnsRecord = null
-    if (archive.dnsName) {
-      datDnsRecord = await db.get(knex('dat_dns').where({name: archive.dnsName, isCurrent: 1}))
+    if (archive.domain) {
+      datDnsRecord = await db.get(knex('dat_dns').where({name: archive.domain, isCurrent: 1}))
     }
 
     // get/create crawl source
@@ -173,6 +175,7 @@ exports.getCrawlStates = async function () {
 
 const resetSite =
 exports.resetSite = async function (url) {
+  url = await dat.library.getPrimaryUrl(url)
   var release = await lock('crawl:' + url)
   try {
     logger.debug('Resetting site', {details: {url}})
@@ -186,9 +189,6 @@ exports.WEBAPI = {
   listSuggestions: require('./search').listSuggestions,
   createEventsStream,
   getCrawlStates,
-  crawlSite: async (url) => {
-    var archive = await dat.library.getOrLoadArchive(url)
-    return crawlSite(archive)
-  },
+  crawlSite,
   resetSite
 }

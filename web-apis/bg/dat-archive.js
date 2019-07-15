@@ -170,7 +170,7 @@ module.exports = {
       return {
         key: info.key,
         url: info.url,
-        dnsName: info.dnsName,
+        domain: info.domain,
         isOwner: info.isOwner,
         // networked: info.userSettings.networked,
 

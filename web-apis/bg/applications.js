@@ -35,7 +35,7 @@ module.exports = {
    * @returns {Promise<WebAPIApplication>}
    */
   async getInfo (url) {
-    url = await appPerms.toDatOrigin(url)
+    url = toDatOrigin(url)
     var userId = await appPerms.getSessionUserId(this.sender)
     var record = await db.get(knex('installed_applications').where({userId, url}))
     var archiveInfo = await dat.library.getArchiveInfo(url)
@@ -47,7 +47,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async install (url) {
-    url = await appPerms.toDatOrigin(url)
+    url = toDatOrigin(url)
     var userId = await appPerms.getSessionUserId(this.sender)
     var archiveInfo = await dat.library.getArchiveInfo(url)
     var record = await db.get(knex('installed_applications').where({userId, url}))
@@ -69,7 +69,6 @@ module.exports = {
   async requestInstall (url) {
     // run the install modal
     try {
-      console.log('showing modal')
       return globals.uiAPI.showModal(this.sender, 'install-application', {url})
     } catch (e) {
       console.log('ohno', e)
@@ -97,7 +96,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async enable (url) {
-    url = await appPerms.toDatOrigin(url)
+    url = toDatOrigin(url)
     var userId = await appPerms.getSessionUserId(this.sender)
     await db.run(knex('installed_applications').update({enabled: 1}).where({userId, url}))
   },
@@ -107,7 +106,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async disable (url) {
-    url = await appPerms.toDatOrigin(url)
+    url = toDatOrigin(url)
     var userId = await appPerms.getSessionUserId(this.sender)
     await db.run(knex('installed_applications').update({enabled: 0}).where({userId, url}))
   },
@@ -117,7 +116,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async uninstall (url) {
-    url = await appPerms.toDatOrigin(url)
+    url = toDatOrigin(url)
     var userId = await appPerms.getSessionUserId(this.sender)
     await sitedataDb.setAppPermissions(url, {})
     await db.run(knex('installed_applications').delete().where({userId, url}))
@@ -126,6 +125,16 @@ module.exports = {
 
 // internal methods
 // =
+
+function toDatOrigin (url) {
+  try {
+    var urlParsed = new URL(url)
+  } catch (e) {
+    throw new Error('Invalid URL: ' + url)
+  }
+  if (urlParsed.protocol !== 'dat:') throw new Error('Can only install dat applications')
+  return `${urlParsed.protocol}//${urlParsed.hostname}`.replace('+preview', '')
+}
 
 function getArchivePerms (archiveInfo) {
   try {

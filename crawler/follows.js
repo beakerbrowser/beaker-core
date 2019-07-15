@@ -8,6 +8,7 @@ const lock = require('../lib/lock')
 const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
+const datLibrary = require('../dat/library')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
 const followsSchema = require('./json-schemas/follows')
@@ -90,8 +91,13 @@ exports.crawlSite = async function (archive, crawlSource) {
     }
 
     // diff against the current follows
-    var currentFollowObjects = await list({filters: {authors: archive.url}})
-    var currentFollows = currentFollowObjects.map(({topic}) => topic.url)
+    var currentFollowRows = await db.all(
+      knex('crawl_follows')
+        .select('crawl_follows.*')
+        .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_follows.crawlSourceId')
+        .where('crawl_sources.url', archive.url)
+    )
+    var currentFollows = currentFollowRows.map(({destUrl}) => destUrl)
     var newFollows = followsJson.urls
     var adds = _difference(newFollows, currentFollows)
     var removes = _difference(currentFollows, newFollows)
@@ -164,7 +170,7 @@ const list = exports.list = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('topics' in opts.filters) {
       if (Array.isArray(opts.filters.topics)) {
@@ -173,7 +179,7 @@ const list = exports.list = async function (opts) {
         assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
         opts.filters.topics = [opts.filters.topics]
       }
-      opts.filters.topics = opts.filters.topics.map(url => toOrigin(url))
+      opts.filters.topics = await Promise.all(opts.filters.topics.map(datLibrary.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -217,8 +223,8 @@ const list = exports.list = async function (opts) {
  * @returns {Promise<Follow>}
  */
 const get = exports.get = async function (author, topic) {
-  author = toOrigin(author)
-  topic = toOrigin(topic)
+  author = await datLibrary.getPrimaryUrl(author)
+  topic = await datLibrary.getPrimaryUrl(topic)
   var res = await db.get(knex('crawl_follows')
     .select('crawl_follows.*')
     .select('crawl_sources.url AS authorUrl')
@@ -249,7 +255,7 @@ exports.add = async function (archive, topic, opts) {
   // TODO visibility
 
   // normalize topic
-  topic = toOrigin(topic)
+  topic = await datLibrary.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
   // write new follows.json
@@ -277,7 +283,7 @@ exports.edit = async function (archive, topic, opts) {
   // TODO visibility
 
   // normalize topic
-  topic = toOrigin(topic)
+  topic = await datLibrary.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
   // write new follows.json
@@ -300,7 +306,7 @@ exports.remove = async function (archive, topic) {
   // TODO private follows
 
   // normalize topic
-  topic = toOrigin(topic)
+  topic = await datLibrary.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Unfollow() must be given a valid URL')
 
   // write new follows.json

@@ -21,7 +21,7 @@ const {
  * @typedef {Object} LibraryArchiveRecord
  * @prop {string} key
  * @prop {string} url
- * @prop {string?} dnsName
+ * @prop {string?} domain
  * @prop {string} title
  * @prop {string} description
  * @prop {Array<string>} type
@@ -204,7 +204,7 @@ exports.query = async function (profileId, query = {}) {
         archives.expiresAt,
         archives.localSyncPath,
         archives.previewMode,
-        dat_dns.name as dnsName
+        dat_dns.name as domain
       FROM archives_meta
       LEFT JOIN archives ON archives.key = archives_meta.key
       LEFT JOIN archives_meta_type ON archives_meta_type.key = archives_meta.key
@@ -215,7 +215,7 @@ exports.query = async function (profileId, query = {}) {
 
   // massage the output
   archives.forEach(archive => {
-    archive.url = `dat://${archive.dnsName || archive.key}`
+    archive.url = `dat://${archive.domain || archive.key}`
     archive.isOwner = archive.isOwner != 0
     archive.type = archive.type ? archive.type.split(',') : []
     archive.userSettings = {

@@ -169,12 +169,12 @@ const list = exports.list = async function ({offset, limit, reverse, author, sub
 
   if (author) {
     author = Array.isArray(author) ? author : [author]
-    try { author = author.map(toOrigin) }
+    try { author = await Promise.all(author.map(dat.library.getPrimaryUrl)) }
     catch (e) { throw new Error('Author must contain valid URLs') }
   }
   if (subject) {
     subject = Array.isArray(subject) ? subject : [subject]
-    try { subject = subject.map(toOrigin) }
+    try { subject = await Promise.all(subject.map(dat.library.getPrimaryUrl)) }
     catch (e) { throw new Error('Subject must contain valid URLs') }
   }
 
@@ -315,15 +315,6 @@ exports.deleteCapture = async function (archive, subject) {
  */
 function isString (v) {
   return typeof v === 'string'
-}
-
-/**
- * @param {string} url
- * @returns {string}
- */
-function toOrigin (url) {
-  var urlParsed = new URL(url)
-  return urlParsed.protocol + '//' + urlParsed.hostname
 }
 
 /**

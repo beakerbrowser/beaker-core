@@ -40,7 +40,7 @@ exports.getCurrentByName = async function (name) {
  * @returns {Promise<DatDnsRecord>}
  */
 exports.getCurrentByKey = async function (key) {
-  return massageDNSRecord(await db.get(knex('dat_dns').where({key, isCurrent: 1}).orderBy('name')))
+  return massageDNSRecord(await db.get(knex('dat_dns').where({key, isCurrent: 1})))
 }
 
 /**
@@ -52,9 +52,16 @@ exports.getCurrentByKey = async function (key) {
 exports.update = async function ({key, name}) {
   var release = await lock('dat-dns-update:' + name)
   try {
+    var old = await db.get(knex('dat_dns').where({name, isCurrent: 1}))
+    if (old && old.key !== key) {
+      // unset old
+      await db.run(knex('dat_dns').update({isCurrent: 0}).where({name}))
+      events.emit('update', {key: old.key, name: undefined})
+    }
+
     let curr = await db.get(knex('dat_dns').where({name, key}))
     if (!curr) {
-      await db.run(knex('dat_dns').update({isCurrent: 0}).where({name}))
+      // insert new
       await db.run(knex('dat_dns').insert({
         name,
         key,
@@ -63,11 +70,24 @@ exports.update = async function ({key, name}) {
         firstConfirmedAt: Date.now()
       }))
     } else {
-      await db.run(knex('dat_dns').update({lastConfirmedAt: Date.now()}).where({name, key}))
+      // update current
+      await db.run(knex('dat_dns').update({lastConfirmedAt: Date.now(), isCurrent: 1}).where({name, key}))
     }
     events.emit('update', {key, name})
   } finally {
     release()
+  }
+}
+
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+exports.unset = async function (key) {
+  var curr = await db.get(knex('dat_dns').where({key, isCurrent: 1}))
+  if (curr) {
+    await db.run(knex('dat_dns').update({isCurrent: 0}).where({key}))
+    events.emit('update', {key, name: undefined})
   }
 }
 

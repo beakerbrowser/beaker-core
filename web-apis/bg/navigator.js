@@ -170,7 +170,7 @@ module.exports = {
    * @returns {Promise<ApplicationState>}
    */
   async getApplicationState () {
-    var url = await appPerms.toDatOrigin(this.sender.getURL())
+    var url = await dat.library.getPrimaryUrl(this.sender.getURL())
     var userId = await appPerms.getSessionUserId(this.sender)
     var archiveInfo = await dat.library.getArchiveInfo(url)
     var record = await db.get(knex('installed_applications').where({userId, url}))

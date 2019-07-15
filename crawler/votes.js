@@ -5,9 +5,10 @@ const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'crawler', dataset: 'votes'})
 const db = require('../dbs/profile-data-db')
 const crawler = require('./index')
+const datLibrary = require('../dat/library')
 const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, toOrigin, normalizeTopicUrl, generateTimeFilename} = require('./util')
+const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, normalizeTopicUrl, generateTimeFilename} = require('./util')
 const voteSchema = require('./json-schemas/vote')
 
 // constants
@@ -182,7 +183,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('topics' in opts.filters) {
       if (Array.isArray(opts.filters.topics)) {
@@ -243,7 +244,7 @@ exports.tabulate = async function (topic, opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -291,7 +292,7 @@ exports.tabulate = async function (topic, opts) {
  * @returns {Promise<Vote>}
  */
 const get = exports.get = async function (author, topic) {
-  author = toOrigin(author, true)
+  author = await datLibrary.getPrimaryUrl(author)
   topic = normalizeTopicUrl(topic)
 
   // execute query

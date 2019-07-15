@@ -2,7 +2,8 @@ const assert = require('assert')
 const {URL} = require('url')
 const db = require('../dbs/profile-data-db')
 const knex = require('../lib/knex')
-const {normalizeSchemaUrl, toOrigin} = require('./util')
+const datLibrary = require('../dat/library')
+const {normalizeSchemaUrl} = require('./util')
 
 // typedefs
 // =
@@ -51,7 +52,7 @@ exports.listBookmarkTags = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -112,7 +113,7 @@ exports.listDiscussionTags = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -174,7 +175,7 @@ exports.listMediaTags = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = opts.filters.authors.map(url => toOrigin(url, true))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
     }
     if ('subtypes' in opts.filters) {
       if (Array.isArray(opts.filters.subtypes)) {
