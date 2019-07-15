@@ -197,7 +197,7 @@ const list = exports.list = async function (opts) {
   var rows = await db.all(sql)
 
   // massage results
-  return Promise.all(rows.map(async (row) => {
+  return (await Promise.all(rows.map(async (row) => {
     var author = toOrigin(row.authorUrl)
     var topic = toOrigin(row.destUrl)
     return {
@@ -205,7 +205,7 @@ const list = exports.list = async function (opts) {
       topic: await siteDescriptions.getBest({subject: topic}),
       visibility: 'public'
     }
-  }))
+  }))).filter(record => !!record.author && !!record.topic)
 }
 
 /**
@@ -226,11 +226,13 @@ const get = exports.get = async function (author, topic) {
     .where('crawl_sources.url', author)
     .where('crawl_follows.destUrl', topic))
   if (!res) return null
-  return {
+  var record = {
     author: await siteDescriptions.getBest({subject: toOrigin(res.authorUrl)}),
     topic: await siteDescriptions.getBest({subject: toOrigin(res.destUrl)}),
     visibility: 'public'
   }
+  if (!record.author || !record.topic) return null
+  return record
 }
 
 /**
