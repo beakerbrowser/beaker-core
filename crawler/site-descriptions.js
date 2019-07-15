@@ -75,7 +75,7 @@ exports.crawlSite = async function (archive, crawlSource) {
     // collect changed site descriptions
     var changedSiteDescriptions = getMatchingChangesInOrder(changes, JSON_PATH_REGEX)
     if (changedSiteDescriptions.length > 0) {
-      logger.verbose('Collected new/changed site-description files', {details: {url: archive.url, changedPosts: changedSiteDescriptions.map(p => p.name)}})
+      logger.verbose('Collected new/changed site-description files', {details: {url: archive.url, changedFiles: changedSiteDescriptions.map(p => p.name)}})
     } else {
       logger.debug('No new site-description files found', {details: {url: archive.url}})
     }

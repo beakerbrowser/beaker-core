@@ -85,13 +85,11 @@ exports.crawlSite = async function (archive) {
   crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
   try {
-    // use DNS only on non-local archives
-    const useDns = !archive.writable
-    var url = useDns ? archive.url : `dat://${archive.key.toString('hex')}`
+    var url = archive.url
 
     // fetch current dns record
     var datDnsRecord = null
-    if (useDns && archive.dnsName) {
+    if (archive.dnsName) {
       datDnsRecord = await db.get(knex('dat_dns').where({name: archive.dnsName, isCurrent: 1}))
     }
 
@@ -175,8 +173,13 @@ exports.getCrawlStates = async function () {
 
 const resetSite =
 exports.resetSite = async function (url) {
-  logger.debug('Resetting site', {details: {url}})
-  await db.run(`DELETE FROM crawl_sources WHERE url = ?`, [url])
+  var release = await lock('crawl:' + url)
+  try {
+    logger.debug('Resetting site', {details: {url}})
+    await db.run(`DELETE FROM crawl_sources WHERE url = ?`, [url])
+  } finally {
+    release()
+  }
 }
 
 exports.WEBAPI = {
