@@ -16,6 +16,7 @@ const _pick = require('lodash.pick')
 
 const CRAWL_TICK_INTERVAL = 5e3
 const NUM_SIMULTANEOUS_CRAWLS = 10
+const CRAWL_TIMEOUT = 15e3
 const LABEL_REGEX = /[a-z0-9-]/i
 
 // typedefs
@@ -123,28 +124,33 @@ async function tick () {
 
     // trigger the crawls on each
     var activeCrawls = crawlTargets.map(async (crawlTarget) => {
-      try {
-        // load archive
-        var wasLoaded = true // TODO
-        var archive = await dat.library.getOrLoadArchive(crawlTarget) // TODO timeout on load
-
-        // run crawl
-        await crawler.crawlSite(archive)
-
-        if (!wasLoaded) {
-          // unload archive
-          // TODO
-        }
-      } catch (e) {
-        // TODO handle?
-      }
+      await Promise.race([
+        new Promise((resolve, reject) => setTimeout(() => reject(`Crawl timed out for ${crawlTarget}`), CRAWL_TIMEOUT)),
+        (async () => {
+          try {
+            // load archive
+            var wasLoaded = true // TODO
+            var archive = await dat.library.getOrLoadArchive(crawlTarget) // TODO timeout on load
+    
+            // run crawl
+            await crawler.crawlSite(archive)
+    
+            if (!wasLoaded) {
+              // unload archive
+              // TODO
+            }
+          } catch (e) {
+            // TODO handle?
+          }
+        })()
+      ])
     })
 
     // await all crawls
     await Promise.all(activeCrawls)
   } catch (e) {
     console.error(e)
-    logger.error('Crawler tick failed', {details: e})
+    logger.error('Crawler tick errored', {details: e})
   }
 
   // queue next tick
