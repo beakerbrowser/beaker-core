@@ -341,7 +341,7 @@ const loadArchive = exports.loadArchive = async function loadArchive (key, userS
   if (key) {
     if (!Buffer.isBuffer(key)) {
       // existing dat
-      key = fromURLToKey(key)
+      key = await fromURLToKey(key, true)
       if (!DAT_HASH_REGEX.test(key)) {
         throw new InvalidURLError()
       }
@@ -462,7 +462,7 @@ exports.getActiveArchives = function getActiveArchives () {
 }
 
 const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArchive (key, opts) {
-  key = fromURLToKey(key)
+  key = await fromURLToKey(key, true)
   var archive = getArchive(key)
   if (archive) {
     return archive
@@ -471,7 +471,7 @@ const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArch
 }
 
 exports.unloadArchive = async function unloadArchive (key) {
-  key = fromURLToKey(key)
+  key = await fromURLToKey(key, true)
   var archive = archives[key]
   if (!archive) return
   if (archive.fileActStream) {
@@ -562,7 +562,7 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
 }
 
 exports.getArchiveNetworkStats = async function getArchiveNetworkStats (key) {
-  key = fromURLToKey(key)
+  key = await fromURLToKey(key, true)
   return daemon.getArchiveNetworkStats(key)
 }
 
@@ -646,10 +646,10 @@ function fixStatObject (st) {
 }
 
 /**
- * 
- * @param {string|Buffer} key 
- * @param {number} version 
- * @param {Object} archiveInfo 
+ *
+ * @param {string|Buffer} key
+ * @param {number} version
+ * @param {Object} archiveInfo
  * @returns {InternalDatArchive}
  */
 function createArchiveProxy (key, version, archiveInfo) {

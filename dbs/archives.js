@@ -501,7 +501,7 @@ const getMeta = exports.getMeta = async function (key) {
 
   // validate inputs
   if (!DAT_HASH_REGEX.test(keyStr)) {
-    throw new InvalidArchiveKeyError()
+    keyStr = await require('../dat/dns').resolveName(keyStr)
   }
 
   // fetch
