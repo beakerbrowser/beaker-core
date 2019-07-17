@@ -3,6 +3,7 @@ const {join} = require('path')
 const debugLogger = require('./lib/debug-logger')
 const globals = require('./globals')
 const logger = require('./logger')
+const applications = require('./applications')
 const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
 const dbs = require('./dbs')
@@ -18,6 +19,7 @@ module.exports = {
   logger,
   dat,
   dbs,
+  applications,
   crawler,
   users,
   spellChecker,
