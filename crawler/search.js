@@ -8,14 +8,13 @@ const follows = require('./follows')
 const siteDescriptions = require('./site-descriptions')
 const {getSiteDescriptionThumbnailUrl} = require('./util')
 const knex = require('../lib/knex')
+const users = require('../users')
 
-/** @type {Array<Object>} */
-const BUILTIN_PAGES = [
-  {title: 'Beaker.Social', url: 'dat://beaker.social'},
-  {title: 'Library', url: 'beaker://library'},
-  {title: 'History', url: 'beaker://history'},
-  {title: 'Downloads', url: 'beaker://downloads'},
-  {title: 'Settings', url: 'beaker://settings'},
+const KNOWN_SITE_TYPES = [
+  'unwalled.garden/person',
+  'application',
+  'unwalled.garden/module',
+  'unwalled.garden/template'
 ]
 
 // typedefs
@@ -26,10 +25,11 @@ const BUILTIN_PAGES = [
  * @typedef {import("../dbs/archives").LibraryArchiveRecord} LibraryArchiveRecord
  *
  * @typedef {Object} SuggestionResults
- * @prop {Array<Object>} builtins
- * @prop {Array<Object>} addressbook
  * @prop {Array<Object>} bookmarks
+ * @prop {Array<Object>} apps
  * @prop {Array<Object>} websites
+ * @prop {Array<Object>} people
+ * @prop {Array<Object>} templates
  * @prop {(undefined|Array<Object>)} history
  *
  * TODO: define the SuggestionResults values
@@ -90,16 +90,26 @@ const BUILTIN_PAGES = [
  * @returns {Promise<SuggestionResults>}
  */
 exports.listSuggestions = async function (user, query = '', opts = {}) {
-  var suggestions = {}
+  var suggestions = {
+    bookmarks: [],
+    apps: [],
+    websites: [],
+    people: [],
+    templates: [],
+    history: undefined
+  }
   const filterFn = a => query ? ((a.url || a.href).includes(query) || a.title.toLowerCase().includes(query)) : true
+  const sortFn = (a, b) => (a.title||'').localeCompare(b.title||'')
+  function dedup (arr) {
+    var hits = new Set()
+    return arr.filter(item => {
+      if (hits.has(item.url)) return false
+      hits.add(item.url)
+      return true
+    })
+  }
 
-  // builtin pages
-  suggestions.builtins = BUILTIN_PAGES.filter(a => query ? a.title.toLowerCase().includes(query) : true)
-
-  // addressbook
-  suggestions.addressbook = (await follows.list({filters: {authors: user}})).map(({topic}) => topic)
-  suggestions.addressbook = [await siteDescriptions.getBest({topic: user, author: user})].concat(suggestions.addressbook)
-  suggestions.addressbook = suggestions.addressbook.filter(filterFn)
+  var userId = (await users.get(user)).id
 
   // bookmarks
   var bookmarkResults = await bookmarksDb.listBookmarks(0)
@@ -108,13 +118,41 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   } else {
     bookmarkResults = bookmarkResults.filter(filterFn)
   }
+  bookmarkResults.sort(sortFn)
   bookmarkResults = bookmarkResults.slice(0, 12)
   suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
 
+  // apps
+  suggestions.apps = await db.all(knex('installed_applications').where({userId}))
+  await Promise.all(suggestions.apps.map(async (record) => {
+    var archiveInfo = await datLibrary.getArchiveInfo(record.url)
+    record.title = archiveInfo.title
+  }))
+  suggestions.apps = (await datLibrary.queryArchives({isSaved: true, type: 'application'})).concat(suggestions.apps)
+  suggestions.apps = dedup(suggestions.apps)
+  suggestions.apps = suggestions.apps.filter(filterFn)
+  suggestions.apps.sort(sortFn)
+
   // websites
   suggestions.websites = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
-  suggestions.websites = suggestions.websites.filter(w => w.url !== user) // filter out the user's site
+  suggestions.websites = suggestions.websites.filter(w => (
+    w.url !== user // filter out the user's site
+    && (!w.type || !w.type.find(t => KNOWN_SITE_TYPES.includes(t))) // filter out other site types
+  ))
   suggestions.websites = suggestions.websites.filter(filterFn)
+  suggestions.websites.sort(sortFn)
+
+  // people
+  suggestions.people = (await follows.list({filters: {authors: user}})).map(({topic}) => topic)
+  suggestions.people = (await datLibrary.queryArchives({isSaved: true, type: 'unwalled.garden/person'})).concat(suggestions.people)
+  suggestions.people = dedup(suggestions.people)
+  suggestions.people = suggestions.people.filter(filterFn)
+  suggestions.people.sort(sortFn)
+
+  // templates
+  suggestions.templates = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true, type: 'unwalled.garden/template'}))
+  suggestions.templates = suggestions.templates.filter(filterFn)
+  suggestions.templates.sort(sortFn)
 
   if (query) {
     // history
