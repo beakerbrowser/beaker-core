@@ -30,6 +30,7 @@ module.exports = {
 
   getResourceContentType: 'sync',
 
+  toggleSidebar: 'promise',
   setWindowDimensions: 'promise',
   showOpenDialog: 'promise',
   showContextMenu: 'promise',
