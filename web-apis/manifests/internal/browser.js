@@ -32,6 +32,7 @@ module.exports = {
 
   toggleSidebar: 'promise',
   setWindowDimensions: 'promise',
+  setWindowDragModeEnabled: 'promise',
   moveWindow: 'promise',
   maximizeWindow: 'promise',
   showOpenDialog: 'promise',

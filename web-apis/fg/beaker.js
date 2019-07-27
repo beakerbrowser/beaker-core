@@ -109,6 +109,7 @@ exports.setup = function (rpc) {
     beaker.browser.imageToIco = beakerBrowserRPC.imageToIco
     beaker.browser.toggleSidebar = beakerBrowserRPC.toggleSidebar
     beaker.browser.setWindowDimensions = beakerBrowserRPC.setWindowDimensions
+    beaker.browser.setWindowDragModeEnabled = beakerBrowserRPC.setWindowDragModeEnabled
     beaker.browser.moveWindow = beakerBrowserRPC.moveWindow
     beaker.browser.maximizeWindow = beakerBrowserRPC.maximizeWindow
     beaker.browser.showOpenDialog = beakerBrowserRPC.showOpenDialog
