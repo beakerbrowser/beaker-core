@@ -31,6 +31,7 @@ module.exports = {
   getResourceContentType: 'sync',
 
   toggleSidebar: 'promise',
+  toggleLiveReloading: 'promise',
   setWindowDimensions: 'promise',
   setWindowDragModeEnabled: 'promise',
   moveWindow: 'promise',
@@ -39,6 +40,7 @@ module.exports = {
   showContextMenu: 'promise',
   showModal: 'promise',
   openUrl: 'promise',
+  gotoUrl: 'promise',
   openFolder: 'promise',
   doWebcontentsCmd: 'promise',
   doTest: 'promise',

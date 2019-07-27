@@ -5,7 +5,7 @@ const library = require('./library')
 const {DAT_HASH_REGEX} = require('../lib/const')
 const logger = require('../logger').child({category: 'dat', subcategory: 'dns'})
 
-const DNS_PROVIDERS = [['cloudflare-dns.com','/dns-query'],['dns.google.com','/resolve']]
+const DNS_PROVIDERS = [['cloudflare-dns.com', '/dns-query'], ['dns.google.com', '/resolve']]
 const DNS_PROVIDER = DNS_PROVIDERS[Math.random() > 0.5 ? 1 : 0]
 logger.info(`Using ${DNS_PROVIDER[0]} to resolve DNS lookups`)
 
