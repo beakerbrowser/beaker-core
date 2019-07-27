@@ -10,6 +10,7 @@ const markdown = require('../lib/markdown')
 
 const datDns = require('./dns')
 const datLibrary = require('./library')
+const datServeResolvePath = require('@beaker/dat-serve-resolve-path')
 
 const directoryListingPage = require('./directory-listing-page')
 const errorPage = require('../lib/error-page')
@@ -198,55 +199,7 @@ exports.electronHandler = async function (request, respond) {
   // lookup entry
   var statusCode = 200
   var headers = {}
-  var entry
-  const tryStat = async (path) => {
-    // abort if we've already found it
-    if (entry) return
-    // apply the web_root config
-    if (manifest && manifest.web_root && !urlp.query.disable_web_root) {
-      if (path) {
-        path = join(manifest.web_root, path)
-      } else {
-        path = manifest.web_root
-      }
-    }
-    // attempt lookup
-    try {
-      entry = await checkoutFS.pda.stat(path)
-      entry.path = path
-    } catch (e) {}
-  }
-
-  // do lookup
-  if (hasTrailingSlash) {
-    await tryStat(filepath + 'index.html')
-    await tryStat(filepath + 'index.md')
-    await tryStat(filepath)
-  } else {
-    await tryStat(filepath)
-    for (let ext of mime.acceptHeaderExtensions(request.headers.Accept)) {
-      // fallback to different requested headers
-      await tryStat(filepath + ext)
-    }
-    if (entry && entry.isDirectory()) {
-      // unexpected directory, give the .html fallback a chance
-      let dirEntry = entry
-      entry = null
-      await tryStat(filepath + '.html') // fallback to .html
-      if (dirEntry && !entry) {
-        // no .html fallback found, stick with directory that we found
-        entry = dirEntry
-      }
-    }
-  }
-
-  // check for a fallback page
-  const useFallback = Boolean(manifest && manifest.fallback_page && !urlp.query.disable_fallback_page)
-  if (useFallback && (!entry || entry.isDirectory())) {
-    let tmp = entry; entry = null
-    await tryStat(manifest.fallback_page)
-    if (!entry) entry = tmp
-  }
+  var entry = await datServeResolvePath(checkoutFS.pda, manifest, urlp, request.headers.Accept)
 
   // handle folder
   if (entry && entry.isDirectory()) {
@@ -331,16 +284,13 @@ exports.electronHandler = async function (request, respond) {
 
   // markdown rendering
   if (!range && entry.path.endsWith('.md') && mime.acceptHeaderMarkdownToHtml(request.headers.Accept)) {
-    let nav = false
-    try { nav = await checkoutFS.pda.readFile('/nav.md', 'utf8') }
-    catch (e) { /* ignore */ }
     let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
     return respond({
       statusCode: 200,
       headers: Object.assign(headers, {
         'Content-Type': 'text/html'
       }),
-      data: intoStream(markdown.render(nav, content))
+      data: intoStream(markdown.render(content))
     })
   }
 
