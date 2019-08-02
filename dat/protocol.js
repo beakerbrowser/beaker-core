@@ -135,13 +135,18 @@ exports.electronHandler = async function (request, respond) {
   // checkout version if needed
   try {
     var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
+    if (urlp.version === 'preview') {
+      await checkoutFS.pda.stat('/') // run a stat to ensure preview mode exists
+    }
   } catch (err) {
     if (err.noPreviewMode) {
-      let latestUrl = makeSafe(request.url.replace('+preview', ''))
-      respondError(404, 'Cannot open preview', {
-        title: 'Cannot open preview',
-        errorInfo: `You are trying to open the "preview" version of this site, but no preview exists.`,
-        errorDescription: `<span>You can open the <a class="link" href="${latestUrl}">latest published version</a> instead.</span>`
+      // redirect to non-preview version
+      return respond({
+        statusCode: 303,
+        headers: {
+          Location: `dat://${urlp.host}${urlp.pathname || '/'}${urlp.search || ''}`
+        },
+        data: intoStream('')
       })
     } else {
       logger.warn('Failed to open archive checkout', {url: archiveKey, err})

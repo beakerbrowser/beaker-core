@@ -309,7 +309,6 @@ const RPC_API = {
   // =
 
   callArchiveAsyncMethod (key, version, method, ...args) {
-    var cb = args.slice(-1)[0]
     var checkout = getArchiveCheckout(key, version)
     checkout[method](...args)
   },
