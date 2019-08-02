@@ -85,7 +85,7 @@
     "sodium-signatures": "^2.1.1",
     "spellchecker": "^3.7.0",
     "split2": "^2.2.0",
-    "sqlite3": "github:pdesantis/node-sqlite3#cdbb94319a4e1e15595708ec80da421ea740089c",
+    "sqlite3": "^4.0.9",
     "stream-throttle": "^0.1.3",
     "supports-sparse-files": "^1.0.2",
     "textextensions": "^2.5.0",
