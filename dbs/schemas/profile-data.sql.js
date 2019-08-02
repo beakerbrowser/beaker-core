@@ -142,7 +142,7 @@ CREATE TABLE templates (
 CREATE TABLE crawl_sources (
   id INTEGER PRIMARY KEY NOT NULL,
   url TEXT NOT NULL,
-  datDnsId INTEGER,
+  datDnsId INTEGER
 );
 
 -- tracking information on the crawl-state of the sources
