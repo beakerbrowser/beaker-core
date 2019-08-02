@@ -92,7 +92,7 @@ module.exports = {
    */
   async add (topic, opts) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
     if (!opts) opts = {}
@@ -111,7 +111,7 @@ module.exports = {
    */
   async edit (topic, opts) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
     if (!opts) opts = {}
@@ -128,7 +128,7 @@ module.exports = {
    */
   async remove (topic) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
     assert(topic, 'The `topic` parameter must be a valid URL')
@@ -139,12 +139,6 @@ module.exports = {
 
 // internal methods
 // =
-
-function getUserArchive (sender) {
-  var userSession = globals.userSessionAPI.getFor(sender)
-  if (!userSession) throw new Error('No active user session')
-  return dat.library.getArchive(userSession.url)
-}
 
 /**
  * @param {string} url

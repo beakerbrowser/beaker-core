@@ -141,7 +141,7 @@ module.exports = {
    */
   async add (topic, comment) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     // string usage
     if (typeof comment === 'string') {
@@ -173,7 +173,7 @@ module.exports = {
    */
   async edit (url, comment) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     // string usage
     if (typeof comment === 'string') {
@@ -197,7 +197,7 @@ module.exports = {
    */
   async remove (url) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
@@ -208,12 +208,6 @@ module.exports = {
 
 // internal methods
 // =
-
-function getUserArchive (sender) {
-  var userSession = globals.userSessionAPI.getFor(sender)
-  if (!userSession) throw new Error('No active user session')
-  return dat.library.getArchive(userSession.url)
-}
 
 /**
  * Tries to parse the URL and return the pathname. If fails, assumes the string was a pathname.

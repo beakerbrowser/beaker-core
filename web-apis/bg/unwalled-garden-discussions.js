@@ -93,7 +93,7 @@ module.exports = {
    */
   async add (discussion) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     assert(discussion && typeof discussion === 'object', 'The `discussion` parameter must be a string or object')
     assert(discussion.title && typeof discussion.title === 'string', 'The `discussion.title` parameter must be a non-empty string')
@@ -123,7 +123,7 @@ module.exports = {
    */
   async edit (url, discussion) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
     assert(discussion && typeof discussion === 'object', 'The `discussion` parameter must be an object')
@@ -144,7 +144,7 @@ module.exports = {
    */
   async remove (url) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
@@ -155,12 +155,6 @@ module.exports = {
 
 // internal methods
 // =
-
-function getUserArchive (sender) {
-  var userSession = globals.userSessionAPI.getFor(sender)
-  if (!userSession) throw new Error('No active user session')
-  return dat.library.getArchive(userSession.url)
-}
 
 /**
  * Tries to parse the URL and return the pathname. If fails, assumes the string was a pathname.

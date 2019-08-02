@@ -143,7 +143,7 @@ module.exports = {
    */
   async set (topic, vote) {
     await appPerms.assertCan(this.sender, 'unwalled.garden/perm/votes', 'write')
-    var userArchive = getUserArchive(this.sender)
+    var userArchive = await appPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
@@ -155,12 +155,6 @@ module.exports = {
 
 // internal methods
 // =
-
-function getUserArchive (sender) {
-  var userSession = globals.userSessionAPI.getFor(sender)
-  if (!userSession) throw new Error('No active user session')
-  return dat.library.getArchive(userSession.url)
-}
 
 function normalizeTopicUrl (url) {
   try {
