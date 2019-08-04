@@ -304,7 +304,7 @@ exports.electronHandler = async function (request, respond) {
   })
 
   // markdown rendering
-  if (!range && entry.path.endsWith('.md') && mime.acceptHeaderMarkdownToHtml(request.headers.Accept)) {
+  if (!range && entry.path.endsWith('.md') && mime.acceptHeaderWantsHTML(request.headers.Accept)) {
     let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
     return respond({
       statusCode: 200,
