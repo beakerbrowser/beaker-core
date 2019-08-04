@@ -1,4 +1,4 @@
-const {join} = require('path')
+const {extname} = require('path')
 const parseDatUrl = require('parse-dat-url')
 const parseRange = require('range-parser')
 const once = require('once')
@@ -205,6 +205,22 @@ exports.electronHandler = async function (request, respond) {
   var statusCode = 200
   var headers = {}
   var entry = await datServeResolvePath(checkoutFS.pda, manifest, urlp, request.headers.Accept)
+
+  // use theme template if it exists
+  if (!urlp.query.disable_theme) {
+    if (entry && mime.acceptHeaderWantsHTML(request.headers.Accept) && ['.html', '.htm', '.md'].includes(extname(entry.path))) {
+      let template = await checkoutFS.pda.readFile('/theme/template.html', 'utf8').catch(err => null)
+      if (template) {
+        return respond({
+          statusCode: 200,
+          headers: Object.assign(headers, {
+            'Content-Type': 'text/html'
+          }),
+          data: intoStream(template)
+        })
+      }
+    }
+  }
 
   // handle folder
   if (entry && entry.isDirectory()) {
