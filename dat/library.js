@@ -598,8 +598,12 @@ const getPrimaryUrl = exports.getPrimaryUrl = async function (url) {
  */
 const confirmDomain = exports.confirmDomain = async function (key) {
   // fetch the current domain from the manifest
-  var archive = await getOrLoadArchive(key)
-  var datJson = await archive.pda.readManifest()
+  try {
+    var archive = await getOrLoadArchive(key)
+    var datJson = await archive.pda.readManifest()
+  } catch (e) {
+    return false
+  }
   if (!datJson.domain) {
     await datDnsDb.unset(key)
     return false
