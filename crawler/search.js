@@ -12,9 +12,7 @@ const users = require('../users')
 
 const KNOWN_SITE_TYPES = [
   'unwalled.garden/person',
-  'application',
-  'unwalled.garden/module',
-  'unwalled.garden/template'
+  'unwalled.garden/theme'
 ]
 
 // typedefs
@@ -26,10 +24,9 @@ const KNOWN_SITE_TYPES = [
  *
  * @typedef {Object} SuggestionResults
  * @prop {Array<Object>} bookmarks
- * @prop {Array<Object>} apps
  * @prop {Array<Object>} websites
  * @prop {Array<Object>} people
- * @prop {Array<Object>} templates
+ * @prop {Array<Object>} themes
  * @prop {(undefined|Array<Object>)} history
  *
  * TODO: define the SuggestionResults values
@@ -92,10 +89,9 @@ const KNOWN_SITE_TYPES = [
 exports.listSuggestions = async function (user, query = '', opts = {}) {
   var suggestions = {
     bookmarks: [],
-    apps: [],
     websites: [],
     people: [],
-    templates: [],
+    themes: [],
     history: undefined
   }
   const filterFn = a => query ? ((a.url || a.href).includes(query) || a.title.toLowerCase().includes(query)) : true
@@ -122,17 +118,6 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   bookmarkResults = bookmarkResults.slice(0, 12)
   suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
 
-  // apps
-  suggestions.apps = await db.all(knex('installed_applications').where({userId}))
-  await Promise.all(suggestions.apps.map(async (record) => {
-    var archiveInfo = await datLibrary.getArchiveInfo(record.url)
-    record.title = archiveInfo.title
-  }))
-  suggestions.apps = (await datLibrary.queryArchives({isSaved: true, type: 'application'})).concat(suggestions.apps)
-  suggestions.apps = dedup(suggestions.apps)
-  suggestions.apps = suggestions.apps.filter(filterFn)
-  suggestions.apps.sort(sortFn)
-
   // websites
   suggestions.websites = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
   suggestions.websites = suggestions.websites.filter(w => (
@@ -149,10 +134,10 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   suggestions.people = suggestions.people.filter(filterFn)
   suggestions.people.sort(sortFn)
 
-  // templates
-  suggestions.templates = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true, type: 'unwalled.garden/template'}))
-  suggestions.templates = suggestions.templates.filter(filterFn)
-  suggestions.templates.sort(sortFn)
+  // themes
+  suggestions.themes = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true, type: 'unwalled.garden/theme'}))
+  suggestions.themes = suggestions.themes.filter(filterFn)
+  suggestions.themes.sort(sortFn)
 
   if (query) {
     // history
