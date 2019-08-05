@@ -30,7 +30,7 @@ module.exports = {
    * @param {boolean} [opts.disallowCreate]
    * @returns {Promise<string[]>}
    */
-  async beakerSelectFileDialog (opts = {}) {
+  async selectFileDialog (opts = {}) {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
 
@@ -80,7 +80,7 @@ module.exports = {
    * @param {boolean} [opts.filters.networked]
    * @returns {Promise<string[]>}
    */
-  async beakerSaveFileDialog (opts = {}) {
+  async saveFileDialog (opts = {}) {
     var userSession = globals.userSessionAPI.getFor(this.sender)
     if (!userSession) throw new Error('No active user session')
 
@@ -125,7 +125,7 @@ module.exports = {
    * @param {string} [opts.filters.type]
    * @returns {Promise<string[]>}
    */
-  async beakerSelectDatArchiveDialog (opts = {}) {
+  async selectDatArchiveDialog (opts = {}) {
     // validate
     assert(opts && typeof opts === 'object', 'Must pass an options object')
     assert(!opts.title || typeof opts.title === 'string', '.title must be a string')
