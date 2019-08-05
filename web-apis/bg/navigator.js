@@ -152,10 +152,11 @@ module.exports = {
   /**
    * @returns {Promise<ApplicationState>}
    */
-  async getApplicationState () {
-    var userId = await appPerms.getSessionUserId(this.sender)
-    return applications.getApplicationState({url: this.sender.getURL(), userId})
-  }
+  // DISABLED
+  // async getApplicationState () {
+  //   var userId = await appPerms.getSessionUserId(this.sender)
+  //   return applications.getApplicationState({url: this.sender.getURL(), userId})
+  // }
 }
 
 function isStrArray (v) {
