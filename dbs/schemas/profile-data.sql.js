@@ -14,6 +14,16 @@ CREATE TABLE users (
   createdAt INTEGER
 );
 
+CREATE TABLE user_site_sessions (
+  id INTEGER PRIMARY KEY NOT NULL,
+  userId INTEGER NOT NULL,
+  url TEXT,
+  permissionsJson TEXT,
+  createdAt INTEGER,
+ 
+  FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+);
+
 CREATE TABLE archives (
   profileId INTEGER NOT NULL,
   key TEXT NOT NULL, -- dat key
@@ -466,5 +476,5 @@ INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 35;
+PRAGMA user_version = 36;
 `

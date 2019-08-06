@@ -3,7 +3,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
 const followsCrawler = require('../../crawler/follows')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -38,7 +38,7 @@ module.exports = {
    * @returns {Promise<FollowsPublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/follows', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -73,7 +73,7 @@ module.exports = {
    * @returns {Promise<FollowsPublicAPIRecord>}
    */
   async get (author, topic) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/follows', 'read')
 
     author = normalizeFollowUrl(author)
     topic = normalizeFollowUrl(topic)
@@ -91,8 +91,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async add (topic, opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/follows', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
     if (!opts) opts = {}
@@ -110,8 +110,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async edit (topic, opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/follows', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
     if (!opts) opts = {}
@@ -127,8 +127,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (topic) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/follows', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/follows', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeFollowUrl(topic)
     assert(topic, 'The `topic` parameter must be a valid URL')

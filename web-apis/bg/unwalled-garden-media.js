@@ -3,7 +3,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
 const mediaCrawler = require('../../crawler/media')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -47,7 +47,7 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/media', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -95,7 +95,7 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord>}
    */
   async get (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/media', 'read')
     return massageMediaRecord(await mediaCrawler.get(url))
   },
 
@@ -110,8 +110,8 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord>}
    */
   async add (media) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/media', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(media && typeof media === 'object', 'The `media` parameter must be a string or object')
     assert(media.subtype && typeof media.subtype === 'string', 'The `media.subtype` parameter must be a non-empty URL string')
@@ -142,8 +142,8 @@ module.exports = {
    * @returns {Promise<MediaPublicAPIRecord>}
    */
   async edit (url, media) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/media', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
     assert(media && typeof media === 'object', 'The `media` parameter must be an object')
@@ -164,8 +164,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/media', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 

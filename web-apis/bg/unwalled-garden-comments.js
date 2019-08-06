@@ -3,7 +3,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
 const commentsCrawler = require('../../crawler/comments')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -55,7 +55,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -98,7 +98,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord[]>}
    */
   async thread (topic, opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a URL string')
     if (opts && 'parent' in opts) assert(typeof opts.parent === 'string', 'Parent must be a string')
@@ -127,7 +127,7 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord>}
    */
   async get (url) {
-    await appPerms.assertCan(this.sender, 'read', 'data:unwalled.garden:comments')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
     return massageCommentRecord(await commentsCrawler.get(url))
   },
 
@@ -140,8 +140,8 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord>}
    */
   async add (topic, comment) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     // string usage
     if (typeof comment === 'string') {
@@ -172,8 +172,8 @@ module.exports = {
    * @returns {Promise<CommentPublicAPIRecord>}
    */
   async edit (url, comment) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     // string usage
     if (typeof comment === 'string') {
@@ -196,8 +196,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/comments', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 

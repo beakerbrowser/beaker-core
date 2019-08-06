@@ -3,7 +3,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
 const postsCrawler = require('../../crawler/posts')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -40,7 +40,7 @@ module.exports = {
    * @returns {Promise<PostPublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/posts', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -67,7 +67,7 @@ module.exports = {
    * @returns {Promise<PostPublicAPIRecord>}
    */
   async get (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/posts', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'read')
     return massagePostRecord(await postsCrawler.get(url))
   },
 
@@ -78,8 +78,8 @@ module.exports = {
    * @returns {Promise<PostPublicAPIRecord>}
    */
   async add (post) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/posts', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     // string usage
     if (typeof post === 'string') {
@@ -107,8 +107,8 @@ module.exports = {
    * @returns {Promise<PostPublicAPIRecord>}
    */
   async edit (url, post) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/posts', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     // string usage
     if (typeof post === 'string') {
@@ -130,8 +130,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/posts', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 

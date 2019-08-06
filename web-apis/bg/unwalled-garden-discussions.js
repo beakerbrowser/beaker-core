@@ -3,7 +3,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
 const discussionsCrawler = require('../../crawler/discussions')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -44,7 +44,7 @@ module.exports = {
    * @returns {Promise<DiscussionPublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/discussions', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -78,7 +78,7 @@ module.exports = {
    * @returns {Promise<DiscussionPublicAPIRecord>}
    */
   async get (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/discussions', 'read')
     return massageDiscussionRecord(await discussionsCrawler.get(url))
   },
 
@@ -92,8 +92,8 @@ module.exports = {
    * @returns {Promise<DiscussionPublicAPIRecord>}
    */
   async add (discussion) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/discussions', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(discussion && typeof discussion === 'object', 'The `discussion` parameter must be a string or object')
     assert(discussion.title && typeof discussion.title === 'string', 'The `discussion.title` parameter must be a non-empty string')
@@ -122,8 +122,8 @@ module.exports = {
    * @returns {Promise<DiscussionPublicAPIRecord>}
    */
   async edit (url, discussion) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/discussions', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
     assert(discussion && typeof discussion === 'object', 'The `discussion` parameter must be an object')
@@ -143,8 +143,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/discussions', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 

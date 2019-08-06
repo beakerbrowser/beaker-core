@@ -1,7 +1,7 @@
 const globals = require('../../globals')
 const datLibrary = require('../../dat/library')
 const crawler = require('../../crawler')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -36,7 +36,7 @@ module.exports = {
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
   async me () {
-    await appPerms.assertInstalled(this.sender)
+    await sessionPerms.getSessionOrThrow(this.sender)
     var sess = globals.userSessionAPI.getFor(this.sender)
     if (!sess) return null
     return get(sess.url)
@@ -47,7 +47,7 @@ module.exports = {
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
   async get (url) {
-    await appPerms.assertInstalled(this.sender)
+    await sessionPerms.getSessionOrThrow(this.sender)
     return get(url)
   },
 
@@ -56,7 +56,7 @@ module.exports = {
    * @returns {Promise<ProfilesPublicAPIRecord>}
    */
   async index (url) {
-    await appPerms.assertInstalled(this.sender)
+    await sessionPerms.getSessionOrThrow(this.sender)
     await crawler.crawlSite(url)
     return get(url)
   }

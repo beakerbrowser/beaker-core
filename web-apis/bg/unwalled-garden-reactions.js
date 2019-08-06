@@ -4,7 +4,7 @@ const {URL} = require('url')
 const dat = require('../../dat')
 const reactionsCrawler = require('../../crawler/reactions')
 const siteDescriptionsCrawler = require('../../crawler/site-descriptions')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -48,7 +48,7 @@ module.exports = {
    * @returns {Promise<ReactionPublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -85,7 +85,7 @@ module.exports = {
    * @returns {Promise<TopicReactionsPublicAPIRecord[]>}
    */
   async tabulate (topic, opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'read')
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
     opts = (opts && typeof opts === 'object') ? opts : {}
@@ -124,8 +124,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async add (topic, emoji) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
@@ -139,8 +139,8 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (topic, emoji) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/reactions', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')

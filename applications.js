@@ -1,4 +1,4 @@
-const appPerms = require('./lib/app-perms')
+const sessionPerms = require('./lib/session-perms')
 const knex = require('./lib/knex')
 const db = require('./dbs/profile-data-db')
 const sitedataDb = require('./dbs/sitedata')
@@ -60,7 +60,7 @@ function massageAppRecord (record) {
     permissions: Object.entries(record.permissions).map(([id, caps]) => ({
       id,
       caps,
-      description: appPerms.describePerm(id, caps)
+      description: sessionPerms.describePerm(id, caps)
     })),
     installed: record.installed,
     enabled: Boolean(record.enabled),

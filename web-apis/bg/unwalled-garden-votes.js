@@ -3,7 +3,7 @@ const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
 const votesCrawler = require('../../crawler/votes')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -52,7 +52,7 @@ module.exports = {
    * @returns {Promise<VotePublicAPIRecord[]>}
    */
   async list (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/votes', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -89,7 +89,7 @@ module.exports = {
    * @returns {Promise<TabulatedVotesPublicAPIRecord>}
    */
   async tabulate (topic, opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/votes', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'read')
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
     opts = (opts && typeof opts === 'object') ? opts : {}
@@ -132,7 +132,7 @@ module.exports = {
    * @returns {Promise<VotePublicAPIRecord>}
    */
   async get (author, topic) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/votes', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'read')
     return massageVoteRecord(await votesCrawler.get(author, topic))
   },
 
@@ -142,8 +142,8 @@ module.exports = {
    * @returns {Promise<VotePublicAPIRecord>}
    */
   async set (topic, vote) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/votes', 'write')
-    var userArchive = await appPerms.getSessionUserArchive(this.sender)
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'write')
+    var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')

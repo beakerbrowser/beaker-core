@@ -1,7 +1,7 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const tagsCrawler = require('../../crawler/tags')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
@@ -30,7 +30,7 @@ module.exports = {
    * @returns {Promise<TagPublicAPIRecord[]>}
    */
   async listBookmarkTags (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/bookmarks', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/bookmarks', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -64,7 +64,7 @@ module.exports = {
    * @returns {Promise<TagPublicAPIRecord[]>}
    */
   async listDiscussionTags (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/discussions', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/discussions', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -99,7 +99,7 @@ module.exports = {
    * @returns {Promise<TagPublicAPIRecord[]>}
    */
   async listMediaTags (opts) {
-    await appPerms.assertCan(this.sender, 'unwalled.garden/perm/media', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/media', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')

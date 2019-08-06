@@ -1,6 +1,6 @@
 const globals = require('../../globals')
 const dat = require('../../dat')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 const sitedataDb = require('../../dbs/sitedata')
 const knex = require('../../lib/knex')
 const db = require('../../dbs/profile-data-db')
@@ -36,7 +36,7 @@ module.exports = {
    */
   async getInfo (url) {
     url = toDatOrigin(url)
-    var userId = await appPerms.getSessionUserId(this.sender)
+    var userId = await sessionPerms.getSessionUserId(this.sender)
     var record = await db.get(knex('installed_applications').where({userId, url}))
     var archiveInfo = await dat.library.getArchiveInfo(url)
     return massageArchiveInfo(archiveInfo, record)
@@ -48,7 +48,7 @@ module.exports = {
    */
   async install (url) {
     url = toDatOrigin(url)
-    var userId = await appPerms.getSessionUserId(this.sender)
+    var userId = await sessionPerms.getSessionUserId(this.sender)
     var archiveInfo = await dat.library.getArchiveInfo(url)
     var record = await db.get(knex('installed_applications').where({userId, url}))
     if (!record) {
@@ -59,7 +59,7 @@ module.exports = {
         createdAt: Date.now()
       }))
     }
-    await sitedataDb.setAppPermissions(url, getArchivePerms(archiveInfo))
+    // await sitedataDb.setAppPermissions(url, getArchivePerms(archiveInfo)) DEPRECATED
   },
 
   /**
@@ -80,13 +80,13 @@ module.exports = {
    * @returns {Promise<WebAPIApplication[]>}
    */
   async list () {
-    var userId = await appPerms.getSessionUserId(this.sender)
+    var userId = await sessionPerms.getSessionUserId(this.sender)
     var records = await db.all(knex('installed_applications').where({userId}))
     await Promise.all(records.map(async (record) => {
       var archiveInfo = await dat.library.getArchiveInfo(record.url)
       record.title = archiveInfo.title
       record.description = archiveInfo.description
-      record.permissions = await sitedataDb.getAppPermissions(record.url)
+      // record.permissions = await sitedataDb.getAppPermissions(record.url) DEPRECATED
     }))
     return records.map(massageAppRecord)
   },
@@ -97,7 +97,7 @@ module.exports = {
    */
   async enable (url) {
     url = toDatOrigin(url)
-    var userId = await appPerms.getSessionUserId(this.sender)
+    var userId = await sessionPerms.getSessionUserId(this.sender)
     await db.run(knex('installed_applications').update({enabled: 1}).where({userId, url}))
   },
 
@@ -107,7 +107,7 @@ module.exports = {
    */
   async disable (url) {
     url = toDatOrigin(url)
-    var userId = await appPerms.getSessionUserId(this.sender)
+    var userId = await sessionPerms.getSessionUserId(this.sender)
     await db.run(knex('installed_applications').update({enabled: 0}).where({userId, url}))
   },
 
@@ -117,8 +117,8 @@ module.exports = {
    */
   async uninstall (url) {
     url = toDatOrigin(url)
-    var userId = await appPerms.getSessionUserId(this.sender)
-    await sitedataDb.setAppPermissions(url, {})
+    var userId = await sessionPerms.getSessionUserId(this.sender)
+    // await sitedataDb.setAppPermissions(url, {}) DEPRECATED
     await db.run(knex('installed_applications').delete().where({userId, url}))
   }
 }
@@ -157,7 +157,7 @@ function massageArchiveInfo (archiveInfo, record) {
     permissions: Object.entries(getArchivePerms(archiveInfo)).map(([id, caps]) => ({
       id,
       caps,
-      description: appPerms.describePerm(id, caps)
+      description: sessionPerms.describePerm(id, caps)
     })),
     installed: !!record,
     enabled: Boolean(record && record.enabled),
@@ -177,7 +177,7 @@ function massageAppRecord (record) {
     permissions: Object.entries(record.permissions).map(([id, caps]) => ({
       id,
       caps,
-      description: appPerms.describePerm(id, caps)
+      description: sessionPerms.describePerm(id, caps)
     })),
     installed: true,
     enabled: Boolean(record.enabled),

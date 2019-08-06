@@ -138,42 +138,6 @@ exports.getNetworkPermissions = async function (url) {
 
 /**
  * @param {string} url
- * @returns {Promise<Object>}
- */
-const getAppPermissions = exports.getAppPermissions = async function (url) {
-  await setupPromise
-  var origin = await extractOrigin(url)
-  if (!origin) return null
-  return cbPromise(cb => {
-    db.all(`SELECT key, value FROM sitedata WHERE origin = ? AND key LIKE 'perm:app:%'`, [origin], (err, rows) => {
-      if (err) return cb(err)
-
-      // convert to app perms object
-      var appPerms = {}
-      if (rows) {
-        rows.forEach(row => {
-          let [perm] = row.key.split(':').slice(2)
-          appPerms[perm] = row.value.split(',')
-        })
-      }
-      cb(null, appPerms)
-    })
-  })
-}
-
-/**
- * @param {string} url
- * @returns {Promise<Object>}
- */
-const getAppPermission = exports.getAppPermission = async function (url, key) {
-  await setupPromise
-  var perm = await get(url, 'perm:app:' + key)
-  if (!perm) return []
-  return perm.split(',')
-}
-
-/**
- * @param {string} url
  * @param {string} key
  * @param {string | number} value
  * @returns {Promise<void>}
@@ -181,30 +145,6 @@ const getAppPermission = exports.getAppPermission = async function (url, key) {
 const setPermission = exports.setPermission = function (url, key, value) {
   value = value ? 1 : 0
   return set(url, 'perm:' + key, value)
-}
-
-/**
- * @param {string} url
- * @param {Object} appPerms
- * @returns {Promise<void>}
- */
-const setAppPermissions = exports.setAppPermissions = async function (url, appPerms) {
-  await setupPromise
-  var origin = await extractOrigin(url)
-  if (!origin) return null
-  appPerms = appPerms || {}
-
-  // clear all existing app perms
-  await cbPromise(cb => {
-    db.run(`
-      DELETE FROM sitedata WHERE origin = ? AND key LIKE 'perm:app:%'
-    `, [origin], cb)
-  })
-
-  // set perms given
-  for (let perm in appPerms) {
-    await set(url, `perm:app:${perm}`, Array.isArray(appPerms[perm]) ? appPerms[perm].join(',') : appPerms[perm])
-  }
 }
 
 /**
@@ -235,10 +175,7 @@ exports.WEBAPI = {
   set,
   getPermissions,
   getPermission,
-  getAppPermissions,
-  getAppPermission,
   setPermission,
-  setAppPermissions,
   clearPermission,
   clearPermissionAllOrigins
 }

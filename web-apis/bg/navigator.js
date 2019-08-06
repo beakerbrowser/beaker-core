@@ -1,7 +1,7 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const { UserDeniedError } = require('beaker-error-constants')
-const appPerms = require('../../lib/app-perms')
+const sessionPerms = require('../../lib/session-perms')
 const applications = require('../../applications')
 
 // typedefs
@@ -154,7 +154,7 @@ module.exports = {
    */
   // DISABLED
   // async getApplicationState () {
-  //   var userId = await appPerms.getSessionUserId(this.sender)
+  //   var userId = await sessionPerms.getSessionUserId(this.sender)
   //   return applications.getApplicationState({url: this.sender.getURL(), userId})
   // }
 }
