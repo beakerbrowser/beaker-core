@@ -207,17 +207,19 @@ exports.electronHandler = async function (request, respond) {
   var entry = await datServeResolvePath(checkoutFS.pda, manifest, urlp, request.headers.Accept)
 
   // use theme template if it exists
+  var themeSettings = {
+    active: false,
+    js: false,
+    css: false
+  }
   if (!urlp.query.disable_theme) {
     if (entry && mime.acceptHeaderWantsHTML(request.headers.Accept) && ['.html', '.htm', '.md'].includes(extname(entry.path))) {
-      let template = await checkoutFS.pda.readFile('/theme/template.html', 'utf8').catch(err => null)
-      if (template) {
-        return respond({
-          statusCode: 200,
-          headers: Object.assign(headers, {
-            'Content-Type': 'text/html'
-          }),
-          data: intoStream(template)
-        })
+      let exists = async (path) => await checkoutFS.pda.stat(path).then(() => true, () => false)
+      let [js, css] = await Promise.all([exists('/theme/index.js'), exists('/theme/index.css')])
+      if (js || css) {
+        themeSettings.active = true
+        themeSettings.css = css
+        themeSettings.js = js
       }
     }
   }
@@ -237,20 +239,8 @@ exports.electronHandler = async function (request, respond) {
       })
     }
 
-    let headers = {
-      'Content-Type': 'text/html',
-      'Content-Security-Policy': cspHeader,
-      'Access-Control-Allow-Origin': '*'
-    }
-    if (request.method === 'HEAD') {
-      return respond({statusCode: 204, headers, data: intoStream('')})
-    } else {
-      return respond({
-        statusCode: 200,
-        headers,
-        data: intoStream(await directoryListingPage(checkoutFS, filepath, manifest && manifest.web_root))
-      })
-    }
+    // 404
+    entry = null
   }
 
   // handle not found
@@ -311,7 +301,23 @@ exports.electronHandler = async function (request, respond) {
       headers: Object.assign(headers, {
         'Content-Type': 'text/html'
       }),
-      data: intoStream(markdown.render(content))
+      data: intoStream(markdown.render(content, themeSettings))
+    })
+  }
+
+  // theme wrapping
+  if (themeSettings.active) {
+    let html = await checkoutFS.pda.readFile(entry.path, 'utf8')
+    html = `
+${themeSettings.js ? `<script type="module" src="/theme/index.js"></script>` : ''}
+${themeSettings.css ? `<link rel="stylesheet" href="/theme/index.css">` : ''}
+${html}`
+    return respond({
+      statusCode: 200,
+      headers: Object.assign(headers, {
+        'Content-Type': 'text/html'
+      }),
+      data: intoStream(html)
     })
   }
 
