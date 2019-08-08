@@ -12,7 +12,6 @@ const datDns = require('./dns')
 const datLibrary = require('./library')
 const datServeResolvePath = require('@beaker/dat-serve-resolve-path')
 
-const directoryListingPage = require('./directory-listing-page')
 const errorPage = require('../lib/error-page')
 const mime = require('../lib/mime')
 const {makeSafe} = require('../lib/strings')
