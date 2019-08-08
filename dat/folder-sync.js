@@ -7,7 +7,6 @@ const jetpack = require('fs-jetpack')
 const path = require('path')
 const EventEmitter = require('events')
 const datEncoding = require('dat-encoding')
-const pda = require('pauls-dat-api')
 const mkdirp = require('mkdirp')
 const isEqual = require('lodash.isequal')
 const {toAnymatchRules} = require('@beaker/datignore')
@@ -423,13 +422,13 @@ exports.applyDatIgnoreFilter = function (archive, filepath) {
 const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (archive, localSyncPath) {
   logger.silly('Merging archive and folder', {details: {path: localSyncPath, key: archive.key.toString('hex')}})
   const readManifest = async (fs) => {
-    try { return await pda.readManifest(fs) } catch (e) { return {} }
+    try { return await fs.pda.readManifest() } catch (e) { return {} }
   }
   var localFS = scopedFSes.get(localSyncPath)
   var localManifest = await readManifest(localFS)
   var archiveManifest = await readManifest(archive)
   var mergedManifest = Object.assign(archiveManifest || {}, localManifest || {})
-  await pda.writeManifest(localFS, mergedManifest)
+  await localFS.pda.writeManifest(mergedManifest)
   await sync(archive, false, {localSyncPath, shallow: false, addOnly: true}) // archive -> folder (add-only)
   await sync(archive, true, {localSyncPath, shallow: false}) // folder -> archive
   events.emit('merge:' + archive.key.toString('hex'), archive.key)

@@ -3,7 +3,7 @@ const { createMetadata } = require('hyperdrive-daemon/lib/metadata')
 const constants = require('hyperdrive-daemon-client/lib/constants')
 const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const datEncoding = require('dat-encoding')
-const pda = require('pauls-dat-api')
+const pda = require('pauls-dat-api2')
 
 // typedefs
 // =
@@ -133,8 +133,9 @@ exports.createDatArchiveSession = async function (opts) {
     // access: makeArchiveProxyCbFn(key, version, 'access'),
     mount: (...args) => drive.mount(...args),
     unmount: (...args) => drive.unmount(...args),
+
+    pda: createDatArchiveSessionPDA(drive)
   }
-  datArchive.pda = createDatArchiveSessionPDA(datArchive)
   return /** @type DaemonDatArchive */(datArchive)
 }
 
@@ -160,7 +161,7 @@ function fixStatObject (st) {
 }
 
 /**
- * Provides a pauls-dat-api object for the given archive
+ * Provides a pauls-dat-api2 object for the given archive
  * @param {Object} datArchive
  * @returns {DaemonDatArchivePDA}
  */

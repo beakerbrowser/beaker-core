@@ -72,7 +72,7 @@
     "once": "^1.4.0",
     "os-locale": "^3.1.0",
     "parse-dat-url": "^3.0.3",
-    "pauls-dat-api": "^8.1.0",
+    "pauls-dat-api2": "github:beakerbrowser/pauls-dat-api2",
     "pify": "^3.0.0",
     "pump": "^3.0.0",
     "random-access-file": "^2.1.3",

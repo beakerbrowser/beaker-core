@@ -14,7 +14,7 @@ const {join} = require('path')
 // dat modules
 const hyperdrive = require('hyperdrive')
 const hypercoreProtocol = require('hypercore-protocol')
-const pda = require('pauls-dat-api')
+const pda = require('pauls-dat-api2')
 const datEncoding = require('dat-encoding')
 
 // network modules
@@ -258,7 +258,7 @@ const RPC_API = {
     }
 
     // watch for sync events
-    archive.fileActStream = pda.watch(archive)
+    archive.fileActStream = archive.pda.watch()
     archive.fileActStream.on('data', ([event, {path}]) => {
       if (event === 'changed') {
         if (!archive.localSyncSettings) return
@@ -477,7 +477,7 @@ function getArchiveCheckout (key, version) {
 async function updateSizeTracking (archive) {
   archive = getArchive(archive)
   try {
-    archive.size = await pda.readSize(archive, '/')
+    archive.size = await archive.pda.readSize('/')
   } catch (e) {
     archive.size = 0
   }
@@ -504,11 +504,11 @@ function configureAutoDownload (archive, userSettings) {
       onUpdate: throttle(() => {
         // cancel ALL previous, then prioritize ALL current
         archive._autodownloader.undownloadAll()
-        pda.download(archive, '/').catch(e => { /* ignore cancels */ })
+        archive.pda.download('/').catch(e => { /* ignore cancels */ })
       }, 5e3)
     }
     archive.metadata.on('download', archive._autodownloader.onUpdate)
-    pda.download(archive, '/').catch(e => { /* ignore cancels */ })
+    archive.pda.download('/').catch(e => { /* ignore cancels */ })
   } else if (archive._autodownloader && !isAutoDownloading) {
     stopAutodownload(archive)
   }
