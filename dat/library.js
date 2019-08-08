@@ -361,6 +361,7 @@ async function loadArchiveInner (key, userSettings = null) {
 
   // create the archive session with the daemon
   var archive = await daemon.createDatArchiveSession({key})
+  key = archive.key
 
   // put the archive on the network
   archive.session.publish()

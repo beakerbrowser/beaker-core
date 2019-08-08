@@ -1,14 +1,9 @@
-const startDaemon = require('hyperdrive-daemon')
+const HyperdriveDaemon = require('hyperdrive-daemon')
 const { createMetadata } = require('hyperdrive-daemon/lib/metadata')
-const { loadMetadata, HyperdriveClient } = require('hyperdrive-daemon-client')
+const constants = require('hyperdrive-daemon-client/lib/constants')
+const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const datEncoding = require('dat-encoding')
 const pda = require('pauls-dat-api')
-
-// constants
-// =
-
-const DAEMON_STORAGE_PATH = require('path').join(require('os').homedir(), '.dat')
-const DAEMON_PORT = 3101
 
 // typedefs
 // =
@@ -18,6 +13,7 @@ const DAEMON_PORT = 3101
 * @prop {number} sessionId
 * @prop {Buffer} key
 * @prop {string} url
+* @prop {string} domain
 * @prop {boolean} writable
 * @prop {Object} session
 * @prop {function(): Promise<void>} session.close
@@ -57,36 +53,15 @@ var client // client object created by hyperdrive-daemon-client
 // =
 
 exports.setup = async function () {
-  // fetch daemon metadata from disk
-  var metadata
-  try {
-    metadata = await new Promise((resolve, reject) => {
-      loadMetadata((err, metadata) => {
-        if (err) reject(err)
-        else resolve(metadata)
-      })
-    })
-  } catch (e) {
-    await createMetadata(`localhost:${DAEMON_PORT}`)
-    metadata = await new Promise((resolve, reject) => {
-      loadMetadata((err, metadata) => {
-        if (err) reject(err)
-        else resolve(metadata)
-      })
-    })
-  }
-
   // instantiate the daemon
-  // TODO the daemon should be managed in an external promise
-  await startDaemon({
-    storage: DAEMON_STORAGE_PATH,
-    port: DAEMON_PORT,
-    bootstrap: [],
-    metadata
-  })
+  // TODO the daemon should be managed in an external process
+  await createMetadata(`localhost:${constants.port}`)
+  var daemon = new HyperdriveDaemon()
+  await daemon.start()
+  process.on('exit', () => daemon.stop())
 
   // TODO
-  client = new HyperdriveClient(metadata.endpoint, metadata.token)
+  client = new HyperdriveClient()
   await client.ready()
 }
 
@@ -100,23 +75,23 @@ exports.setup = async function () {
  * @returns {Promise<DaemonDatArchive>}
  */
 exports.createDatArchiveSession = async function (opts) {
-  const session = await client.drive.get(opts)
-  const sessionId = session.id
-  const key = datEncoding.toStr(session.opts.key)
+  const drive = await client.drive.get(opts)
+  const key = datEncoding.toStr(drive.key)
   var datArchive = {
     key: datEncoding.toBuf(key),
     url: `dat://${key}`,
-    writable: true, // TODO
+    writable: drive.writable,
+    domain: undefined,
 
     session: {
       async close () {
-        return client.drive.close(sessionId)
+        return drive.close()
       },
       async publish () {
-        return client.drive.publish(sessionId)
+        return drive.publish()
       },
       async unpublish () {
-        return client.drive.unpublish(sessionId)
+        return drive.unpublish()
       }
     },
 
@@ -136,27 +111,28 @@ exports.createDatArchiveSession = async function (opts) {
         if (st) fixStatObject(st)
         cb(err, st)
       })
-      client.drive.stat(sessionId, ...args)
+      drive.stat(...args)
+    },
+    lstat (path, opts = {}) {
+      opts.lstat = true
+      return this.stat(path, opts)
     },
     // readFile: (...args) => client.drive.readFile(sessionId, ...args), TODO opts not accepted by daemon yet
-    readFile: (path, opts, cb) => {
-      client.drive.readFile(sessionId, path, cb ? cb : opts)
-    },
+    readFile: (path, opts, cb) => drive.readFile(path, cb ? cb : opts),
     // writeFile: (...args) => client.drive.writeFile(sessionId, ...args), TODO encoding/opts not accepted by daemon yet
-    writeFile: (path, content, encoding, cb) => client.drive.writeFile(sessionId, path, content, cb),
-
-    readdir: (...args) => client.drive.readdir(sessionId, ...args),
-    // ready: makeArchiveProxyCbFn(key, version, 'ready'),
+    writeFile: (path, content, opts, cb) => drive.writeFile(path, content, cb ? cb : opts),
     // download: makeArchiveProxyCbFn(key, version, 'download'),
     // history: makeArchiveProxyReadStreamFn(key, version, 'history'),
-    // createReadStream: makeArchiveProxyReadStreamFn(key, version, 'createReadStream'),
+    createReadStream: (...args) => drive.createReadStream(...args),
     // createDiffStream: makeArchiveProxyReadStreamFn(key, version, 'createDiffStream'),
-    // createWriteStream: makeArchiveProxyWriteStreamFn(key, version, 'createWriteStream'),
-    // unlink: makeArchiveProxyCbFn(key, version, 'unlink'),
-    // mkdir: makeArchiveProxyCbFn(key, version, 'mkdir'),
-    // rmdir: makeArchiveProxyCbFn(key, version, 'rmdir'),
-    // lstat: makeArchiveProxyCbFn(key, version, 'lstat'),
-    // access: makeArchiveProxyCbFn(key, version, 'access')
+    createWriteStream: (...args) => drive.createWriteStream(...args),
+    unlink: (...args) => drive.unlink(...args),
+    readdir: (...args) => drive.readdir(...args),
+    mkdir: (...args) => drive.mkdir(...args),
+    rmdir: (...args) => drive.rmdir(...args),
+    // access: makeArchiveProxyCbFn(key, version, 'access'),
+    mount: (...args) => drive.mount(...args),
+    unmount: (...args) => drive.unmount(...args),
   }
   datArchive.pda = createDatArchiveSessionPDA(datArchive)
   return /** @type DaemonDatArchive */(datArchive)
