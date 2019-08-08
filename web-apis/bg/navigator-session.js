@@ -11,7 +11,7 @@ const sessionPerms = require('../../lib/session-perms')
 /**
  * @typedef {import('../../users/index').User} User
  * @typedef {import('../../users/site-sessions').UserSiteSession} UserSiteSession
- * 
+ *
  * @typedef {Object} NavigatorSessionPublicAPIRecord
  * @prop {Object} profile
  * @prop {string} profile.url
@@ -78,20 +78,34 @@ module.exports = {
   },
 
   /**
+   * @param {string} siteUrl only usable from beaker:// origins
    * @returns {Promise<NavigatorSessionPublicAPIRecord>}
    */
-  async get () {
+  async get (siteUrl = undefined) {
     var user = await getUser(this.sender)
-    var siteUrl = await sessionPerms.toDatOrigin(this.sender.getURL())
+    if (this.sender.getURL().startsWith('beaker:') && siteUrl) {
+      // trusted app, use given url
+      siteUrl = await sessionPerms.toDatOrigin(siteUrl)
+    } else {
+      // use sender url
+      siteUrl = await sessionPerms.toDatOrigin(this.sender.getURL())
+    }
     return massageSessionRecord(user, await userSiteSessions.get(user.id, siteUrl))
   },
 
   /**
+   * @param {string} siteUrl only usable from beaker:// origins
    * @returns {Promise<void>}
    */
-  async destroy () {
+  async destroy (siteUrl = undefined) {
     var user = await getUser(this.sender)
-    var siteUrl = await sessionPerms.toDatOrigin(this.sender.getURL())
+    if (this.sender.getURL().startsWith('beaker:') && siteUrl) {
+      // trusted app, use given url
+      siteUrl = await sessionPerms.toDatOrigin(siteUrl)
+    } else {
+      // use sender url
+      siteUrl = await sessionPerms.toDatOrigin(this.sender.getURL())
+    }
     await userSiteSessions.destroy(user.id, siteUrl)
   }
 }

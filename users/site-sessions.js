@@ -77,8 +77,8 @@ exports.destroy = async function (userId, url) {
 // =
 
 /**
- * @param {number} userId 
- * @param {string} url 
+ * @param {number} userId
+ * @param {string} url
  * @returns {string}
  */
 function sesskey (userId, url) {
@@ -86,7 +86,7 @@ function sesskey (userId, url) {
 }
 
 /**
- * @param {Object} record 
+ * @param {Object} record
  * @returns {UserSiteSession}
  */
 function massageRecord (record) {
