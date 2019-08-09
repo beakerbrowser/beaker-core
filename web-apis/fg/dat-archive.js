@@ -232,6 +232,15 @@ exports.setup = function (rpc) {
       }
     }
 
+    async symlink (target, linkname, opts = {}) {
+      var errStack = (new Error()).stack
+      try {
+        return await datRPC.symlink(this.url, target, linkname, opts)
+      } catch (e) {
+        throwWithFixedStack(e, errStack)
+      }
+    }
+
     async mount (path, opts = {}) {
       var errStack = (new Error()).stack
       try {

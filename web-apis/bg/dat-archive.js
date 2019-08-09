@@ -431,6 +431,25 @@ module.exports = {
     })
   },
 
+  async symlink (url, target, linkname, opts) {
+    target = normalizeFilepath(target || '')
+    linkname = normalizeFilepath(linkname || '')
+    return timer(to(opts), async (checkin, pause, resume) => {
+      checkin('searching for archive')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
+
+      pause() // dont count against timeout, there may be user prompts
+      await assertWritePermission(archive, this.sender)
+      await assertValidPath(linkname)
+      assertUnprotectedFilePath(linkname, this.sender)
+      resume()
+
+      checkin('symlinking')
+      return checkoutFS.pda.symlink(target, linkname)
+    })
+  },
+
   async mount (url, filepath, opts) {
     filepath = normalizeFilepath(filepath || '')
     return timer(to(opts), async (checkin, pause, resume) => {

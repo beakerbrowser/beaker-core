@@ -20,6 +20,8 @@ module.exports = {
   mkdir: 'promise',
   rmdir: 'promise',
 
+  symlink: 'promise',
+
   mount: 'promise',
   unmount: 'promise',
 
