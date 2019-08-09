@@ -20,6 +20,9 @@ module.exports = {
   mkdir: 'promise',
   rmdir: 'promise',
 
+  mount: 'promise',
+  unmount: 'promise',
+
   watch: 'readable',
   createNetworkActivityStream: 'readable',
 

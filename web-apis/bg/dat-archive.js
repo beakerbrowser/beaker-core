@@ -431,6 +431,41 @@ module.exports = {
     })
   },
 
+  async mount (url, filepath, opts) {
+    filepath = normalizeFilepath(filepath || '')
+    return timer(to(opts), async (checkin, pause, resume) => {
+      checkin('searching for archive')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
+
+      pause() // dont count against timeout, there may be user prompts
+      await assertWritePermission(archive, this.sender)
+      await assertValidPath(filepath)
+      assertUnprotectedFilePath(filepath, this.sender)
+      resume()
+
+      checkin('mounting archive')
+      return checkoutFS.pda.mount(filepath, opts)
+    })
+  },
+
+  async unmount (url, filepath, opts = {}) {
+    filepath = normalizeFilepath(filepath || '')
+    return timer(to(opts), async (checkin, pause, resume) => {
+      checkin('searching for archive')
+      const {archive, checkoutFS, isHistoric} = await lookupArchive(this.sender, url, opts)
+      if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
+
+      pause() // dont count against timeout, there may be user prompts
+      await assertWritePermission(archive, this.sender)
+      assertUnprotectedFilePath(filepath, this.sender)
+      resume()
+
+      checkin('unmounting archive')
+      return checkoutFS.pda.unmount(filepath)
+    })
+  },
+
   async watch (url, pathPattern) {
     var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
     if (version === 'preview') {

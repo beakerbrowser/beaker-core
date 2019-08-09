@@ -20,11 +20,8 @@ const pda = require('pauls-dat-api2')
 * @prop {function(): Promise<void>} session.publish
 * @prop {function(): Promise<void>} session.unpublish
 * @prop {function(): Promise<Object>} getInfo
-* @prop {function(string, Object=, Function=): any} readFile
-* @prop {function(string, any, Object=, Function=): void} writeFile
-* @prop {function(string, Object=, Function=): void} readdir
 * @prop {DaemonDatArchivePDA} pda
-
+*
 * @typedef {Object} DaemonDatArchivePDA
 * @prop {function(string): Promise<Object>} stat
 * @prop {function(string, Object=): Promise<any>} readFile
@@ -104,35 +101,6 @@ exports.createDatArchiveSession = async function (opts) {
         networkStats: {}
       }
     },
-    stat: (...args) => {
-      // wrap the callback with a method which fixes the stat object output
-      var cb = args.pop()
-      args.push((err, st) => {
-        if (st) fixStatObject(st)
-        cb(err, st)
-      })
-      drive.stat(...args)
-    },
-    lstat (path, opts = {}) {
-      opts.lstat = true
-      return this.stat(path, opts)
-    },
-    // readFile: (...args) => client.drive.readFile(sessionId, ...args), TODO opts not accepted by daemon yet
-    readFile: (path, opts, cb) => drive.readFile(path, cb ? cb : opts),
-    // writeFile: (...args) => client.drive.writeFile(sessionId, ...args), TODO encoding/opts not accepted by daemon yet
-    writeFile: (path, content, opts, cb) => drive.writeFile(path, content, cb ? cb : opts),
-    // download: makeArchiveProxyCbFn(key, version, 'download'),
-    // history: makeArchiveProxyReadStreamFn(key, version, 'history'),
-    createReadStream: (...args) => drive.createReadStream(...args),
-    // createDiffStream: makeArchiveProxyReadStreamFn(key, version, 'createDiffStream'),
-    createWriteStream: (...args) => drive.createWriteStream(...args),
-    unlink: (...args) => drive.unlink(...args),
-    readdir: (...args) => drive.readdir(...args),
-    mkdir: (...args) => drive.mkdir(...args),
-    rmdir: (...args) => drive.rmdir(...args),
-    // access: makeArchiveProxyCbFn(key, version, 'access'),
-    mount: (...args) => drive.mount(...args),
-    unmount: (...args) => drive.unmount(...args),
 
     pda: createDatArchiveSessionPDA(drive)
   }
@@ -141,24 +109,6 @@ exports.createDatArchiveSession = async function (opts) {
 
 // internal methods
 // =
-
-/**
- * Converts the stat object to the expected form
- * @param {Object} st
- * @returns {void}
- */
-function fixStatObject (st) {
-  st.atime = (new Date(st.atime)).getTime()
-  st.mtime = (new Date(st.mtime)).getTime()
-  st.ctime = (new Date(st.ctime)).getTime()
-  st.isSocket = () => false
-  st.isSymbolicLink = () => false
-  st.isFile = () => (st.mode & 32768) === 32768
-  st.isBlockDevice = () => false
-  st.isDirectory = () => (st.mode & 16384) === 16384
-  st.isCharacterDevice = () => false
-  st.isFIFO = () => false
-}
 
 /**
  * Provides a pauls-dat-api2 object for the given archive
