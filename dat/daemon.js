@@ -57,7 +57,6 @@ exports.setup = async function () {
   await daemon.start()
   process.on('exit', () => daemon.stop())
 
-  // TODO
   client = new HyperdriveClient()
   await client.ready()
 }

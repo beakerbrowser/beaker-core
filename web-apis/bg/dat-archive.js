@@ -694,17 +694,17 @@ async function assertQuotaPermission (archive, senderOrigin, byteLength) {
     return
   }
 
-  // fetch the archive settings
-  const userSettings = archivesDb.getUserSettings(0, archive.key)
+  // fetch the archive meta and settings
+  const [meta, userSettings] = await Promise.all([
+    archivesDb.getMeta(archive.key),
+    archivesDb.getUserSettings(0, archive.key)
+  ])
 
   // fallback to default quota
   var bytesAllowed = userSettings.bytesAllowed || DAT_QUOTA_DEFAULT_BYTES_ALLOWED
 
-  // update the archive size
-  var size = await datLibrary.updateSizeTracking(archive)
-
   // check the new size
-  var newSize = (size + byteLength)
+  var newSize = (meta.size + byteLength)
   if (newSize > bytesAllowed) {
     throw new QuotaExceededError()
   }

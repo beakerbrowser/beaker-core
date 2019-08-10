@@ -193,7 +193,7 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
     var [manifest, oldMeta, size] = await Promise.all([
       archive.pda.readManifest().catch(_ => {}),
       archivesDb.getMeta(key),
-      0 // TODO daemon.updateSizeTracking(key)
+      archive.pda.readSize('/')
     ])
     var {title, description, type} = (manifest || {})
     var isOwner = archive.writable
@@ -379,29 +379,23 @@ async function loadArchiveInner (key, userSettings = null) {
 
   // wire up events
   archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
-  // TODO
-  // archive.fileActStream = archive.pda.watch()
-  // archive.fileActStream.on('data', ([event, {path}]) => {
-  //   if (event === 'changed') {
-  //     archive.pullLatestArchiveMeta({updateMTime: true})
-  //     datAssets.update(archive, [path])
-  //   }
-  // })
-  // TODO
-  // archive.fileActStream = pda.watch(archive)
-  // archive.fileActStream.on('data', ([event, {path}]) => {
-  //   if (event === 'changed') {
-  //     if (!archive.localSyncSettings) return
-  //     // need to sync this change to the local folder
-  //     if (archive.localSyncSettings.autoPublish) {
-  //       // bidirectional sync: use the sync queue
-  //       folderSync.queueSyncEvent(archive, {toFolder: true})
-  //     } else {
-  //       // preview mode: just write this update to disk
-  //       folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
-  //     }
-  //   }
-  // })
+  archive.fileActStream = archive.pda.watch('/')
+  archive.fileActStream.on('data', ([event, {path}]) => {
+    if (event !== 'changed') return
+    archive.pullLatestArchiveMeta({updateMTime: true})
+    datAssets.update(archive, [path])
+    
+    if (archive.localSyncSettings) {
+      // need to sync this change to the local folder
+      if (archive.localSyncSettings.autoPublish) {
+        // bidirectional sync: use the sync queue
+        folderSync.queueSyncEvent(archive, {toFolder: true})
+      } else {
+        // preview mode: just write this update to disk
+        folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
+      }
+    }
+  })
 
   // now store in main archives listing, as loaded
   archives[datEncoding.toStr(archive.key)] = archive
@@ -477,11 +471,6 @@ const isArchiveLoaded = exports.isArchiveLoaded = function isArchiveLoaded (key)
   return key in archives
 }
 
-exports.updateSizeTracking = function updateSizeTracking (archive) {
-  return 0 // TODO
-  // return daemon.updateSizeTracking(datEncoding.toStr(archive.key))
-}
-
 // archive fetch/query
 // =
 
@@ -502,7 +491,6 @@ exports.queryArchives = async function queryArchives (query) {
     if (archive) {
       var info = await archive.getInfo()
       archiveInfo.isSwarmed = archiveInfo.userSettings.networked
-      archiveInfo.size = info.size
       archiveInfo.peers = info.peers
     } else {
       archiveInfo.isSwarmed = false
@@ -531,7 +519,6 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   meta.links = manifest.links || {}
   meta.manifest = manifest
   meta.version = archiveInfo.version
-  meta.size = archiveInfo.size
   meta.userSettings = {
     isSaved: userSettings.isSaved,
     hidden: userSettings.hidden,
