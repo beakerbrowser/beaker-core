@@ -92,12 +92,14 @@ exports.createDatArchiveSession = async function (opts) {
     },
 
     async getInfo () {
-      // TODO pull from daemon
+      var stats = (await drive.stats())[0]
       return {
         version: 0,
-        size: 0,
-        peers: 0,
-        networkStats: {}
+        peers: stats.metadata.peers,
+        networkStats: {
+          uploadTotal: stats.metadata.uploadedBytes + stats.content.uploadedBytes,
+          downloadTotal: stats.metadata.downloadedBytes + stats.content.downloadedBytes,
+        }
       }
     },
 
