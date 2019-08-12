@@ -30,6 +30,7 @@ module.exports = {
 
   getResourceContentType: 'sync',
 
+  openSidebar: 'promise',
   toggleSidebar: 'promise',
   toggleLiveReloading: 'promise',
   setWindowDimensions: 'promise',
