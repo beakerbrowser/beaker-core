@@ -582,11 +582,6 @@ async function assertWritePermission (archive, sender) {
     throw new ArchiveNotWritableError()
   }
 
-  // ensure we havent deleted the archive
-  if (!details.userSettings.isSaved) {
-    throw new ArchiveNotWritableError('This archive has been deleted. Restore it to continue making changes.')
-  }
-
   // beaker: always allowed
   if (sender.getURL().startsWith('beaker:')) {
     return true
