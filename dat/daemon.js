@@ -92,13 +92,16 @@ exports.createDatArchiveSession = async function (opts) {
     },
 
     async getInfo () {
-      var stats = (await drive.stats())[0]
+      var [version, stats] = await Promise.all([
+        drive.version(),
+        drive.stats()
+      ])
       return {
-        version: 0,
-        peers: stats.metadata.peers,
+        version,
+        peers: stats[0].metadata.peers,
         networkStats: {
-          uploadTotal: stats.metadata.uploadedBytes + stats.content.uploadedBytes,
-          downloadTotal: stats.metadata.downloadedBytes + stats.content.downloadedBytes,
+          uploadTotal: stats[0].metadata.uploadedBytes + stats[0].content.uploadedBytes,
+          downloadTotal: stats[0].metadata.downloadedBytes + stats[0].content.downloadedBytes,
         }
       }
     },
