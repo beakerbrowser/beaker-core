@@ -5,6 +5,8 @@ const { HyperdriveClient } = require('hyperdrive-daemon-client')
 const datEncoding = require('dat-encoding')
 const pda = require('pauls-dat-api2')
 
+const SETUP_RETRIES = 10
+
 // typedefs
 // =
 
@@ -58,8 +60,14 @@ exports.setup = async function () {
   await daemon.start()
   process.on('exit', () => daemon.stop())
 
-  client = new HyperdriveClient()
-  await client.ready()
+  for (let i = 0; i < SETUP_RETRIES; i++) {
+    try {
+      client = new HyperdriveClient()
+      await client.ready()
+    } catch (e) {
+      console.log('Failed to connect to daemon, retrying', e)
+    }
+  }
 }
 
 /**
