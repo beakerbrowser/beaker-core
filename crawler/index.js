@@ -118,9 +118,9 @@ exports.crawlSite = async function (archive) {
     await Promise.all([
       bookmarks.crawlSite(archive, crawlSource),
       comments.crawlSite(archive, crawlSource),
-      discussions.crawlSite(archive, crawlSource),
+      // discussions.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
-      media.crawlSite(archive, crawlSource),
+      // media.crawlSite(archive, crawlSource),
       posts.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource),
