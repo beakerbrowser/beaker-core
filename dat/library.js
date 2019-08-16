@@ -46,7 +46,6 @@ const {InvalidURLError, TimeoutError} = require('beaker-error-constants')
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archiveLoadPromises = {} // key -> promise
 var archiveSessionCheckouts = {} // key+version -> DaemonDatArchive
-var localSyncSettings = {} // key -> object
 var archivesEvents = new EventEmitter()
 // var daemonEvents TODO
 
@@ -385,9 +384,10 @@ async function loadArchiveInner (key, userSettings = null) {
     archive.pullLatestArchiveMeta({updateMTime: true})
     datAssets.update(archive, [path])
     
-    if (archive.localSyncSettings) {
+    let localSyncSettings = folderSync.getLocalSyncSettings(archive)
+    if (localSyncSettings) {
       // need to sync this change to the local folder
-      if (archive.localSyncSettings.autoPublish) {
+      if (localSyncSettings.autoPublish) {
         // bidirectional sync: use the sync queue
         folderSync.queueSyncEvent(archive, {toFolder: true})
       } else {
@@ -417,10 +417,17 @@ exports.getArchiveCheckout = async function getArchiveCheckout (archive, version
       if (version === 'latest') {
         // ignore, we use latest by default
       } else if (version === 'preview') {
-        isPreview = true
-        checkoutFS = scopedFSes.get(localSyncSettings[archive.key].path)
-        checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
-        checkoutFS.domain = archive.domain
+        let localSyncSettings = folderSync.getLocalSyncSettings(archive)
+        if (localSyncSettings) {
+          isPreview = true
+          checkoutFS = scopedFSes.get(localSyncSettings.path)
+          checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
+          checkoutFS.domain = archive.domain
+        } else {
+          var err = new Error('Preview mode is not active')
+          err.noPreviewMode = true
+          throw err
+        }
       } else {
         throw new Error('Invalid version identifier:' + version)
       }

@@ -41,7 +41,7 @@
     "dat-encoding": "^5.0.1",
     "datland-swarm-defaults": "^1.0.2",
     "diff": "^3.5.0",
-    "diff-file-tree": "^2.2.0",
+    "diff-file-tree": "^2.3.2",
     "discovery-swarm": "^6.0.0",
     "emit-stream": "^0.1.2",
     "emoji-regex": "^8.0.0",

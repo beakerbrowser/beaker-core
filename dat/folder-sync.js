@@ -39,8 +39,8 @@ var datPath = ''
 var disallowedSavePaths = []
 var localSyncSettings = {} // key -> settings object
 var syncEventQueues = {} // key -> queue object
-var stopWatchingLocalFolderFns = {} // key -> function
-var stopWatchingDatIgnoreFns = {} // key -> function
+var watchingLocalFolderStreams = {} // key -> function
+var watchingDatIgnoreFnsStreams = {} // key -> function
 var compareContentCaches = {} // key -> object
 var datIgnoreRules = {} // key -> object
 var syncCallCounts = {} // key -> number
@@ -58,7 +58,7 @@ exports.setup = function (opts) {
 
 exports.reconfigureArchive = function (archive, userSettings) {
   var oldLocalSyncSettings = localSyncSettings[archive.key]
-  localSyncSettings[archive.key] = getLocalSyncSettings(archive, userSettings)
+  localSyncSettings[archive.key] = createLocalSyncSettings(archive, userSettings)
 
   if (!isEqual(localSyncSettings[archive.key], oldLocalSyncSettings)) {
     // configure the local folder watcher if a change occurred
@@ -69,6 +69,10 @@ exports.reconfigureArchive = function (archive, userSettings) {
     // clear the internal directory if it's not in use
     jetpack.removeAsync(getInternalLocalSyncPath(archive))
   }
+}
+
+exports.getLocalSyncSettings = function (archive) {
+  return localSyncSettings[archive.key]
 }
 
 /**
@@ -162,11 +166,11 @@ const queueSyncEvent = exports.queueSyncEvent = function (archive, {toFolder, to
     logger.silly('Ok timed out, beginning sync', {details: {toArchive, toFolder}})
 
     try {
-      let st = await stat(fs, localSyncPath)
+      let st = await jetpack.existsAsync(localSyncPath)
       if (!st) {
         // folder has been removed
-        stopWatchingLocalFolderFns[archive.key]()
-        stopWatchingLocalFolderFns[archive.key] = null
+        watchingLocalFolderStreams[archive.key].destroy()
+        watchingLocalFolderStreams[archive.key] = null
         logger.warn('Local sync folder not found, aborting watch', {details: {path: localSyncPath}})
         return
       }
@@ -210,18 +214,18 @@ const configureFolderToArchiveWatcher = exports.configureFolderToArchiveWatcher 
   // teardown the existing watch (his watch has ended)
   // =
 
-  if (stopWatchingLocalFolderFns[archive.key]) {
+  if (watchingLocalFolderStreams[archive.key]) {
     // stop watching
-    stopWatchingLocalFolderFns[archive.key]()
-    stopWatchingLocalFolderFns[archive.key] = null
+    watchingLocalFolderStreams[archive.key].destroy()
+    watchingLocalFolderStreams[archive.key] = null
     if (syncEventQueues[archive.key] && syncEventQueues[archive.key].timeout) {
       clearTimeout(syncEventQueues[archive.key].timeout)
       syncEventQueues[archive.key] = null
     }
   }
-  if (stopWatchingDatIgnoreFns[archive.key]) {
-    stopWatchingDatIgnoreFns[archive.key]()
-    stopWatchingDatIgnoreFns[archive.key] = null
+  if (watchingDatIgnoreFnsStreams[archive.key]) {
+    watchingDatIgnoreFnsStreams[archive.key].destroy()
+    watchingDatIgnoreFnsStreams[archive.key] = null
   }
 
   // start a new watch
@@ -239,16 +243,16 @@ const configureFolderToArchiveWatcher = exports.configureFolderToArchiveWatcher 
     }
 
     // make sure the folder exists
-    let st = await stat(fs, localSyncSettings[archive.key].path)
+    let exists = await jetpack.exists(localSyncSettings[archive.key].path)
     if (shouldAbort()) return
-    if (!st) {
+    if (!exists) {
       logger.warn('Local sync folder not found, aborting watch', {details: {path: localSyncSettings[archive.key].path}})
     }
     var scopedFS = scopedFSes.get(localSyncSettings[archive.key].path)
 
     // track datignore rules
     readDatIgnore(scopedFS).then(rules => { datIgnoreRules[archive.key] = rules })
-    stopWatchingDatIgnoreFns[archive.key] = scopedFS.watch('/.datignore', async () => {
+    watchingDatIgnoreFnsStreams[archive.key] = scopedFS.pda.watch('/.datignore', async () => {
       datIgnoreRules[archive.key] = await readDatIgnore(scopedFS)
     })
 
@@ -267,7 +271,7 @@ const configureFolderToArchiveWatcher = exports.configureFolderToArchiveWatcher 
       if (shouldAbort()) return
 
       // start watching
-      stopWatchingLocalFolderFns[archive.key] = scopedFS.watch('/', path => {
+      watchingLocalFolderStreams[archive.key] = scopedFS.pda.watch('/', path => {
         // TODO
         // it would be possible to make this more efficient by ignoring changes that match .datignore
         // but you need to make sure you have the latest .datignore and reading that on every change-event isnt efficient
@@ -317,7 +321,7 @@ exports.diffListing = async function (archive, opts = {}) {
 
   // run diff
   newOpts.compareContentCache = compareContentCaches[archive.key]
-  return dft.diff({fs: scopedFS}, {fs: archive}, newOpts)
+  return dft.diff({fs: scopedFS.pda}, {fs: archive.pda}, newOpts)
 }
 
 /**
@@ -377,15 +381,13 @@ exports.assertSafePath = async function (p) {
   }
 
   // stat the folder
-  const stat = await new Promise(resolve => {
-    fs.stat(p, (_, st) => resolve(st))
-  })
+  const info = await jetpack.inspect(p)
 
-  if (!stat) {
+  if (!info) {
     throw new NotFoundError()
   }
 
-  if (!stat.isDirectory()) {
+  if (info.type !== 'dir') {
     throw new NotAFolderError('Invalid target folder: not a folder')
   }
 }
@@ -474,8 +476,8 @@ async function sync (archive, toArchive, opts = {}) {
     }
 
     // choose direction
-    var left = toArchive ? {fs: scopedFS} : {fs: archive}
-    var right = toArchive ? {fs: archive} : {fs: scopedFS}
+    var left = toArchive ? {fs: scopedFS.pda} : {fs: archive.pda}
+    var right = toArchive ? {fs: archive.pda} : {fs: scopedFS.pda}
 
     // run diff
     diffOpts.compareContentCache = compareContentCaches[archive.key]
@@ -560,7 +562,7 @@ function getInternalLocalSyncPath (archiveOrKey) {
  * @param {Object} userSettings
  * @returns {Object}
  */
-function getLocalSyncSettings (archive, userSettings) {
+function createLocalSyncSettings (archive, userSettings) {
   if (!archive.writable || !userSettings.isSaved) {
     return false
   }
@@ -582,20 +584,22 @@ function getLocalSyncSettings (archive, userSettings) {
 
 // helper to read a file via promise and return a null on fail
 async function stat (fs, filepath) {
-  return new Promise(resolve => {
-    fs.stat(filepath, (_, data) => {
-      resolve(data || null)
-    })
-  })
+  try {
+    return await fs.pda.stat(filepath)
+  } catch (e) {
+    return null
+  }
 }
 
 // helper to read a file via promise and return an empty string on fail
 async function readFile (fs, filepath) {
-  return new Promise(resolve => {
-    fs.readFile(filepath, {encoding: 'utf8'}, (_, data) => {
-      resolve(data || '')
-    })
-  })
+  var data
+  try {
+    data = await fs.pda.readFile(filepath, {encoding: 'utf8'})
+  } catch (e) {
+    // ignore
+  }
+  return data || ''
 }
 
 // helper to go from '/foo/bar/baz' to ['/', '/foo', '/foo/bar', '/foo/bar/baz']
