@@ -411,7 +411,7 @@ exports.getArchiveCheckout = async function getArchiveCheckout (archive, version
   var isHistoric = false
   var isPreview = false
   var checkoutFS = archive
-  if (version) {
+  if (typeof version !== 'undefined') {
     let seq = parseInt(version)
     if (Number.isNaN(seq)) {
       if (version === 'latest') {
@@ -427,9 +427,10 @@ exports.getArchiveCheckout = async function getArchiveCheckout (archive, version
     } else {
       let checkoutKey = `${archive.key}+${version}`
       if (!(checkoutKey in archiveSessionCheckouts)) {
-        archiveSessionCheckouts[checkoutKey] = daemon.createDatArchiveSession({
+        archiveSessionCheckouts[checkoutKey] = await daemon.createDatArchiveSession({
           key: archive.key,
-          version
+          version,
+          writable: false
         })
       }
       checkoutFS = archiveSessionCheckouts[checkoutKey]

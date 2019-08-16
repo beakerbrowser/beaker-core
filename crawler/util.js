@@ -57,15 +57,17 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   var version = archiveInfo ? archiveInfo.version : 0
 
   // fetch change log
+  var changes
   var start = state.crawlSourceVersion + 1
   var end = version + 1
-  var changes = await new Promise((resolve, reject) => {
-    pump(
-      archive.history({start, end, timeout: READ_TIMEOUT}),
-      concat({encoding: 'object'}, resolve),
-      reject
-    )
-  })
+  if (start === end) {
+    changes = []
+  } else {
+    let stream = await archive.session.drive.createDiffStream(start, '/')
+    changes = await new Promise((resolve, reject) => {
+      pump(stream, concat({encoding: 'object'}, resolve), reject)
+    })
+  }
 
   crawlerEvents.emit('crawl-dataset-start', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 

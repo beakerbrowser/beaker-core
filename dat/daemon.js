@@ -16,6 +16,7 @@ const pda = require('pauls-dat-api2')
 * @prop {string} domain
 * @prop {boolean} writable
 * @prop {Object} session
+* @prop {Object} session.drive
 * @prop {function(): Promise<void>} session.close
 * @prop {function(): Promise<void>} session.publish
 * @prop {function(): Promise<void>} session.unpublish
@@ -68,6 +69,7 @@ exports.setup = async function () {
  * @param {Buffer} opts.key
  * @param {number} [opts.version]
  * @param {Buffer} [opts.hash]
+ * @param {boolean} [opts.writable]
  * @returns {Promise<DaemonDatArchive>}
  */
 exports.createDatArchiveSession = async function (opts) {
@@ -80,6 +82,7 @@ exports.createDatArchiveSession = async function (opts) {
     domain: undefined,
 
     session: {
+      drive,
       async close () {
         return drive.close()
       },
