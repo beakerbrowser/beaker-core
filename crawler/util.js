@@ -58,8 +58,8 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
 
   // fetch change log
   var changes
-  var start = state.crawlSourceVersion + 1
-  var end = version + 1
+  var start = state.crawlSourceVersion
+  var end = version
   if (start === end) {
     changes = []
   } else {
@@ -68,13 +68,19 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
       pump(stream, concat({encoding: 'object'}, resolve), reject)
     })
   }
+  
+  changes.forEach(c => {
+    if (!c.name.startsWith('/')) {
+      c.name = '/' + c.name
+    }
 
-  // TEMPORARY
-  // createDiffStream() doesnt include a .version
-  // we need an accurate version to checkpoint progress
-  // for now, use the earliest version
-  // -prf
-  changes.forEach(c => { c.version = version })
+    // TEMPORARY
+    // createDiffStream() doesnt include a .version
+    // we need an accurate version to checkpoint progress
+    // for now, use the earliest version
+    // -prf
+    c.version = version
+  })
 
   crawlerEvents.emit('crawl-dataset-start', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 
