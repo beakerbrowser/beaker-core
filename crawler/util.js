@@ -69,6 +69,13 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
     })
   }
 
+  // TEMPORARY
+  // createDiffStream() doesnt include a .version
+  // we need an accurate version to checkpoint progress
+  // for now, use the earliest version
+  // -prf
+  changes.forEach(c => { c.version = version })
+
   crawlerEvents.emit('crawl-dataset-start', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 
   // handle changes
@@ -115,14 +122,9 @@ exports.emitProgressEvent = function (sourceUrl, crawlDataset, progress, numUpda
  * @returns {Array<Object>}
  */
 exports.getMatchingChangesInOrder = function (changes, regex) {
-  var list = [] // order matters, must be oldest to newest
-  changes.forEach(c => {
-    if (regex.test(c.name)) {
-      let i = list.findIndex(c2 => c2.name === c.name)
-      if (i !== -1) list.splice(i, 1) // remove from old position
-      list.push(c)
-    }
-  })
+  var list = []
+  list = changes.filter(c => regex.test(c.name))
+  list.sort((a, b) => a.version - b.version) // order matters, must be oldest to newest
   return list
 }
 
