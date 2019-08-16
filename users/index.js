@@ -64,7 +64,7 @@ exports.setup = async function () {
     // old temporary?
     if (user.isTemporary) {
       // delete old temporary user
-      logger.info('Deleting temporary user', {details: user})
+      logger.info('Deleting temporary user', {details: user.url})
       user.isInvalid = true // let invalid-user-deletion clean up the record
       let key = dat.library.fromURLToKey(user.url)
       await archivesDb.setUserSettings(0, key, {isSaved: false})
@@ -77,7 +77,7 @@ exports.setup = async function () {
     user.archive = null
     user.isDefault = Boolean(user.isDefault)
     user.createdAt = new Date(user.createdAt)
-    logger.info('Loading user', {details: user})
+    logger.info('Loading user', {details: user.url})
 
     // validate
     try {
@@ -237,7 +237,7 @@ exports.add = async function (label, url, setDefault = false, isTemporary = fals
     isTemporary,
     createdAt: new Date()
   }
-  logger.verbose('Adding user', {details: user})
+  logger.verbose('Adding user', {details: user.url})
   await db.run(
     `INSERT INTO users (label, url, isDefault, isTemporary, createdAt) VALUES (?, ?, ?, ?, ?)`,
     [user.label, user.url, Number(user.isDefault), Number(user.isTemporary), Number(user.createdAt)]
@@ -286,7 +286,7 @@ exports.edit = async function (url, opts) {
     user.label = opts.label
     await db.run(`UPDATE users SET label = ? WHERE url = ?`, [opts.label, user.url])
   }
-  logger.verbose('Updating user', {details: user})
+  logger.verbose('Updating user', {details: user.url})
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
@@ -305,7 +305,7 @@ exports.remove = async function (url) {
   if (!user) return
 
   // remove the user
-  logger.verbose('Removing user', {details: user})
+  logger.verbose('Removing user', {details: user.url})
   users.splice(users.indexOf(user), 1)
   await db.run(`DELETE FROM users WHERE url = ?`, [user.url])
   /* dont await */crawler.unwatchSite(user.archive)
