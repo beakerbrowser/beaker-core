@@ -411,7 +411,7 @@ exports.getArchiveCheckout = async function getArchiveCheckout (archive, version
   var isHistoric = false
   var isPreview = false
   var checkoutFS = archive
-  if (typeof version !== 'undefined') {
+  if (typeof version !== 'undefined' && version !== null) {
     let seq = parseInt(version)
     if (Number.isNaN(seq)) {
       if (version === 'latest') {
