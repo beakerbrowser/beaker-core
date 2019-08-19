@@ -1,6 +1,7 @@
 const errors = require('beaker-error-constants')
 const manifest = require('../manifests/external/navigator')
 const sessionManifest = require('../manifests/external/navigator-session')
+const filesystemManifest = require('../manifests/external/navigator-filesystem')
 
 const RPC_OPTS = { timeout: false, errors }
 
@@ -17,6 +18,14 @@ exports.setup = function (rpc) {
   for (let k in sessionManifest) {
     if (typeof sessionApi[k] === 'function') {
       navigator.session[k] = sessionApi[k].bind(sessionApi)
+    }
+  }
+
+  var filesystemApi = rpc.importAPI('navigator-filesystem', filesystemManifest, RPC_OPTS)
+  navigator.filesystem = {
+    async getRootArchive () {
+      var {url} = await filesystemApi.getRootArchive()
+      return new DatArchive(url)
     }
   }
 }
