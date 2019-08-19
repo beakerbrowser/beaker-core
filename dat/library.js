@@ -2,19 +2,22 @@ const emitStream = require('emit-stream')
 const EventEmitter = require('events')
 const datEncoding = require('dat-encoding')
 const pify = require('pify')
-const pda = require('pauls-dat-api')
 const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
-const debounce = require('lodash.debounce')
+const _debounce = require('lodash.debounce')
 const mkdirp = require('mkdirp')
+const baseLogger = require('../logger').get()
+const logger = baseLogger.child({category: 'dat', subcategory: 'library'})
 
 // dbs
 const siteData = require('../dbs/sitedata')
 const settingsDb = require('../dbs/settings')
 const archivesDb = require('../dbs/archives')
+const datDnsDb = require('../dbs/dat-dns')
 
 // dat modules
 const datGC = require('./garbage-collector')
+const datAssets = require('./assets')
 
 // constants
 // =
@@ -23,8 +26,55 @@ const {
   DAT_HASH_REGEX,
   DAT_PRESERVED_FIELDS_ON_FORK
 } = require('../lib/const')
-const {InvalidURLError} = require('beaker-error-constants')
+const {InvalidURLError, TimeoutError} = require('beaker-error-constants')
 const DAT_DAEMON_MANIFEST = require('./daemon/manifest')
+
+// typedefs
+// =
+
+/**
+ * @typedef {import('./daemon/manifest').DatDaemon} DatDaemon
+ * @typedef {import('../dbs/archives').LibraryArchiveRecord} LibraryArchiveRecord
+ *
+ * @typedef {Object} InternalDatArchive
+ * @prop {Buffer} key
+ * @prop {string} url
+ * @prop {string?} domain
+ * @prop {Buffer} discoveryKey
+ * @prop {boolean} writable
+ * @prop {function(Function): void} ready
+ * @prop {function(Object, Function=): void} download
+ * @prop {function(Object=): NodeJS.ReadableStream} history
+ * @prop {function(Object=): NodeJS.ReadableStream} createReadStream
+ * @prop {function(string, Object=, Function=): any} readFile
+ * @prop {function(number, Object=): NodeJS.ReadableStream} createDiffStream
+ * @prop {function(string, Object=): NodeJS.WritableStream} createWriteStream
+ * @prop {function(string, any, Object=, Function=): void} writeFile
+ * @prop {function(string, Function=): void} unlink
+ * @prop {function(string, Object=, Function=): void} mkdir
+ * @prop {function(string, Function=): void} rmdir
+ * @prop {function(string, Object=, Function=): void} readdir
+ * @prop {function(string, Object=, Function=): void} stat
+ * @prop {function(string, Object=, Function=): void} lstat
+ * @prop {function(string, Object=, Function=): void} access
+ * @prop {Object} pda
+ * @prop {function(string): Promise<Object>} pda.stat
+ * @prop {function(string, Object=): Promise<any>} pda.readFile
+ * @prop {function(string, Object=): Promise<Array<Object>>} pda.readdir
+ * @prop {function(string): Promise<number>} pda.readSize
+ * @prop {function(string, any, Object=): Promise<void>} pda.writeFile
+ * @prop {function(string): Promise<void>} pda.mkdir
+ * @prop {function(string, string): Promise<void>} pda.copy
+ * @prop {function(string, string): Promise<void>} pda.rename
+ * @prop {function(string): Promise<void>} pda.unlink
+ * @prop {function(string, Object=): Promise<void>} pda.rmdir
+ * @prop {function(string=): Promise<void>} pda.download
+ * @prop {function(string=): NodeJS.ReadableStream} pda.watch
+ * @prop {function(): NodeJS.ReadableStream} pda.createNetworkActivityStream
+ * @prop {function(): Promise<Object>} pda.readManifest
+ * @prop {function(Object): Promise<void>} pda.writeManifest
+ * @prop {function(Object): Promise<void>} pda.updateManifest
+ */
 
 // globals
 // =
@@ -33,16 +83,29 @@ var archives = {} // in-memory cache of archive objects. key -> archive
 var archiveLoadPromises = {} // key -> promise
 var archivesEvents = new EventEmitter()
 var daemonEvents
-var daemon
+var daemon = /** @type DatDaemon */({})
 
 // exported API
 // =
 
+/**
+ * @param {Object} opts
+ * @param {Object} opts.rpcAPI
+ * @param {Object} opts.datDaemonProcess
+ * @param {string[]} opts.disallowedSavePaths
+ * @return {Promise<void>}
+ */
 exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSavePaths}) {
   // connect to the daemon
   daemon = rpcAPI.importAPI('dat-daemon', DAT_DAEMON_MANIFEST, {proc: datDaemonProcess, timeout: false})
   daemon.setup({disallowedSavePaths, datPath: archivesDb.getDatPath()})
   daemonEvents = emitStream(daemon.createEventStream())
+
+  // pipe the log
+  var daemonLogEvents = emitStream(daemon.createLogStream())
+  daemonLogEvents.on('log', ({level, message, etc}) => {
+    baseLogger.log(level, message, etc)
+  })
 
   // wire up event handlers
   archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {
@@ -70,6 +133,12 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
     // update the download based on these settings
     daemon.configureArchive(key, userSettings)
   })
+  datDnsDb.on('update', ({key, name}) => {
+    var archive = getArchive(key)
+    if (archive) {
+      archive.domain = name
+    }
+  })
 
   // re-export events
   daemonEvents.on('network-changed', evt => archivesEvents.emit('network-changed', evt))
@@ -88,14 +157,21 @@ exports.setup = async function setup ({rpcAPI, datDaemonProcess, disallowedSaveP
 
   // start the GC manager
   datGC.setup()
+  logger.info('Initialized dat library')
 }
 
+/**
+ * @returns {DatDaemon}
+ */
 exports.getDaemon = () => daemon
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.loadSavedArchives = function () {
   // load and configure all saved archives
   return archivesDb.query(0, {isSaved: true}).then(
-    async (archives) => {
+    async (/** @type LibraryArchiveRecord[] */archives) => {
       // HACK
       // load the archives one at a time and give 5 seconds between each
       // why: the purpose of loading saved archives is to seed them
@@ -113,14 +189,24 @@ exports.loadSavedArchives = function () {
   )
 }
 
+/**
+ * @returns {NodeJS.ReadableStream}
+ */
 exports.createEventStream = function createEventStream () {
-  return emitStream(archivesEvents)
+  return emitStream.toStream(archivesEvents)
 }
 
+/**
+ * @param {string} key
+ * @returns {Promise<string>}
+ */
 exports.getDebugLog = function getDebugLog (key) {
   return daemon.getDebugLog(key)
 }
 
+/**
+ * @returns {NodeJS.ReadableStream}
+ */
 exports.createDebugStream = function createDebugStream () {
   return daemon.createDebugStream()
 }
@@ -132,6 +218,9 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 
     // ready() just in case (we need .blocks)
     await pify(archive.ready.bind(archive))()
+
+    // trigger DNS update
+    confirmDomain(key)
 
     // read the archive meta and size on disk
     var [manifest, oldMeta, size] = await Promise.all([
@@ -187,16 +276,26 @@ const createNewArchive = exports.createNewArchive = async function createNewArch
   return `dat://${key}/`
 }
 
-exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, settings = false) {
+exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, settings = undefined) {
   srcArchiveUrl = fromKeyToURL(srcArchiveUrl)
 
-  // get the old archive
-  var srcArchive = getArchive(srcArchiveUrl)
-  if (!srcArchive) {
-    throw new Error('Invalid archive key')
+  // get the source archive
+  var srcArchive
+  var downloadRes = await Promise.race([
+    (async function () {
+      srcArchive = await getOrLoadArchive(srcArchiveUrl)
+      if (!srcArchive) {
+        throw new Error('Invalid archive key')
+      }
+      return srcArchive.pda.download('/')
+    })(),
+    new Promise(r => setTimeout(() => r('timeout'), 60e3))
+  ])
+  if (downloadRes === 'timeout') {
+    throw new TimeoutError('Timed out while downloading source archive')
   }
 
-  // fetch old archive meta
+  // fetch source archive meta
   var srcManifest = await srcArchive.pda.readManifest().catch(_ => {})
   srcManifest = srcManifest || {}
 
@@ -245,7 +344,7 @@ const loadArchive = exports.loadArchive = async function loadArchive (key, userS
   if (key) {
     if (!Buffer.isBuffer(key)) {
       // existing dat
-      key = fromURLToKey(key)
+      key = await fromURLToKey(key, true)
       if (!DAT_HASH_REGEX.test(key)) {
         throw new InvalidURLError()
       }
@@ -307,16 +406,22 @@ async function loadArchiveInner (key, secretKey, userSettings = null) {
   // create the archive proxy instance
   var archive = createArchiveProxy(key, undefined, archiveInfo)
 
+  // fetch dns name if known
+  let dnsRecord = await datDnsDb.getCurrentByKey(datEncoding.toStr(key))
+  archive.domain = dnsRecord ? dnsRecord.name : undefined
+
   // update db
   archivesDb.touch(key).catch(err => console.error('Failed to update lastAccessTime for archive', key, err))
   await pullLatestArchiveMeta(archive)
+  datAssets.update(archive)
 
   // wire up events
-  archive.pullLatestArchiveMeta = debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
+  archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
   archive.fileActStream = archive.pda.watch()
   archive.fileActStream.on('data', ([event, {path}]) => {
     if (event === 'changed') {
       archive.pullLatestArchiveMeta({updateMTime: true})
+      datAssets.update(archive, [path])
     }
   })
 
@@ -342,11 +447,13 @@ exports.getArchiveCheckout = function getArchiveCheckout (archive, version) {
       } else if (version === 'preview') {
         isPreview = true
         checkoutFS = createArchiveProxy(archive.key, 'preview', archive)
+        checkoutFS.domain = archive.domain
       } else {
         throw new Error('Invalid version identifier:' + version)
       }
     } else {
       checkoutFS = createArchiveProxy(archive.key, version, archive)
+      checkoutFS.domain = archive.domain
       isHistoric = true
     }
   }
@@ -358,6 +465,7 @@ exports.getActiveArchives = function getActiveArchives () {
 }
 
 const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArchive (key, opts) {
+  key = await fromURLToKey(key, true)
   var archive = getArchive(key)
   if (archive) {
     return archive
@@ -366,7 +474,7 @@ const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArch
 }
 
 exports.unloadArchive = async function unloadArchive (key) {
-  key = fromURLToKey(key)
+  key = await fromURLToKey(key, true)
   var archive = archives[key]
   if (!archive) return
   if (archive.fileActStream) {
@@ -392,6 +500,9 @@ exports.updateSizeTracking = function updateSizeTracking (archive) {
 exports.queryArchives = async function queryArchives (query) {
   // run the query
   var archiveInfos = await archivesDb.query(0, query)
+  if (!archiveInfos) return undefined
+  var isArray = Array.isArray(archiveInfos)
+  if (!isArray) archiveInfos = [archiveInfos]
 
   if (query && ('inMemory' in query)) {
     archiveInfos = archiveInfos.filter(archiveInfo => isArchiveLoaded(archiveInfo.key) === query.inMemory)
@@ -412,12 +523,12 @@ exports.queryArchives = async function queryArchives (query) {
       archiveInfo.peerHistory = []
     }
   }))
-  return archiveInfos
+  return isArray ? archiveInfos : archiveInfos[0]
 }
 
 exports.getArchiveInfo = async function getArchiveInfo (key) {
   // get the archive
-  key = fromURLToKey(key)
+  key = await fromURLToKey(key, true)
   var archive = await getOrLoadArchive(key)
 
   // fetch archive data
@@ -429,7 +540,8 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   ])
   manifest = manifest || {}
   meta.key = key
-  meta.url = `dat://${key}`
+  meta.url = archive.url
+  meta.domain = archive.domain
   meta.links = manifest.links || {}
   meta.manifest = manifest
   meta.version = archiveInfo.version
@@ -452,15 +564,67 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   return meta
 }
 
+exports.getArchiveNetworkStats = async function getArchiveNetworkStats (key) {
+  key = await fromURLToKey(key, true)
+  return daemon.getArchiveNetworkStats(key)
+}
+
 exports.clearFileCache = async function clearFileCache (key) {
   var userSettings = await archivesDb.getUserSettings(0, key)
   return daemon.clearFileCache(key, userSettings)
 }
 
+/**
+ * @desc
+ * Get the primary URL for a given dat URL
+ *
+ * @param {string} url
+ * @returns {Promise<string>}
+ */
+const getPrimaryUrl = exports.getPrimaryUrl = async function (url) {
+  var key = await fromURLToKey(url, true)
+  var datDnsRecord = await datDnsDb.getCurrentByKey(key)
+  if (!datDnsRecord) return `dat://${key}`
+  return `dat://${datDnsRecord.name}`
+}
+
+/**
+ * @desc
+ * Check that the archive's dat.json `domain` matches the current DNS
+ * If yes, write the confirmed entry to the dat_dns table
+ *
+ * @param {string} key
+ * @returns {Promise<boolean>}
+ */
+const confirmDomain = exports.confirmDomain = async function (key) {
+  // fetch the current domain from the manifest
+  try {
+    var archive = await getOrLoadArchive(key)
+    var datJson = await archive.pda.readManifest()
+  } catch (e) {
+    return false
+  }
+  if (!datJson.domain) {
+    await datDnsDb.unset(key)
+    return false
+  }
+
+  // confirm match with current DNS
+  var dnsKey = await require('./dns').resolveName(datJson.domain)
+  if (key !== dnsKey) {
+    await datDnsDb.unset(key)
+    return false
+  }
+
+  // update mapping
+  await datDnsDb.update({name: datJson.domain, key})
+  return true
+}
+
 // helpers
 // =
 
-const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
+const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url, lookupDns = false) {
   if (Buffer.isBuffer(url)) {
     return url
   }
@@ -476,8 +640,10 @@ const fromURLToKey = exports.fromURLToKey = function fromURLToKey (url) {
     throw new InvalidURLError('URL must be a dat: scheme')
   }
   if (!DAT_HASH_REGEX.test(urlp.host)) {
-    // TODO- support dns lookup?
-    throw new InvalidURLError('Hostname is not a valid hash')
+    if (!lookupDns) {
+      throw new InvalidURLError('Hostname is not a valid hash')
+    }
+    return require('./dns').resolveName(urlp.host)
   }
 
   return urlp.host
@@ -529,12 +695,23 @@ function fixStatObject (st) {
   st.isFIFO = () => false
 }
 
+/**
+ *
+ * @param {string|Buffer} key
+ * @param {number} version
+ * @param {Object} archiveInfo
+ * @returns {InternalDatArchive}
+ */
 function createArchiveProxy (key, version, archiveInfo) {
   key = datEncoding.toStr(key)
   const stat = makeArchiveProxyCbFn(key, version, 'stat')
   const pdaStat = makeArchiveProxyPDAPromiseFn(key, version, 'stat')
   return {
     key: datEncoding.toBuf(key),
+    get url () {
+      return `dat://${this.domain || key}${version ? '+' + version : ''}`
+    },
+    domain: undefined,
     discoveryKey: datEncoding.toBuf(archiveInfo.discoveryKey),
     writable: archiveInfo.writable,
 

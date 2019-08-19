@@ -1,11 +1,11 @@
 module.exports = {
-  add: 'promise',
-  remove: 'promise',
-  get: 'promise',
   list: 'promise',
-
+  get: 'promise',
+  add: 'promise',
   requestAdd: 'promise',
+  edit: 'promise',
+  remove: 'promise',
   requestRemove: 'promise',
-
+  uncache: 'promise',
   createEventStream: 'readable'
 }

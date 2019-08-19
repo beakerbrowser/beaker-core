@@ -3,7 +3,6 @@
 const {EventTargetFromStream} = require('./event-target')
 const errors = require('beaker-error-constants')
 
-const experimentalLibraryManifest = require('../manifests/external/experimental/library')
 const experimentalGlobalFetchManifest = require('../manifests/external/experimental/global-fetch')
 const experimentalCapturePageManifest = require('../manifests/external/experimental/capture-page')
 const experimentalDatPeersManifest = require('../manifests/external/experimental/dat-peers')
@@ -14,20 +13,9 @@ exports.setup = function (rpc) {
 
   // dat or internal only
   if (window.location.protocol === 'beaker:' || window.location.protocol === 'dat:') {
-    const libraryRPC = rpc.importAPI('experimental-library', experimentalLibraryManifest, opts)
     const globalFetchRPC = rpc.importAPI('experimental-global-fetch', experimentalGlobalFetchManifest, opts)
     const capturePageRPC = rpc.importAPI('experimental-capture-page', experimentalCapturePageManifest, opts)
     const datPeersRPC = rpc.importAPI('experimental-dat-peers', experimentalDatPeersManifest, opts)
-
-    // experimental.library
-    let libraryEvents = ['added', 'removed', 'updated', 'folder-synced', 'network-changed']
-    experimental.library = new EventTargetFromStream(libraryRPC.createEventStream.bind(libraryRPC), libraryEvents)
-    experimental.library.add = libraryRPC.add
-    experimental.library.remove = libraryRPC.remove
-    experimental.library.get = libraryRPC.get
-    experimental.library.list = libraryRPC.list
-    experimental.library.requestAdd = libraryRPC.requestAdd
-    experimental.library.requestRemove = libraryRPC.requestRemove
 
     // experimental.globalFetch
     experimental.globalFetch = async function globalFetch (input, init) {

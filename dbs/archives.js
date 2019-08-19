@@ -12,38 +12,129 @@ const {
   DAT_GC_EXPIRATION_AGE
 } = require('../lib/const')
 
+// typedefs
+// =
+
+/**
+ * @typedef {import('../dat/library').InternalDatArchive} InternalDatArchive
+ *
+ * @typedef {Object} LibraryArchiveRecord
+ * @prop {string} key
+ * @prop {string} url
+ * @prop {string?} domain
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {Array<string>} type
+ * @prop {number} mtime
+ * @prop {number} size
+ * @prop {boolean} isOwner
+ * @prop {number} lastAccessTime
+ * @prop {number} lastLibraryAccessTime
+ * @prop {Object} userSettings
+ * @prop {boolean} userSettings.isSaved
+ * @prop {boolean} userSettings.hidden
+ * @prop {boolean} userSettings.networked
+ * @prop {boolean} userSettings.autoDownload
+ * @prop {boolean} userSettings.autoUpload
+ * @prop {number} userSettings.expiresAt
+ * @prop {string} userSettings.localSyncPath
+ * @prop {boolean} userSettings.previewMode
+ *
+ * @typedef {Object} LibraryArchiveMeta
+ * @prop {string} key
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {string | Array<string>} type
+ * @prop {Array<string>} installedNames
+ * @prop {number} mtime
+ * @prop {number} size
+ * @prop {boolean} isOwner
+ * @prop {number} lastAccessTime
+ * @prop {number} lastLibraryAccessTime
+ *
+ * @typedef {Object} LibraryArchiveUserSettings
+ * @prop {number} profileId
+ * @prop {string} key
+ * @prop {boolean} isSaved
+ * @prop {boolean} hidden
+ * @prop {boolean} networked
+ * @prop {boolean} autoDownload
+ * @prop {boolean} autoUpload
+ * @prop {number} expiresAt
+ * @prop {string} localSyncPath
+ * @prop {boolean} previewMode
+ * @prop {number} createdAt
+ *
+ * @typedef {Object} MinimalLibraryArchiveRecord
+ * @prop {string} key
+ */
+
 // globals
 // =
 
-var datPath // path to the dat folder
+var datPath /** @type string - path to the dat folder */
 var events = new Events()
 
 // exported methods
 // =
 
+/**
+ * @param {Object} opts
+ * @param {string} opts.userDataPath
+ */
 exports.setup = function (opts) {
   // make sure the folders exist
   datPath = path.join(opts.userDataPath, 'Dat')
   mkdirp.sync(path.join(datPath, 'Archives'))
 }
 
+/**
+ * @returns {string}
+ */
 exports.getDatPath = function () {
   return datPath
 }
 
-// get the path to an archive's files
+/**
+ * @description Get the path to an archive's files.
+ * @param {string | Buffer | InternalDatArchive} archiveOrKey
+ * @returns {string}
+ */
+//
 const getArchiveMetaPath = exports.getArchiveMetaPath = function (archiveOrKey) {
-  var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)
+  var key /** @type string */
+  if (typeof archiveOrKey === 'string') {
+    key = archiveOrKey
+  } else if (Buffer.isBuffer(archiveOrKey)) {
+    key = datEncoding.toStr(archiveOrKey)
+  } else {
+    key = datEncoding.toStr(archiveOrKey.key)
+  }
   return path.join(datPath, 'Archives', 'Meta', key.slice(0, 2), key.slice(2))
 }
 
-// get the path to an archive's temporary local sync path
+/**
+ * @description Get the path to an archive's temporary local sync path.
+ * @param {string | Buffer | InternalDatArchive} archiveOrKey
+ * @returns {string}
+ */
 const getInternalLocalSyncPath = exports.getInternalLocalSyncPath = function (archiveOrKey) {
-  var key = datEncoding.toStr(archiveOrKey.key || archiveOrKey)
+  var key /** @type string */
+  if (typeof archiveOrKey === 'string') {
+    key = archiveOrKey
+  } else if (Buffer.isBuffer(archiveOrKey)) {
+    key = datEncoding.toStr(archiveOrKey)
+  } else {
+    key = datEncoding.toStr(archiveOrKey.key)
+  }
   return path.join(datPath, 'Archives', 'LocalCopy', key.slice(0, 2), key.slice(2))
 }
 
-// delete all db entries and files for an archive
+/**
+ * @description Delete all db entries and files for an archive.
+ * @param {string} key
+ * @returns {Promise<number>}
+ */
 exports.deleteArchive = async function (key) {
   const path = getArchiveMetaPath(key)
   const info = await jetpack.inspectTreeAsync(path)
@@ -54,7 +145,7 @@ exports.deleteArchive = async function (key) {
     jetpack.removeAsync(path),
     jetpack.removeAsync(getInternalLocalSyncPath(key))
   ])
-  return info.size
+  return info ? info.size : 0
 }
 
 exports.on = events.on.bind(events)
@@ -64,40 +155,42 @@ exports.removeListener = events.removeListener.bind(events)
 // exported methods: archive user settings
 // =
 
-// get an array of saved archives
-// - optional `query` keys:
-//   - `isSaved`: bool
-//   - `isNetworked`: bool
-//   - `isOwner`: bool, does beaker have the secret key?
-//   - `type`: string, a type filter
-//   - `showHidden`: bool, show hidden dats
-//   - `key`: string, the key of the archive you want (return single result)
-exports.query = async function (profileId, query) {
-  query = query || {}
-
+/**
+ * @description Get an array of saved archives.
+ * @param {number} profileId
+ * @param {Object} [query]
+ * @param {string} [query.key]
+ * @param {boolean} [query.isSaved]
+ * @param {boolean} [query.isNetworked]
+ * @param {boolean} [query.isOwner]
+ * @param {boolean} [query.showHidden]
+ * @param {string} [query.type]
+ * @param {string} [query.string]
+ * @returns {Promise<LibraryArchiveRecord|Array<LibraryArchiveRecord>>}
+ */
+exports.query = async function (profileId, query = {}) {
   // fetch archive meta
   var values = []
-  var WHERE = []
-  if (query.isOwner === true) WHERE.push('archives_meta.isOwner = 1')
-  if (query.isOwner === false) WHERE.push('archives_meta.isOwner = 0')
-  if (query.isNetworked === true) WHERE.push('archives.networked = 1')
-  if (query.isNetworked === false) WHERE.push('archives.networked = 0')
+  var whereList = []
+  if (query.isOwner === true) whereList.push('archives_meta.isOwner = 1')
+  if (query.isOwner === false) whereList.push('archives_meta.isOwner = 0')
+  if (query.isNetworked === true) whereList.push('archives.networked = 1')
+  if (query.isNetworked === false) whereList.push('archives.networked = 0')
   if ('isSaved' in query) {
     if (query.isSaved) {
-      WHERE.push('archives.profileId = ?')
+      whereList.push('archives.profileId = ?')
       values.push(profileId)
-      WHERE.push('archives.isSaved = 1')
+      whereList.push('archives.isSaved = 1')
     } else {
-      WHERE.push('(archives.isSaved = 0 OR archives.isSaved IS NULL)')
+      whereList.push('(archives.isSaved = 0 OR archives.isSaved IS NULL)')
     }
   }
-  if ('key' in query) {
-    WHERE.push('archives_meta.key = ?')
+  if (typeof query.key !== 'undefined') {
+    whereList.push('archives_meta.key = ?')
     values.push(query.key)
   }
-  if (!query.showHidden) WHERE.push('(archives.hidden = 0 OR archives.hidden IS NULL)')
-  if (WHERE.length) WHERE = `WHERE ${WHERE.join(' AND ')}`
-  else WHERE = ''
+  if (!query.showHidden) whereList.push('(archives.hidden = 0 OR archives.hidden IS NULL)')
+  var WHERE = whereList.length ? `WHERE ${whereList.join(' AND ')}` : ''
 
   var archives = await db.all(`
     SELECT
@@ -110,25 +203,27 @@ exports.query = async function (profileId, query) {
         archives.autoUpload,
         archives.expiresAt,
         archives.localSyncPath,
-        archives.previewMode
+        archives.previewMode,
+        dat_dns.name as domain
       FROM archives_meta
       LEFT JOIN archives ON archives.key = archives_meta.key
       LEFT JOIN archives_meta_type ON archives_meta_type.key = archives_meta.key
+      LEFT JOIN dat_dns ON dat_dns.key = archives_meta.key AND dat_dns.isCurrent = 1
       ${WHERE}
       GROUP BY archives_meta.key
   `, values)
 
   // massage the output
   archives.forEach(archive => {
-    archive.url = `dat://${archive.key}`
+    archive.url = `dat://${archive.domain || archive.key}`
     archive.isOwner = archive.isOwner != 0
     archive.type = archive.type ? archive.type.split(',') : []
     archive.userSettings = {
-      isSaved: archive.isSaved != 0,
-      hidden: archive.hidden != 0,
-      networked: archive.networked != 0,
-      autoDownload: archive.autoDownload != 0,
-      autoUpload: archive.autoUpload != 0,
+      isSaved: archive.isSaved == 1,
+      hidden: archive.hidden == 0,
+      networked: archive.networked == 1,
+      autoDownload: archive.autoDownload == 1,
+      autoUpload: archive.autoUpload == 1,
       expiresAt: archive.expiresAt,
       localSyncPath: archive.localSyncPath,
       previewMode: archive.previewMode == 1
@@ -156,7 +251,7 @@ exports.query = async function (profileId, query) {
   // apply manual filters
   if ('type' in query) {
     let types = Array.isArray(query.type) ? query.type : [query.type]
-    archives = archives.filter(a => {
+    archives = archives.filter((/** @type LibraryArchiveRecord */ a) => {
       for (let type of types) {
         if (a.type.indexOf(type) === -1) {
           return false
@@ -169,7 +264,10 @@ exports.query = async function (profileId, query) {
   return ('key' in query) ? archives[0] : archives
 }
 
-// get all archives that should be unsaved
+/**
+ * @description Get all archives that should be unsaved.
+ * @returns {Promise<Array<MinimalLibraryArchiveRecord>>}
+ */
 exports.listExpiredArchives = async function () {
   return db.all(`
     SELECT archives.key
@@ -182,10 +280,16 @@ exports.listExpiredArchives = async function () {
   `, [Date.now()])
 }
 
-// get all archives that are ready for garbage collection
+/**
+ * @description Get all archives that are ready for garbage collection.
+ * @param {Object} [opts]
+ * @param {number} [opts.olderThan]
+ * @param {boolean} [opts.isOwner]
+ * @returns {Promise<Array<MinimalLibraryArchiveRecord>>}
+ */
 exports.listGarbageCollectableArchives = async function ({olderThan, isOwner} = {}) {
   olderThan = typeof olderThan === 'number' ? olderThan : DAT_GC_EXPIRATION_AGE
-  isOwner = typeof isOwner === 'boolean' ? `AND archives_meta.isOwner = ${isOwner ? '1' : '0'}` : ''
+  var isOwnerClause = typeof isOwner === 'boolean' ? `AND archives_meta.isOwner = ${isOwner ? '1' : '0'}` : ''
 
   // fetch archives
   var records = await db.all(`
@@ -195,7 +299,7 @@ exports.listGarbageCollectableArchives = async function ({olderThan, isOwner} = 
       WHERE
         (archives.isSaved != 1 OR archives.isSaved IS NULL)
         AND archives_meta.lastAccessTime < ?
-        ${isOwner}
+        ${isOwnerClause}
   `, [Date.now() - olderThan])
   var records2 = records.slice()
 
@@ -208,7 +312,13 @@ exports.listGarbageCollectableArchives = async function ({olderThan, isOwner} = 
   return records
 }
 
-// upsert the last-access time
+/**
+ * @description Upsert the last-access time.
+ * @param {string | Buffer} key
+ * @param {string} [timeVar]
+ * @param {number} [value]
+ * @returns {Promise<void>}
+ */
 exports.touch = async function (key, timeVar = 'lastAccessTime', value = -1) {
   var release = await lock('archives-db:meta')
   try {
@@ -216,22 +326,28 @@ exports.touch = async function (key, timeVar = 'lastAccessTime', value = -1) {
       timeVar = 'lastAccessTime'
     }
     if (value === -1) value = Date.now()
-    key = datEncoding.toStr(key)
-    await db.run(`UPDATE archives_meta SET ${timeVar}=? WHERE key=?`, [value, key])
-    await db.run(`INSERT OR IGNORE INTO archives_meta (key, ${timeVar}) VALUES (?, ?)`, [key, value])
+    var keyStr = datEncoding.toStr(key)
+    await db.run(`UPDATE archives_meta SET ${timeVar}=? WHERE key=?`, [value, keyStr])
+    await db.run(`INSERT OR IGNORE INTO archives_meta (key, ${timeVar}) VALUES (?, ?)`, [keyStr, value])
   } finally {
     release()
   }
 }
 
-// get a single archive's user settings
-// - supresses a not-found with an empty object
+/**
+ * @description
+ * Get a single archive's user settings.
+ * (Returns an empty object on not found.)
+ * @param {number} profileId
+ * @param {string | Buffer} key
+ * @returns {Promise<LibraryArchiveUserSettings>}
+ */
 const getUserSettings = exports.getUserSettings = async function (profileId, key) {
   // massage inputs
-  key = datEncoding.toStr(key)
+  var keyStr = typeof key !== 'string' ? datEncoding.toStr(key) : key
 
   // validate inputs
-  if (!DAT_HASH_REGEX.test(key)) {
+  if (!DAT_HASH_REGEX.test(keyStr)) {
     throw new InvalidArchiveKeyError()
   }
 
@@ -239,51 +355,65 @@ const getUserSettings = exports.getUserSettings = async function (profileId, key
   try {
     var settings = await db.get(`
       SELECT * FROM archives WHERE profileId = ? AND key = ?
-    `, [profileId, key])
+    `, [profileId, keyStr])
     settings.isSaved = !!settings.isSaved
     settings.hidden = !!settings.hidden
     settings.networked = !!settings.networked
     settings.autoDownload = !!settings.autoDownload
     settings.autoUpload = !!settings.autoUpload
-    settings.previewMode = settings.previewMode == 1
-    return settings
+    settings.previewMode = Number(settings.previewMode) === 1
+    return /** @type LibraryArchiveUserSettings */(settings)
   } catch (e) {
-    return {}
+    return /** @type LibraryArchiveUserSettings */({})
   }
 }
 
-// write an archive's user setting
+/**
+ * @description Write an archive's user setting.
+ * @param {number} profileId
+ * @param {string | Buffer} key
+ * @param {Object} [newValues]
+ * @param {boolean} [newValues.isSaved]
+ * @param {boolean} [newValues.hidden]
+ * @param {boolean} [newValues.networked]
+ * @param {boolean} [newValues.autoDownload]
+ * @param {boolean} [newValues.autoUpload]
+ * @param {number} [newValues.expiresAt]
+ * @param {string} [newValues.localSyncPath]
+ * @param {boolean} [newValues.previewMode]
+ * @returns {Promise<LibraryArchiveUserSettings>}
+ */
 exports.setUserSettings = async function (profileId, key, newValues = {}) {
   // massage inputs
-  key = datEncoding.toStr(key)
+  var keyStr = datEncoding.toStr(key)
 
   // validate inputs
-  if (!DAT_HASH_REGEX.test(key)) {
+  if (!DAT_HASH_REGEX.test(keyStr)) {
     throw new InvalidArchiveKeyError()
   }
 
   var release = await lock('archives-db')
   try {
     // fetch current
-    var value = await getUserSettings(profileId, key)
+    var value = await getUserSettings(profileId, keyStr)
 
     if (!value || typeof value.key === 'undefined') {
       // create
-      value = {
+      value = /** @type LibraryArchiveUserSettings */ ({
         profileId,
-        key,
+        key: keyStr,
         isSaved: newValues.isSaved,
         hidden: newValues.hidden,
         networked: ('networked' in newValues) ? newValues.networked : true,
         autoDownload: ('autoDownload' in newValues) ? newValues.autoDownload : newValues.isSaved,
         autoUpload: ('autoUpload' in newValues) ? newValues.autoUpload : newValues.isSaved,
         expiresAt: newValues.expiresAt,
-        localSyncPath: ('localSyncPath' in newValues) ? newValues.localSyncPath : '',
+        localSyncPath: (newValues.localSyncPath) ? newValues.localSyncPath : '',
         previewMode: ('previewMode' in newValues) ? newValues.previewMode : ''
-      }
+      })
       let valueArray = [
         profileId,
-        key,
+        keyStr,
         flag(value.isSaved),
         flag(value.hidden),
         flag(value.networked),
@@ -330,7 +460,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
         value.localSyncPath,
         flag(value.previewMode),
         profileId,
-        key
+        keyStr
       ]
       await db.run(`
         UPDATE archives
@@ -348,7 +478,7 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
       `, valueArray)
     }
 
-    events.emit('update:archive-user-settings', key, value, newValues)
+    events.emit('update:archive-user-settings', keyStr, value, newValues)
     return value
   } finally {
     release()
@@ -358,15 +488,20 @@ exports.setUserSettings = async function (profileId, key, newValues = {}) {
 // exported methods: archive meta
 // =
 
-// get a single archive's metadata
-// - supresses a not-found with an empty object
+/**
+ * @description
+ * Get a single archive's metadata.
+ * Returns an empty object on not-found.
+ * @param {string | Buffer} key
+ * @returns {Promise<LibraryArchiveMeta>}
+ */
 const getMeta = exports.getMeta = async function (key) {
   // massage inputs
-  key = datEncoding.toStr(key)
+  var keyStr = typeof key !== 'string' ? datEncoding.toStr(key) : key
 
   // validate inputs
-  if (!DAT_HASH_REGEX.test(key)) {
-    throw new InvalidArchiveKeyError()
+  if (!DAT_HASH_REGEX.test(keyStr)) {
+    keyStr = await require('../dat/dns').resolveName(keyStr)
   }
 
   // fetch
@@ -380,9 +515,9 @@ const getMeta = exports.getMeta = async function (key) {
       LEFT JOIN apps ON apps.url = ('dat://' || archives_meta.key)
       WHERE archives_meta.key = ?
       GROUP BY archives_meta.key
-  `, [key])
+  `, [keyStr])
   if (!meta) {
-    return defaultMeta(key)
+    return defaultMeta(keyStr)
   }
 
   // massage some values
@@ -401,14 +536,22 @@ const getMeta = exports.getMeta = async function (key) {
   return meta
 }
 
-// write an archive's metadata
-exports.setMeta = async function (key, value = {}) {
+/**
+ * @description Write an archive's metadata.
+ * @param {string | Buffer} key
+ * @param {LibraryArchiveMeta} [value]
+ * @returns {Promise<void>}
+ */
+exports.setMeta = async function (key, value) {
   // massage inputs
-  key = datEncoding.toStr(key)
+  var keyStr = datEncoding.toStr(key)
 
   // validate inputs
-  if (!DAT_HASH_REGEX.test(key)) {
+  if (!DAT_HASH_REGEX.test(keyStr)) {
     throw new InvalidArchiveKeyError()
+  }
+  if (!value || typeof value !== 'object') {
+    return // dont bother
   }
 
   // extract the desired values
@@ -417,30 +560,35 @@ exports.setMeta = async function (key, value = {}) {
   description = typeof description === 'string' ? description : ''
   if (typeof type === 'string') type = type.split(' ')
   else if (Array.isArray(type)) type = type.filter(v => v && typeof v === 'string')
-  isOwner = flag(isOwner)
+  var isOwnerFlag = flag(isOwner)
 
   // write
   var release = await lock('archives-db:meta')
-  var {lastAccessTime, lastLibraryAccessTime} = await getMeta(key)
+  var {lastAccessTime, lastLibraryAccessTime} = await getMeta(keyStr)
   try {
     await db.run(`
       INSERT OR REPLACE INTO
         archives_meta (key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime)
         VALUES        (?,   ?,     ?,           ?,     ?,    ?,       ?,              ?)
-    `, [key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime])
-    await db.run(`DELETE FROM archives_meta_type WHERE key=?`, key)
+    `, [keyStr, title, description, mtime, size, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
+    await db.run(`DELETE FROM archives_meta_type WHERE key=?`, keyStr)
     if (type) {
       await Promise.all(type.map(t => (
-        db.run(`INSERT INTO archives_meta_type (key, type) VALUES (?, ?)`, [key, t])
+        db.run(`INSERT INTO archives_meta_type (key, type) VALUES (?, ?)`, [keyStr, t])
       )))
     }
   } finally {
     release()
   }
-  events.emit('update:archive-meta', key, value)
+  events.emit('update:archive-meta', keyStr, value)
 }
 
-// find the archive currently using a given localSyncPath
+/**
+ * @description Find the archive currently using a given localSyncPath.
+ * @param {number} profileId
+ * @param {string} localSyncPath
+ * @returns {Promise<MinimalLibraryArchiveRecord | null>}
+ */
 exports.getByLocalSyncPath = async function (profileId, localSyncPath) {
   try {
     return await db.get(`
@@ -454,24 +602,37 @@ exports.getByLocalSyncPath = async function (profileId, localSyncPath) {
 // internal methods
 // =
 
+/**
+ * @param {string} key
+ * @returns {LibraryArchiveMeta}
+ */
 function defaultMeta (key) {
   return {
     key,
     title: null,
     description: null,
     type: [],
-    author: null,
     mtime: 0,
     isOwner: false,
     lastAccessTime: 0,
-    installedNames: []
+    lastLibraryAccessTime: 0,
+    installedNames: [],
+    size: 0
   }
 }
 
+/**
+ * @param {boolean} b
+ * @returns {number}
+ */
 function flag (b) {
   return b ? 1 : 0
 }
 
+/**
+ * @param {string} originURL
+ * @returns {string}
+ */
 exports.extractOrigin = function (originURL) {
   var urlp = url.parse(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return

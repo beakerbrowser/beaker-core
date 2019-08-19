@@ -2,6 +2,8 @@ const {pluralize, makeSafe} = require('../lib/strings')
 const {stat, readdir} = require('pauls-dat-api')
 const {join, relative} = require('path')
 
+/** @typedef {import('./library').InternalDatArchive} InternalDatArchive */
+
 const styles = `<style>
   .entry {
     background: no-repeat center left;
@@ -20,6 +22,12 @@ const styles = `<style>
   }
 </style>`
 
+/**
+ * @prop {InternalDatArchive} archive
+ * @prop {string} dirPath
+ * @prop {string} webRoot
+ * @returns {Promise<string>}
+ */
 module.exports = async function renderDirectoryListingPage (archive, dirPath, webRoot) {
   // handle the webroot
   webRoot = webRoot || '/'
@@ -31,14 +39,14 @@ module.exports = async function renderDirectoryListingPage (archive, dirPath, we
   try { names = await readdir(archive, realPath(dirPath)) } catch (e) {}
 
   // stat each file
-  var entries = await Promise.all(names.map(async (name) => {
+  var entries = /** @type any[] */(await Promise.all(names.map(async (name) => {
     var entry
     var entryPath = join(dirPath, name)
     try { entry = await stat(archive, realPath(entryPath)) } catch (e) { return false }
     entry.path = webrootPath(entryPath)
     entry.name = name
     return entry
-  }))
+  })))
   entries = entries.filter(Boolean)
 
   // sort the listing
@@ -58,7 +66,7 @@ module.exports = async function renderDirectoryListingPage (archive, dirPath, we
 
   // render entries
   var totalFiles = 0
-  entries = entries.map(entry => {
+  var entriesStr = entries.map(entry => {
     totalFiles++
     var url = makeSafe(entry.path)
     if (!url.startsWith('/')) url = '/' + url // all urls should have a leading slash
@@ -71,5 +79,5 @@ module.exports = async function renderDirectoryListingPage (archive, dirPath, we
   var summary = `<div class="entry">${totalFiles} ${pluralize(totalFiles, 'file')}</div>`
 
   // render final
-  return '<meta charset="UTF-8">' + styles + updog + entries + summary
+  return '<meta charset="UTF-8">' + styles + updog + entriesStr + summary
 }

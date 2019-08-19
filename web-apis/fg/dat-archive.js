@@ -5,7 +5,6 @@ const {EventTarget, Event, fromEventStream} = require('./event-target')
 const Stat = require('./stat')
 
 const LOAD_PROMISE = Symbol('LOAD_PROMISE')
-const URL_PROMISE = Symbol('URL_PROMISE')
 const NETWORK_ACT_STREAM = Symbol() // eslint-disable-line
 
 exports.setup = function (rpc) {
@@ -34,29 +33,20 @@ exports.setup = function (rpc) {
       }
       url = 'dat://' + urlParsed.hostname + (urlParsed.version ? `+${urlParsed.version}` : '')
 
-      // load into the 'active' (in-memory) cache
-      setHidden(this, LOAD_PROMISE, datRPC.loadArchive(url))
-
-      // resolve the URL (DNS)
-      const urlPromise = DatArchive.resolveName(url).then(url => {
-        if (urlParsed.version) {
-          url += `+${urlParsed.version}`
-        }
-        return 'dat://' + url
-      })
-      setHidden(this, URL_PROMISE, urlPromise)
-
       // define this.url as a frozen getter
       Object.defineProperty(this, 'url', {
         enumerable: true,
         value: url
       })
+
+      // load into the 'active' (in-memory) cache
+      setHidden(this, LOAD_PROMISE, datRPC.loadArchive(url))
     }
 
     static load (url) {
       var errStack = (new Error()).stack
       const a = new DatArchive(url)
-      return Promise.all([a[LOAD_PROMISE], a[URL_PROMISE]])
+      return a[LOAD_PROMISE]
         .then(() => a)
         .catch(e => throwWithFixedStack(e, errStack))
     }
@@ -100,8 +90,7 @@ exports.setup = function (rpc) {
     async getInfo (opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.getInfo(url, opts)
+        return await datRPC.getInfo(this.url, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -110,8 +99,7 @@ exports.setup = function (rpc) {
     async configure (info, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.configure(url, info, opts)
+        return await datRPC.configure(this.url, info, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -144,8 +132,7 @@ exports.setup = function (rpc) {
     async history (opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.history(url, opts)
+        return await datRPC.history(this.url, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -154,8 +141,7 @@ exports.setup = function (rpc) {
     async stat (path, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return new Stat(await datRPC.stat(url, path, opts))
+        return new Stat(await datRPC.stat(this.url, path, opts))
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -164,8 +150,7 @@ exports.setup = function (rpc) {
     async readFile (path, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.readFile(url, path, opts)
+        return await datRPC.readFile(this.url, path, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -174,8 +159,7 @@ exports.setup = function (rpc) {
     async writeFile (path, data, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.writeFile(url, path, data, opts)
+        return await datRPC.writeFile(this.url, path, data, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -184,8 +168,7 @@ exports.setup = function (rpc) {
     async unlink (path, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.unlink(url, path, opts)
+        return await datRPC.unlink(this.url, path, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -194,8 +177,7 @@ exports.setup = function (rpc) {
     async copy (path, dstPath, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return datRPC.copy(url, path, dstPath, opts)
+        return datRPC.copy(this.url, path, dstPath, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -204,8 +186,7 @@ exports.setup = function (rpc) {
     async rename (path, dstPath, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return datRPC.rename(url, path, dstPath, opts)
+        return datRPC.rename(this.url, path, dstPath, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -214,8 +195,7 @@ exports.setup = function (rpc) {
     async download (path = '/', opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.download(url, path, opts)
+        return await datRPC.download(this.url, path, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -224,8 +204,7 @@ exports.setup = function (rpc) {
     async readdir (path = '/', opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        var names = await datRPC.readdir(url, path, opts)
+        var names = await datRPC.readdir(this.url, path, opts)
         if (opts.stat) {
           names.forEach(name => { name.stat = new Stat(name.stat) })
         }
@@ -238,8 +217,7 @@ exports.setup = function (rpc) {
     async mkdir (path, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.mkdir(url, path, opts)
+        return await datRPC.mkdir(this.url, path, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }
@@ -248,8 +226,7 @@ exports.setup = function (rpc) {
     async rmdir (path, opts = {}) {
       var errStack = (new Error()).stack
       try {
-        var url = await this[URL_PROMISE]
-        return await datRPC.rmdir(url, path, opts)
+        return await datRPC.rmdir(this.url, path, opts)
       } catch (e) {
         throwWithFixedStack(e, errStack)
       }

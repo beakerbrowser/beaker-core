@@ -8,6 +8,7 @@ const EventEmitter = require('events')
 const pda = require('pauls-dat-api')
 const mkdirp = require('mkdirp')
 const {toAnymatchRules} = require('@beaker/datignore')
+const logger = require('./logger').child({category: 'dat', subcategory: 'folder-sync'})
 const {isFileNameBinary, isFileContentBinary} = require('../../lib/mime')
 const lock = require('../../lib/lock')
 const scopedFSes = require('../../lib/scoped-fses')
@@ -85,7 +86,7 @@ const queueSyncEvent = exports.queueSyncEvent = function (archive, {toFolder, to
   }
 
   // ignore if currently syncing
-  if (archive.syncEventQueue.isSyncing) return console.log('already syncing, ignored')
+  if (archive.syncEventQueue.isSyncing) return logger.silly('Already syncing, ignored')
 
   // debounce the handler
   if (archive.syncEventQueue.timeout) {
@@ -101,7 +102,7 @@ const queueSyncEvent = exports.queueSyncEvent = function (archive, {toFolder, to
 
     // lock
     archive.syncEventQueue.isSyncing = true
-    console.log('ok timed out, beginning sync', {toArchive, toFolder})
+    logger.silly('Ok timed out, beginning sync', {details: {toArchive, toFolder}})
 
     try {
       let st = await stat(fs, localSyncPath)
@@ -109,14 +110,14 @@ const queueSyncEvent = exports.queueSyncEvent = function (archive, {toFolder, to
         // folder has been removed
         archive.stopWatchingLocalFolder()
         archive.stopWatchingLocalFolder = null
-        console.error('Local sync folder not found, aborting watch', localSyncPath)
+        logger.warn('Local sync folder not found, aborting watch', {details: {path: localSyncPath}})
         return
       }
       // sync with priority given to the local folder
       if (toArchive) await syncFolderToArchive(archive, {localSyncPath, shallow: false})
       else if (toFolder) await syncArchiveToFolder(archive, {localSyncPath, shallow: false})
     } catch (e) {
-      console.error('Error syncing folder', localSyncPath, e)
+      logger.error('Error syncing folder', {details: {path: localSyncPath, error: e.toString()}})
       if (e.name === 'CycleError') {
         events.emit('error', archive.key, e)
       }
@@ -132,8 +133,6 @@ function newQueueObj () {
 
 // attach/detach a watcher on the local folder and sync it to the dat
 exports.configureFolderToArchiveWatcher = async function (archive) {
-  console.log('configureFolderToArchiveWatcher()', archive.localSyncSettings, !!archive.stopWatchingLocalFolder)
-
   // HACKish
   // it's possible that configureFolderToArchiveWatcher() could be called multiple times in sequence
   // (for instance because of multiple settings changes)
@@ -168,6 +167,8 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
   // =
 
   if (archive.localSyncSettings) {
+    logger.silly('Configuring archive sync', {details: {key: archive.key.toString('hex'), settings: archive.localSyncSettings}})
+
     // create diff cache
     archive._compareContentCache = {}
 
@@ -180,7 +181,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
     let st = await stat(fs, archive.localSyncSettings.path)
     if (shouldAbort()) return
     if (!st) {
-      console.error('Local sync folder not found, aborting watch', archive.localSyncSettings.path)
+      logger.warn('Local sync folder not found, aborting watch', {details: {path: archive.localSyncSettings.path}})
     }
     var scopedFS = scopedFSes.get(archive.localSyncSettings.path)
 
@@ -199,8 +200,8 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
       // sync up
       try {
         await mergeArchiveAndFolder(archive, archive.localSyncSettings.path)
-      } catch (e) {
-        console.error('Failed to merge local sync folder', e)
+      } catch (err) {
+        logger.error('Failed to merge local sync folder', {details: {err}})
       }
       if (shouldAbort()) return
 
@@ -214,7 +215,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
         //  B. maintain an in-memory copy of the datignore and keep it up-to-date, and then check at time of the event
         // -prf
 
-        console.log('changed detected', path)
+        logger.silly('Change detected', {details: {path}})
         queueSyncEvent(archive, {toArchive: true})
       })
     }
@@ -233,7 +234,7 @@ exports.configureFolderToArchiveWatcher = async function (archive) {
 exports.diffListing = async function (archive, opts = {}) {
   opts = opts || {}
   var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
-  if (!localSyncPath) return console.log(new Error('diffListing() aborting, no localSyncPath')) // sanity check
+  if (!localSyncPath) return logger.warn('Sanity check failed - diffListing() aborting, no localSyncPath')
   var scopedFS = scopedFSes.get(localSyncPath)
   opts = massageDiffOpts(opts)
 
@@ -253,7 +254,7 @@ exports.diffListing = async function (archive, opts = {}) {
 // diff an individual file
 // - filepath: string, the path of the file in the archive/folder
 exports.diffFile = async function (archive, filepath) {
-  if (!archive.localSyncSettings.path) return console.log(new Error('diffFile() aborting, no localSyncPath')) // sanity check
+  if (!archive.localSyncSettings.path) return logger.warn('Sanity check failed - diffFile() aborting, no localSyncPath')
   var scopedFS = scopedFSes.get(archive.localSyncSettings.path)
   filepath = path.normalize(filepath)
 
@@ -326,7 +327,7 @@ exports.applyDatIgnoreFilter = function (archive, filepath) {
 
 // merge the dat.json in the folder and then merge files, with preference to folder files
 const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (archive, localSyncPath) {
-  console.log('merging archive with', localSyncPath)
+  logger.silly('Merging archive and folder', {details: {path: localSyncPath, key: archive.key.toString('hex')}})
   const readManifest = async (fs) => {
     try { return await pda.readManifest(fs) } catch (e) { return {} }
   }
@@ -338,7 +339,7 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
   await sync(archive, false, {localSyncPath, shallow: false, addOnly: true}) // archive -> folder (add-only)
   await sync(archive, true, {localSyncPath, shallow: false}) // folder -> archive
   events.emit('merge:' + archive.key.toString('hex'), archive.key)
-  console.log('done merging archive with', localSyncPath)
+  logger.silly('Done merging archive and folder', {details: {path: localSyncPath, key: archive.key.toString('hex')}})
 }
 
 // internal methods
@@ -355,7 +356,7 @@ const mergeArchiveAndFolder = exports.mergeArchiveAndFolder = async function (ar
 async function sync (archive, toArchive, opts = {}) {
   opts = opts || {}
   var localSyncPath = opts.localSyncPath || (archive.localSyncSettings && archive.localSyncSettings.path)
-  if (!localSyncPath) return console.log(new Error('sync() aborting, no localSyncPath')) // sanity check
+  if (!localSyncPath) return logger.warn('Sanity check failed - sync() aborting, no localSyncPath')
 
   archive._activeSyncs = (archive._activeSyncs || 0) + 1
   var release = await getArchiveSyncLock(archive)
@@ -381,7 +382,7 @@ async function sync (archive, toArchive, opts = {}) {
     if (opts.addOnly) {
       diff = diff.filter(d => d.change === 'add')
     }
-    console.log('syncing to', toArchive ? 'archive' : 'folder', diff) // DEBUG
+    logger.silly(`Syncing to ${toArchive ? 'archive' : 'folder'}`, {details: {key: archive.key.toString('hex'), path: localSyncPath}})
 
     // sync data
     await dft.applyRight(left, right, diff)
@@ -391,10 +392,7 @@ async function sync (archive, toArchive, opts = {}) {
     // decrement active syncs
     archive._activeSyncs--
   } catch (err) {
-    console.error('Failed to sync archive to local path')
-    console.error('- Archive:', archive.key.toString('hex'))
-    console.error('- Path:', localSyncPath)
-    console.error('- Error:', err)
+    logger.error('Failed to sync archive to local path', {details: {key: archive.key.toString('hex'), path: localSyncPath, err: err.toString()}})
   } finally {
     release()
   }

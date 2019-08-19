@@ -1,5 +1,6 @@
 const EventEmitter = require('events')
 const emitStream = require('emit-stream')
+const logger = require('../logger').child({category: 'dat', subcategory: 'watchlist'})
 
 // dat modules
 const datLibrary = require('../dat/library')
@@ -21,6 +22,7 @@ exports.setup = async function setup () {
       watch(site)
     }
   } catch (err) {
+    logger.error('Error while loading watchlist', {err})
     throw new Error('Failed to load the watchlist')
   }
 }

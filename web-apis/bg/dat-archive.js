@@ -9,7 +9,7 @@ const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
-const scopedFSes = require('../../lib/scoped-fses')
+const users = require('../../users')
 const {
   DAT_MANIFEST_FILENAME,
   DAT_CONFIGURABLE_FIELDS,
@@ -63,7 +63,10 @@ module.exports = {
 
       // create
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.createNewArchive({title, description, type, author, links}, {networked, hidden})
+      newArchiveUrl = await datLibrary.createNewArchive(
+        Object.assign({title, description, type, author, links}, generateManifest(type)),
+        {networked, hidden}
+      )
     }
     let newArchiveKey = await lookupUrlDatKey(newArchiveUrl)
 
@@ -116,8 +119,9 @@ module.exports = {
       await assertCreateArchivePermission(this.sender)
 
       // create
+      let key = await lookupUrlDatKey(url)
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.forkArchive(url, {title, description, type, author, links}, {networked, hidden})
+      newArchiveUrl = await datLibrary.forkArchive(key, {title, description, type, author, links}, {networked, hidden})
     }
 
     // grant write permissions to the creating app
@@ -129,7 +133,7 @@ module.exports = {
   async unlinkArchive (url) {
     var {archive} = await lookupArchive(this.sender, url)
     await assertDeleteArchivePermission(archive, this.sender)
-    await assertArchiveDeletable(archive)
+    assertArchiveDeletable(archive)
     await archivesDb.setUserSettings(0, archive.key, {isSaved: false})
   },
 
@@ -166,6 +170,7 @@ module.exports = {
       return {
         key: info.key,
         url: info.url,
+        domain: info.domain,
         isOwner: info.isOwner,
         // networked: info.userSettings.networked,
 
@@ -494,7 +499,8 @@ module.exports = {
       dstArchive: checkoutFS,
       dstPath: filepath,
       ignore: opts.ignore,
-      inplaceImport: opts.inplaceImport !== false
+      inplaceImport: opts.inplaceImport !== false,
+      dryRun: opts.dryRun
     })
   },
 
@@ -576,11 +582,6 @@ async function assertWritePermission (archive, sender) {
     throw new ArchiveNotWritableError()
   }
 
-  // ensure we havent deleted the archive
-  if (!details.userSettings.isSaved) {
-    throw new ArchiveNotWritableError('This archive has been deleted. Restore it to continue making changes.')
-  }
-
   // beaker: always allowed
   if (sender.getURL().startsWith('beaker:')) {
     return true
@@ -626,12 +627,11 @@ async function assertArchiveOfflineable (archive) {
   // }
 }
 
-async function assertArchiveDeletable (archive) {
-  // TODO(profiles) disabled -prf
-  // var profileRecord = await getProfileRecord(0)
-  // if ('dat://' + archive.key.toString('hex') === profileRecord.url) {
-  //   throw new PermissionsError('Unable to delete the user archive.')
-  // }
+function assertArchiveDeletable (archive) {
+  var archiveUrl = 'dat://' + archive.key.toString('hex')
+  if (users.isUser(archiveUrl)) {
+    throw new PermissionsError('Unable to delete the user profile.')
+  }
 }
 
 async function assertQuotaPermission (archive, senderOrigin, byteLength) {
@@ -667,6 +667,18 @@ function assertValidPath (fileOrFolderPath) {
   if (!DAT_VALID_PATH_REGEX.test(fileOrFolderPath)) {
     throw new InvalidPathError('Path contains invalid characters')
   }
+}
+
+function generateManifest (type) {
+  type = Array.isArray(type) ? type : [type]
+  if (type.includes('application')) {
+    return {
+      application: {
+        permissions: {}
+      }
+    }
+  }
+  return {}
 }
 
 // async function assertSenderIsFocused (sender) {
@@ -737,6 +749,7 @@ async function lookupArchive (sender, url, opts = {}) {
 }
 
 async function lookupUrlDatKey (url) {
+  if (DAT_HASH_REGEX.test(url)) return url
   if (url.startsWith('dat://') === false) {
     return false // not a dat site
   }

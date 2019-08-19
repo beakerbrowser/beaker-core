@@ -43,7 +43,10 @@ await beakerCore.setup({
     exportAPI(apiName, apiManifest, apiImpl, [guardFn])
   },
   downloadsWebAPI: {...},
-  browserWebAPI: {...}
+  browserWebAPI: {...},
+  userSessionAPI: {
+    getFor(webContents) {/*...*/}
+  }
 })
 
 // setup the protocol handler
@@ -114,6 +117,10 @@ debug('dat-related stuff')
 ### `dat.protocol`
 
 ### `dat.debug`
+
+### `crawler`
+
+### `users`
 
 ## API (@beaker/core/webview)
 

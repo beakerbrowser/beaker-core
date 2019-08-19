@@ -23,6 +23,8 @@ const discoverySwarm = require('discovery-swarm')
 const networkSpeed = require('hyperdrive-network-speed')
 const {ThrottleGroup} = require('stream-throttle')
 
+const baseLogger = require('./logger')
+const logger = baseLogger.child({category: 'dat', subcategory: 'daemon'})
 const datStorage = require('./storage')
 const folderSync = require('./folder-sync')
 const {addArchiveSwarmLogging} = require('./logging-utils')
@@ -38,7 +40,6 @@ var datPath
 var networkId = crypto.randomBytes(32)
 var archives = {} // in-memory cache of archive objects. key -> archive
 var archivesByDKey = {} // same, but discoveryKey -> archive
-var archiveLoadPromises = {} // key -> promise
 var daemonEvents = new EventEmitter()
 var debugEvents = new EventEmitter()
 var debugLogFile
@@ -93,7 +94,9 @@ exports.setup = async function ({rpcAPI, logfilePath}) {
   addArchiveSwarmLogging({archivesByDKey, log, archiveSwarm})
   archiveSwarm.once('error', () => archiveSwarm.listen(0))
   archiveSwarm.listen(DAT_SWARM_PORT)
-  archiveSwarm.on('error', error => log(null, {event: 'swarm-error', message: error.toString()}))
+  archiveSwarm.on('error', error => log(null, {event: 'swarm-error', message: error.toString()}, 'warn'))
+
+  logger.info('Initialized dat daemon')
 }
 
 // rpc api
@@ -103,6 +106,10 @@ const RPC_API = {
   // setup & config
   // =
 
+  /**
+   * @method
+   * @param {*} opts
+   */
   async setup (opts) {
     datPath = opts.datPath
     folderSync.setup(opts)
@@ -110,6 +117,7 @@ const RPC_API = {
 
   // up/down are in MB/s
   async setBandwidthThrottle ({up, down}) {
+    logger.info('Setting bandwidth throttle', {details: {up, down}})
     if (typeof up !== 'undefined') {
       upThrottleGroup = up ? new ThrottleGroup({rate: up * 1e6}) : null
     }
@@ -120,6 +128,10 @@ const RPC_API = {
 
   // event streams & debug
   // =
+
+  createLogStream () {
+    return emitStream(baseLogger.events)
+  },
 
   createEventStream () {
     return emitStream(daemonEvents)
@@ -170,6 +182,12 @@ const RPC_API = {
     }
   },
 
+  async getArchiveNetworkStats (key) {
+    var archive = getArchive(key)
+    if (!archive) return {}
+    return archive.networkStats
+  },
+
   updateSizeTracking,
 
   async loadArchive (opts) {
@@ -179,8 +197,10 @@ const RPC_API = {
       metaPath,
       userSettings
     } = opts
+    var logDetails = {key: key.toString('hex')}
 
     // create the archive instance
+    logger.verbose('Loading archive', {details: logDetails})
     var archive = hyperdrive(datStorage.create(metaPath), key, {
       sparse: true,
       secretKey
@@ -190,7 +210,7 @@ const RPC_API = {
     })
     archive.on('error', err => {
       let k = key.toString('hex')
-      log(k, {event: 'archive-error', message: err.toString()})
+      log(k, {event: 'archive-error', message: err.toString()}, 'warn')
       console.error('Error in archive', k, err)
     })
     archive.metadata.on('peer-add', () => onNetworkChanged(archive))
@@ -206,6 +226,7 @@ const RPC_API = {
         else resolve()
       })
     })
+    logger.silly('Archive ready', {details: {key: logDetails}})
     await updateSizeTracking(archive)
 
     // attach extensions
@@ -264,6 +285,7 @@ const RPC_API = {
     if (!archive) {
       return
     }
+    logger.verbose('Unloading archive', {details: {key}})
 
     // shutdown archive
     leaveSwarm(key)
@@ -287,7 +309,6 @@ const RPC_API = {
   // =
 
   callArchiveAsyncMethod (key, version, method, ...args) {
-    var cb = args.slice(-1)[0]
     var checkout = getArchiveCheckout(key, version)
     checkout[method](...args)
   },
@@ -317,6 +338,7 @@ const RPC_API = {
     if (!archive || archive.writable) {
       return // abort, only clear the content cache of downloaded archives
     }
+    logger.info('Clearing archive file cache', {details: {key: key.toString('hex')}})
 
     // clear the cache
     await new Promise((resolve, reject) => {
@@ -329,6 +351,16 @@ const RPC_API = {
     // force a reconfig of the autodownloader
     stopAutodownload(archive)
     configureAutoDownload(archive, userSettings)
+  },
+
+  async exportFilesystemToArchive (opts) {
+    opts.dstArchive = getArchive(opts.dstArchive)
+    return pda.exportFilesystemToArchive(opts)
+  },
+
+  async exportArchiveToFilesystem (opts) {
+    opts.srcArchive = getArchive(opts.srcArchive)
+    return pda.exportFilesystemToArchive(opts)
   },
 
   async exportArchiveToArchive (opts) {
@@ -444,7 +476,11 @@ function getArchiveCheckout (key, version) {
 
 async function updateSizeTracking (archive) {
   archive = getArchive(archive)
-  archive.size = await pda.readSize(archive, '/')
+  try {
+    archive.size = await pda.readSize(archive, '/')
+  } catch (e) {
+    archive.size = 0
+  }
   return archive.size
 }
 
@@ -582,7 +618,7 @@ function createReplicationStream (info) {
       peer: `${info.host}:${info.port}`,
       connectionType: info.type,
       message: err.toString()
-    })
+    }, 'warn')
   })
 
   return stream
@@ -638,7 +674,7 @@ function getInternalLocalSyncPath (archiveOrKey) {
 // helpers
 // =
 
-function log (key, data) {
+function log (key, data, logLevel = false) {
   var keys = Array.isArray(key) ? key : [key]
   keys.forEach(k => {
     let data2 = Object.assign(data, {archiveKey: k})
@@ -647,5 +683,9 @@ function log (key, data) {
   })
   if (keys[0]) {
     debugLogFile.append(keys[0] + JSON.stringify(data) + '\n')
+  }
+  if (logLevel) {
+    let message = data.event + (data.message ? `: ${data.message}` : '')
+    logger.log(logLevel, message, {details: {key, peer: data.peer}})
   }
 }

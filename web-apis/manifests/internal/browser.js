@@ -4,6 +4,10 @@ module.exports = {
   checkForUpdates: 'promise',
   restartBrowser: 'sync',
 
+  getUserSession: 'promise',
+  setUserSession: 'promise',
+  showEditProfileModal: 'promise',
+
   getSettings: 'promise',
   getSetting: 'promise',
   setSetting: 'promise',
@@ -22,13 +26,22 @@ module.exports = {
 
   fetchBody: 'promise',
   downloadURL: 'promise',
+  readFile: 'promise',
 
   getResourceContentType: 'sync',
 
+  openSidebar: 'promise',
+  toggleSidebar: 'promise',
+  toggleLiveReloading: 'promise',
   setWindowDimensions: 'promise',
+  setWindowDragModeEnabled: 'promise',
+  moveWindow: 'promise',
+  maximizeWindow: 'promise',
   showOpenDialog: 'promise',
   showContextMenu: 'promise',
+  showModal: 'promise',
   openUrl: 'promise',
+  gotoUrl: 'promise',
   openFolder: 'promise',
   doWebcontentsCmd: 'promise',
   doTest: 'promise',

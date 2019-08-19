@@ -1,7 +1,6 @@
 const path = require('path')
 const mkdirp = require('mkdirp')
 const jetpack = require('fs-jetpack')
-const templatesDb = require('../../dbs/templates')
 const datDns = require('../../dat/dns')
 const datLibrary = require('../../dat/library')
 const datGC = require('../../dat/garbage-collector')
@@ -9,7 +8,8 @@ const archivesDb = require('../../dbs/archives')
 const archiveDraftsDb = require('../../dbs/archive-drafts')
 const {cbPromise} = require('../../lib/functions')
 const {timer} = require('../../lib/time')
-const lock = require('../../lib/lock')
+const users = require('../../users')
+const {PermissionsError} = require('beaker-error-constants')
 
 // exported api
 // =
@@ -33,12 +33,12 @@ module.exports = {
   // =
 
   async setUserSettings (url, opts) {
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
     return archivesDb.setUserSettings(0, key, opts)
   },
 
   async add (url, opts = {}) {
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
 
     // pull metadata
     var archive = await datLibrary.getOrLoadArchive(key)
@@ -50,7 +50,8 @@ module.exports = {
   },
 
   async remove (url) {
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
+    assertArchiveDeletable(key)
     return archivesDb.setUserSettings(0, key, {isSaved: false})
   },
 
@@ -63,15 +64,16 @@ module.exports = {
     }
 
     for (var i = 0; i < urls.length; i++) {
-      let key = datLibrary.fromURLToKey(urls[i])
-
+      let key = await datLibrary.fromURLToKey(urls[i], true)
+      assertArchiveDeletable(key)
       results.push(await archivesDb.setUserSettings(0, key, {isSaved: false}))
     }
     return results
   },
 
   async delete (url) {
-    const key = datLibrary.fromURLToKey(url)
+    const key = await datLibrary.fromURLToKey(url, true)
+    assertArchiveDeletable(key)
     const drafts = await archiveDraftsDb.list(0, key)
     const toDelete = [{key}].concat(drafts)
     var bytes = 0
@@ -91,7 +93,7 @@ module.exports = {
   // =
 
   async validateLocalSyncPath (key, localSyncPath) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
     localSyncPath = path.normalize(localSyncPath)
 
     // make sure the path is good
@@ -116,7 +118,7 @@ module.exports = {
   },
 
   async setLocalSyncPath (key, localSyncPath, opts = {}) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
     localSyncPath = localSyncPath ? path.normalize(localSyncPath) : null
 
     // disable path
@@ -160,7 +162,7 @@ module.exports = {
   },
 
   async ensureLocalSyncFinished (key) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
 
     // load the archive
     var archive
@@ -177,7 +179,7 @@ module.exports = {
   // =
 
   async diffLocalSyncPathListing (key, opts) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
 
     // load the archive
     var archive
@@ -190,7 +192,7 @@ module.exports = {
   },
 
   async diffLocalSyncPathFile (key, filepath) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
 
     // load the archive
     var archive
@@ -203,7 +205,7 @@ module.exports = {
   },
 
   async publishLocalSyncPathListing (key, opts = {}) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
 
     // load the archive
     var archive
@@ -217,7 +219,7 @@ module.exports = {
   },
 
   async revertLocalSyncPathListing (key, opts = {}) {
-    key = datLibrary.fromURLToKey(key)
+    key = await datLibrary.fromURLToKey(key, true)
 
     // load the archive
     var archive
@@ -234,7 +236,7 @@ module.exports = {
   // =
 
   async getDraftInfo (url) {
-    var key = datLibrary.fromURLToKey(url)
+    var key = await datLibrary.fromURLToKey(url, true)
     var masterKey = await archiveDraftsDb.getMaster(0, key)
     var master = await archivesDb.query(0, {key: masterKey})
     var drafts = await archiveDraftsDb.list(0, masterKey)
@@ -242,13 +244,13 @@ module.exports = {
   },
 
   async listDrafts (masterUrl) {
-    var masterKey = datLibrary.fromURLToKey(masterUrl)
+    var masterKey = await datLibrary.fromURLToKey(masterUrl, true)
     return archiveDraftsDb.list(0, masterKey)
   },
 
   async addDraft (masterUrl, draftUrl) {
-    var masterKey = datLibrary.fromURLToKey(masterUrl)
-    var draftKey = datLibrary.fromURLToKey(draftUrl)
+    var masterKey = await datLibrary.fromURLToKey(masterUrl, true)
+    var draftKey = await datLibrary.fromURLToKey(draftUrl, true)
 
     // make sure we're modifying the master
     masterKey = await archiveDraftsDb.getMaster(0, masterKey)
@@ -257,32 +259,13 @@ module.exports = {
   },
 
   async removeDraft (masterUrl, draftUrl) {
-    var masterKey = datLibrary.fromURLToKey(masterUrl)
-    var draftKey = datLibrary.fromURLToKey(draftUrl)
+    var masterKey = await datLibrary.fromURLToKey(masterUrl, true)
+    var draftKey = await datLibrary.fromURLToKey(draftUrl, true)
 
     // make sure we're modifying the master
     masterKey = await archiveDraftsDb.getMaster(0, masterKey)
 
     return archiveDraftsDb.remove(0, masterKey, draftKey)
-  },
-
-  // templates
-  // =
-
-  async getTemplate (url) {
-    return templatesDb.get(0, url)
-  },
-
-  async listTemplates () {
-    return templatesDb.list(0)
-  },
-
-  async putTemplate (url, {title, screenshot}) {
-    return templatesDb.put(0, url, {title, screenshot})
-  },
-
-  async removeTemplate (url) {
-    return templatesDb.remove(0, url)
   },
 
   // internal management
@@ -293,7 +276,7 @@ module.exports = {
   },
 
   async clearFileCache (url) {
-    return datLibrary.clearFileCache(datLibrary.fromURLToKey(url))
+    return datLibrary.clearFileCache(await datLibrary.fromURLToKey(url, true))
   },
 
   async clearGarbage ({isOwner} = {}) {
@@ -317,5 +300,14 @@ module.exports = {
 
   createDebugStream () {
     return datLibrary.createDebugStream()
+  }
+}
+
+// internal methods
+// =
+
+function assertArchiveDeletable (key) {
+  if (users.isUser(`dat://${key}`)) {
+    throw new PermissionsError('Unable to delete the user profile.')
   }
 }

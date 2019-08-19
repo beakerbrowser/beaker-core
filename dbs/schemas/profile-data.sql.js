@@ -5,6 +5,25 @@ CREATE TABLE profiles (
   createdAt INTEGER DEFAULT (strftime('%s', 'now'))
 );
 
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY NOT NULL,
+  label TEXT,
+  url TEXT,
+  isDefault INTEGER DEFAULT 0,
+  isTemporary INTEGER DEFAULT 0,
+  createdAt INTEGER
+);
+
+CREATE TABLE user_site_sessions (
+  id INTEGER PRIMARY KEY NOT NULL,
+  userId INTEGER NOT NULL,
+  url TEXT,
+  permissionsJson TEXT,
+  createdAt INTEGER,
+ 
+  FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+);
+
 CREATE TABLE archives (
   profileId INTEGER NOT NULL,
   key TEXT NOT NULL, -- dat key
@@ -46,38 +65,28 @@ CREATE TABLE archives_meta_type (
   type TEXT
 );
 
--- a list of the draft-dats for a master-dat
-CREATE TABLE archive_drafts (
-  profileId INTEGER,
-  masterKey TEXT, -- key of the master dat
-  draftKey TEXT, -- key of the draft dat
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-
-  isActive INTEGER, -- is this the active draft? (deprecated)
-
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+CREATE TABLE dat_dns (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  key TEXT,
+  isCurrent INTEGER,
+  lastConfirmedAt INTEGER,
+  firstConfirmedAt INTEGER
 );
+CREATE INDEX dat_dns_name ON dat_dns (name);
+CREATE INDEX dat_dns_key ON dat_dns (key);
 
 CREATE TABLE bookmarks (
   profileId INTEGER,
   url TEXT NOT NULL,
   title TEXT,
+  description TEXT,
+  isPublic INTEGER,
   pinned INTEGER,
   pinOrder INTEGER DEFAULT 0,
   createdAt INTEGER DEFAULT (strftime('%s', 'now')),
   tags TEXT,
   notes TEXT,
-
-  PRIMARY KEY (profileId, url),
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
-CREATE TABLE templates (
-  profileId INTEGER,
-  url TEXT NOT NULL,
-  title TEXT,
-  screenshot,
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 
   PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
@@ -102,7 +111,322 @@ CREATE TABLE visit_stats (
 CREATE VIRTUAL TABLE visit_fts USING fts4 (url, title);
 CREATE UNIQUE INDEX visits_stats_url ON visit_stats (url);
 
--- list of the user's installed apps
+-- list of the users installed apps
+CREATE TABLE installed_applications (
+  id INTEGER PRIMARY KEY NOT NULL,
+  userId INTEGER NOT NULL,
+  enabled INTEGER DEFAULT 1,
+  url TEXT,
+  createdAt INTEGER,
+ 
+  FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- list of dats being looked for
+CREATE TABLE watchlist (
+  profileId INTEGER NOT NULL,
+  url TEXT NOT NULL,
+  description TEXT NOT NULL,
+  seedWhenResolved BOOLEAN NOT NULL,
+  resolved BOOLEAN NOT NULL DEFAULT (0),
+  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+ 
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of the users current templates
+CREATE TABLE templates (
+  profileId INTEGER,
+  url TEXT NOT NULL,
+  title TEXT,
+  screenshot,
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of sites being crawled
+CREATE TABLE crawl_sources (
+  id INTEGER PRIMARY KEY NOT NULL,
+  url TEXT NOT NULL,
+  datDnsId INTEGER
+);
+
+-- tracking information on the crawl-state of the sources
+CREATE TABLE crawl_sources_meta (
+  crawlSourceId INTEGER NOT NULL,
+  crawlSourceVersion INTEGER NOT NULL,
+  crawlDataset TEXT NOT NULL,
+  crawlDatasetVersion INTEGER NOT NULL,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
+-- crawled descriptions of other sites
+CREATE TABLE crawl_site_descriptions (
+  crawlSourceId INTEGER NOT NULL,
+  crawledAt INTEGER,
+
+  url TEXT,
+  title TEXT,
+  description TEXT,
+  type TEXT, -- comma separated strings
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE VIRTUAL TABLE crawl_site_descriptions_fts_index USING fts5(title, description, content='crawl_site_descriptions');
+
+-- triggers to keep crawl_site_descriptions_fts_index updated
+CREATE TRIGGER crawl_site_descriptions_ai AFTER INSERT ON crawl_site_descriptions BEGIN
+  INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_site_descriptions_ad AFTER DELETE ON crawl_site_descriptions BEGIN
+  INSERT INTO crawl_site_descriptions_fts_index(crawl_site_descriptions_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_site_descriptions_au AFTER UPDATE ON crawl_site_descriptions BEGIN
+  INSERT INTO crawl_site_descriptions_fts_index(crawl_site_descriptions_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+
+-- crawled tags
+CREATE TABLE crawl_tags (
+  id INTEGER PRIMARY KEY,
+  tag TEXT UNIQUE
+);
+
+-- crawled posts
+CREATE TABLE crawl_posts (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+
+  body TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE VIRTUAL TABLE crawl_posts_fts_index USING fts5(body, content='crawl_posts');
+
+-- triggers to keep crawl_posts_fts_index updated
+CREATE TRIGGER crawl_posts_ai AFTER INSERT ON crawl_posts BEGIN
+  INSERT INTO crawl_posts_fts_index(rowid, body) VALUES (new.rowid, new.body);
+END;
+CREATE TRIGGER crawl_posts_ad AFTER DELETE ON crawl_posts BEGIN
+  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
+END;
+CREATE TRIGGER crawl_posts_au AFTER UPDATE ON crawl_posts BEGIN
+  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
+  INSERT INTO crawl_posts_fts_index(rowid, body) VALUES (new.rowid, new.body);
+END;
+
+-- crawled comments
+CREATE TABLE crawl_comments (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+
+  topic TEXT,
+  replyTo TEXT,
+  body TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_comments_topic ON crawl_comments (topic);
+CREATE VIRTUAL TABLE crawl_comments_fts_index USING fts5(body, content='crawl_comments');
+
+-- triggers to keep crawl_comments_fts_index updated
+CREATE TRIGGER crawl_comments_ai AFTER INSERT ON crawl_comments BEGIN
+  INSERT INTO crawl_comments_fts_index(rowid, body) VALUES (new.rowid, new.body);
+END;
+CREATE TRIGGER crawl_comments_ad AFTER DELETE ON crawl_comments BEGIN
+  INSERT INTO crawl_comments_fts_index(crawl_comments_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
+END;
+CREATE TRIGGER crawl_comments_au AFTER UPDATE ON crawl_comments BEGIN
+  INSERT INTO crawl_comments_fts_index(crawl_comments_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
+  INSERT INTO crawl_comments_fts_index(rowid, body) VALUES (new.rowid, new.body);
+END;
+
+-- crawled reactions
+CREATE TABLE crawl_reactions (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  topic TEXT NOT NULL,
+  emojis TEXT NOT NULL,
+
+  PRIMARY KEY (crawlSourceId, pathname),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_reactions_topic ON crawl_reactions (topic);
+
+-- crawled votes
+CREATE TABLE crawl_votes (
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  topic TEXT NOT NULL,
+  vote INTEGER NOT NULL,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  PRIMARY KEY (crawlSourceId, pathname),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_votes_topic ON crawl_votes (topic);
+
+-- crawled bookmarks
+CREATE TABLE crawl_bookmarks (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+
+  href TEXT,
+  title TEXT,
+  description TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE VIRTUAL TABLE crawl_bookmarks_fts_index USING fts5(title, description, content='crawl_bookmarks');
+
+-- triggers to keep crawl_bookmarks_fts_index updated
+CREATE TRIGGER crawl_bookmarks_ai AFTER INSERT ON crawl_bookmarks BEGIN
+  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_bookmarks_ad AFTER DELETE ON crawl_bookmarks BEGIN
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_bookmarks_au AFTER UPDATE ON crawl_bookmarks BEGIN
+  INSERT INTO crawl_bookmarks_fts_index(crawl_bookmarks_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_bookmarks_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+
+-- crawled bookmark tags
+CREATE TABLE crawl_bookmarks_tags (
+  crawlBookmarkId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlBookmarkId) REFERENCES crawl_bookmarks (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
+-- crawled follows
+CREATE TABLE crawl_follows (
+  crawlSourceId INTEGER NOT NULL,
+  crawledAt INTEGER,
+  
+  destUrl TEXT NOT NULL,
+
+  PRIMARY KEY (crawlSourceId, destUrl),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
+-- crawled discussions
+CREATE TABLE crawl_discussions (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  title TEXT NOT NULL,
+  body TEXT,
+  href TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_discussions_url ON crawl_discussions (crawlSourceId, pathname);
+CREATE VIRTUAL TABLE crawl_discussions_fts_index USING fts5(title, body, content='crawl_discussions');
+
+-- triggers to keep crawl_discussions_fts_index updated
+CREATE TRIGGER crawl_discussions_ai AFTER INSERT ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+END;
+CREATE TRIGGER crawl_discussions_ad AFTER DELETE ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+END;
+CREATE TRIGGER crawl_discussions_au AFTER UPDATE ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+END;
+
+-- crawled discussion tags
+CREATE TABLE crawl_discussions_tags (
+  crawlDiscussionId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlDiscussionId) REFERENCES crawl_discussions (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
+-- crawled media
+CREATE TABLE crawl_media (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  subtype TEXT NOT NULL,
+  href TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_media_url ON crawl_media (crawlSourceId, pathname);
+CREATE INDEX crawl_media_subtype ON crawl_media (subtype);
+CREATE INDEX crawl_media_href ON crawl_media (href);
+CREATE VIRTUAL TABLE crawl_media_fts_index USING fts5(title, description, content='crawl_media');
+
+-- triggers to keep crawl_media_fts_index updated
+CREATE TRIGGER crawl_media_ai AFTER INSERT ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_media_ad AFTER DELETE ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_media_au AFTER UPDATE ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+
+-- crawled media tags
+CREATE TABLE crawl_media_tags (
+  crawlMediaId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlMediaId) REFERENCES crawl_media (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
+-- a list of the draft-dats for a master-dat
+-- deprecated
+CREATE TABLE archive_drafts (
+  profileId INTEGER,
+  masterKey TEXT, -- key of the master dat
+  draftKey TEXT, -- key of the draft dat
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  isActive INTEGER, -- is this the active draft? (deprecated)
+
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of the users installed apps
 -- deprecated
 CREATE TABLE apps (
   profileId INTEGER NOT NULL,
@@ -115,7 +439,7 @@ CREATE TABLE apps (
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
--- log of the user's app installations
+-- log of the users app installations
 -- deprecated
 CREATE TABLE apps_log (
   profileId INTEGER NOT NULL,
@@ -123,20 +447,6 @@ CREATE TABLE apps_log (
   url TEXT,
   ts INTEGER DEFAULT (strftime('%s', 'now')),
  
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
--- add a database for watchlist feature
-CREATE TABLE watchlist (
-  profileId INTEGER NOT NULL,
-  url TEXT NOT NULL,
-  description TEXT NOT NULL,
-  seedWhenResolved BOOLEAN NOT NULL,
-  resolved BOOLEAN NOT NULL DEFAULT (0),
-  updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
- 
-  PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
@@ -157,14 +467,14 @@ CREATE TABLE workspaces (
 INSERT INTO profiles (id) VALUES (0);
 
 -- default bookmarks
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker Home', 'dat://beakerbrowser.com', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Dat Project', 'dat://datproject.org', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, '@BeakerBrowser', 'https://twitter.com/beakerbrowser', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Hashbase', 'https://hashbase.io', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker Browser', 'dat://beakerbrowser.com', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Dat Project', 'dat://datproject.org', 0);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Hashbase', 'https://hashbase.io', 0);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Documentation', 'dat://beakerbrowser.com/docs', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issue', 'https://github.com/beakerbrowser/beaker/issues', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Explore the p2p Web', 'dat://taravancil.com/explore-the-p2p-web.md', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issue', 'https://github.com/beakerbrowser/beaker/issues', 0);
 INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Library', 'beaker://library/', 1);
+INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker.Social', 'dat://beaker.social', 1);
 
-PRAGMA user_version = 23;
+PRAGMA user_version = 36;
 `

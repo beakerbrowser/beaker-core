@@ -1,10 +1,21 @@
+const ms = require('ms')
 const archivesDb = require('../dbs/archives')
 const datLibrary = require('./library')
 const {
   DAT_GC_FIRST_COLLECT_WAIT,
   DAT_GC_REGULAR_COLLECT_WAIT
 } = require('../lib/const')
-const debug = require('../lib/debug-logger').debugLogger('datgc')
+const logger = require('../logger').child({category: 'dat', subcategory: 'garbage-collector'})
+
+// typedefs
+// =
+
+/**
+ * @typedef {Object} CollectResult
+ * @prop {number} totalBytes
+ * @prop {number} totalArchives
+ * @prop {number} skippedArchives
+ */
 
 // globals
 // =
@@ -18,7 +29,15 @@ exports.setup = function () {
   schedule(DAT_GC_FIRST_COLLECT_WAIT)
 }
 
+/**
+ * @param {Object} [opts]
+ * @param {number} [opts.olderThan]
+ * @param {boolean} [opts.isOwner]
+ * @returns {Promise<CollectResult>}
+ */
 const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
+  logger.info('Running GC')
+
   // clear any scheduled GC
   if (nextGCTimeout) {
     clearTimeout(nextGCTimeout)
@@ -32,7 +51,9 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
 
   // first unsave expired archives
   var expiredArchives = await archivesDb.listExpiredArchives()
-  debug('GC unsaving %d expired archives', expiredArchives.length)
+  if (expiredArchives.length) {
+    logger.info(`Unsaving ${expiredArchives.length} expired archives`)
+  }
   var promises = []
   for (let i = 0; i < expiredArchives.length; i++) {
     promises.push(archivesDb.setUserSettings(0, expiredArchives[i].key, {isSaved: false}))
@@ -41,17 +62,20 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
 
   // now GC old archives
   var unusedArchives = await archivesDb.listGarbageCollectableArchives({olderThan, isOwner})
-  debug('GC cleaning out %d unused archives', unusedArchives.length)
-  debug(unusedArchives)
+  if (unusedArchives.length) {
+    logger.info(`Cleaning out ${unusedArchives.length} unused archives`)
+    logger.silly('Archives:', {urls: unusedArchives.map(a => a.key)})
+  }
   for (let i = 0; i < unusedArchives.length; i++) {
     await datLibrary.unloadArchive(unusedArchives[i].key)
     totalBytes += await archivesDb.deleteArchive(unusedArchives[i].key)
   }
 
-  debug('GC completed in %d ms', Date.now() - startTime)
+  logger.debug(`GC completed in ${Date.now() - startTime} ms`)
 
   // schedule the next GC
   schedule(DAT_GC_REGULAR_COLLECT_WAIT)
+  logger.debug(`Scheduling next run to happen in ${ms(DAT_GC_REGULAR_COLLECT_WAIT)}`)
 
   // return stats
   return {totalBytes, totalArchives: unusedArchives.length - skippedArchives, skippedArchives}
@@ -60,6 +84,9 @@ const collect = exports.collect = async function ({olderThan, isOwner} = {}) {
 // helpers
 // =
 
+/**
+ * @param {number} time
+ */
 function schedule (time) {
   nextGCTimeout = setTimeout(collect, time)
   nextGCTimeout.unref()

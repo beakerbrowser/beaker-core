@@ -1,7 +1,13 @@
 const lock = require('../lib/lock')
 const db = require('./profile-data-db')
 
+// typedefs
+// =
+
 class BadParamError extends Error {
+  /**
+   * @param {string} msg
+   */
   constructor (msg) {
     super()
     this.name = 'BadParamError'
@@ -9,9 +15,30 @@ class BadParamError extends Error {
   }
 }
 
+/**
+ * @typedef {Object} Visit
+ * @prop {number} profileId
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {number} ts
+ *
+ * @typedef {Object} VisitSearchResult
+ * @prop {string} offsets
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {number} num_visits
+ */
+
 // exported methods
 // =
 
+/**
+ * @param {number} profileId
+ * @param {Object} values
+ * @param {string} values.url
+ * @param {string} values.title
+ * @returns {Promise<void>}
+ */
 exports.addVisit = async function (profileId, {url, title}) {
   // validate parameters
   if (!url || typeof url !== 'string') {
@@ -25,17 +52,19 @@ exports.addVisit = async function (profileId, {url, title}) {
   try {
     await db.run('BEGIN TRANSACTION;')
 
-    // get current stats
-    var stats = await db.get('SELECT * FROM visit_stats WHERE url = ?;', [url])
     var ts = Date.now()
+    if (!url.startsWith('beaker://')) { // dont log stats on internal sites, keep them out of the search
+      // get current stats
+      var stats = await db.get('SELECT * FROM visit_stats WHERE url = ?;', [url])
 
-    // create or update stats
-    if (!stats) {
-      await db.run('INSERT INTO visit_stats (url, num_visits, last_visit_ts) VALUES (?, ?, ?);', [url, 1, ts])
-      await db.run('INSERT INTO visit_fts (url, title) VALUES (?, ?);', [url, title])
-    } else {
-      let num_visits = (+stats.num_visits || 1) + 1
-      await db.run('UPDATE visit_stats SET num_visits = ?, last_visit_ts = ? WHERE url = ?;', [num_visits, ts, url])
+      // create or update stats
+      if (!stats) {
+        await db.run('INSERT INTO visit_stats (url, num_visits, last_visit_ts) VALUES (?, ?, ?);', [url, 1, ts])
+        await db.run('INSERT INTO visit_fts (url, title) VALUES (?, ?);', [url, title])
+      } else {
+        let num_visits = (+stats.num_visits || 1) + 1
+        await db.run('UPDATE visit_stats SET num_visits = ?, last_visit_ts = ? WHERE url = ?;', [num_visits, ts, url])
+      }
     }
 
     // visited within 1 hour?
@@ -54,14 +83,24 @@ exports.addVisit = async function (profileId, {url, title}) {
   }
 }
 
+/**
+ * @param {number} profileId
+ * @param {Object} opts
+ * @param {string} [opts.search]
+ * @param {number} [opts.offset]
+ * @param {number} [opts.limit]
+ * @param {number} [opts.before]
+ * @param {number} [opts.after]
+ * @returns {Promise<Array<Visit>>}
+ */
 exports.getVisitHistory = async function (profileId, {search, offset, limit, before, after}) {
   var release = await lock('history-db')
   try {
-    const params = [
+    const params = /** @type Array<string | number> */([
       profileId,
       limit || 50,
       offset || 0
-    ]
+    ])
     if (search) {
       // prep search terms
       params.push(
@@ -102,6 +141,13 @@ exports.getVisitHistory = async function (profileId, {search, offset, limit, bef
   }
 }
 
+/**
+ * @param {number} profileId
+ * @param {Object} opts
+ * @param {number} [opts.offset]
+ * @param {number} [opts.limit]
+ * @returns {Promise<Array<Visit>>}
+ */
 exports.getMostVisited = async function (profileId, { offset, limit }) {
   var release = await lock('history-db')
   try {
@@ -121,6 +167,10 @@ exports.getMostVisited = async function (profileId, { offset, limit }) {
   }
 }
 
+/**
+ * @param {string} q
+ * @returns {Promise<Array<VisitSearchResult>>}
+ */
 exports.search = async function (q) {
   if (!q || typeof q !== 'string') {
     throw new BadParamError('q must be a string')
@@ -140,7 +190,7 @@ exports.search = async function (q) {
       SELECT offsets(visit_fts) as offsets, visit_fts.url, visit_fts.title, visit_stats.num_visits
         FROM visit_fts
         LEFT JOIN visit_stats ON visit_stats.url = visit_fts.url
-        WHERE visit_fts MATCH ?
+        WHERE visit_fts MATCH ? AND visit_stats.num_visits > 2
         ORDER BY visit_stats.num_visits DESC
         LIMIT 10;
     `, [q])
@@ -149,6 +199,10 @@ exports.search = async function (q) {
   }
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
 exports.removeVisit = async function (url) {
   // validate parameters
   if (!url || typeof url !== 'string') {
@@ -169,6 +223,10 @@ exports.removeVisit = async function (url) {
   }
 }
 
+/**
+ * @param {number} timestamp
+ * @returns {Promise<void>}
+ */
 exports.removeVisitsAfter = async function (timestamp) {
   var release = await lock('history-db')
   try {
@@ -183,6 +241,9 @@ exports.removeVisitsAfter = async function (timestamp) {
   }
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 exports.removeAllVisits = async function () {
   var release = await lock('history-db')
   db.run('DELETE FROM visits;')

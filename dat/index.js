@@ -1,4 +1,5 @@
 module.exports = {
+  assets: require('./assets'),
   debug: require('./debugging'),
   dns: require('./dns'),
   garbageCollector: require('./garbage-collector'),

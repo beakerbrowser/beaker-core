@@ -1,6 +1,9 @@
 const {getActiveArchives} = require('./library')
 const datDns = require('./dns')
 
+/**
+ * @returns {string}
+ */
 exports.archivesDebugPage = function () {
   var archives = getActiveArchives()
   return `<html>
@@ -24,6 +27,9 @@ exports.archivesDebugPage = function () {
   </html>`
 }
 
+/**
+ * @returns {string}
+ */
 exports.datDnsCachePage = function () {
   var cache = datDns.listCache()
   return `<html>
@@ -41,6 +47,9 @@ exports.datDnsCachePage = function () {
   </html>`
 }
 
+/**
+ * @returns {string}
+ */
 exports.datDnsCacheJS = function () {
   return `
     document.querySelector('button').addEventListener('click', clear)

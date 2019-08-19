@@ -16,6 +16,11 @@ var events = new EventEmitter()
 // exported methods
 // =
 
+/**
+ * @param {Object} opts
+ * @param {string} opts.userDataPath
+ * @param {string} opts.homePath
+ */
 exports.setup = function (opts) {
   // open database
   var dbPath = path.join(opts.userDataPath, 'Settings')
@@ -38,10 +43,15 @@ exports.setup = function (opts) {
 exports.on = events.on.bind(events)
 exports.once = events.once.bind(events)
 
+/**
+ * @param {string} key
+ * @param {string | number} value
+ * @returns {Promise<void>}
+ */
 exports.set = function (key, value) {
   events.emit('set', key, value)
   events.emit('set:' + key, value)
-  return setupPromise.then(v => cbPromise(cb => {
+  return setupPromise.then(() => cbPromise(cb => {
     db.run(`
       INSERT OR REPLACE
         INTO settings (key, value, ts)
@@ -50,13 +60,17 @@ exports.set = function (key, value) {
   }))
 }
 
+/**
+ * @param {string} key
+ * @returns {boolean | Promise<string | number>}
+ */
 exports.get = function (key) {
   // env variables
   if (key === 'no_welcome_tab') {
-    return (getEnvVar('BEAKER_NO_WELCOME_TAB') == 1)
+    return (Number(getEnvVar('BEAKER_NO_WELCOME_TAB')) === 1)
   }
   // stored values
-  return setupPromise.then(v => cbPromise(cb => {
+  return setupPromise.then(() => cbPromise(cb => {
     db.get(`SELECT value FROM settings WHERE key = ?`, [key], (err, row) => {
       if (row) { row = row.value }
       if (typeof row === 'undefined') { row = defaultSettings[key] }
@@ -65,6 +79,9 @@ exports.get = function (key) {
   }))
 }
 
+/**
+ * @returns {Promise<Object>}
+ */
 exports.getAll = function () {
   return setupPromise.then(v => cbPromise(cb => {
     db.all(`SELECT key, value FROM settings`, (err, rows) => {
@@ -73,7 +90,7 @@ exports.getAll = function () {
       var obj = {}
       rows.forEach(row => { obj[row.key] = row.value })
       obj = Object.assign({}, defaultSettings, obj)
-      obj.no_welcome_tab = (getEnvVar('BEAKER_NO_WELCOME_TAB') == 1)
+      obj.no_welcome_tab = (Number(getEnvVar('BEAKER_NO_WELCOME_TAB')) === 1)
       cb(null, obj)
     })
   }))

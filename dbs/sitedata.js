@@ -1,13 +1,13 @@
 const sqlite3 = require('sqlite3')
 const path = require('path')
-const url = require('url')
+const parseDatUrl = require('parse-dat-url')
 const { cbPromise } = require('../lib/functions')
 const { setupSqliteDB } = require('../lib/db')
 const datDns = require('../dat/dns')
-const datLibrary = require('../dat/library')
 
 // globals
 // =
+
 var db
 var migrations
 var setupPromise
@@ -15,6 +15,10 @@ var setupPromise
 // exported methods
 // =
 
+/**
+ * @param {Object} opts
+ * @param {string} opts.userDataPath
+ */
 exports.setup = function (opts) {
   // open database
   var dbPath = path.join(opts.userDataPath, 'SiteData')
@@ -22,6 +26,14 @@ exports.setup = function (opts) {
   setupPromise = setupSqliteDB(db, {migrations}, '[SITEDATA]')
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @param {number | string} value
+ * @param {Object} [opts]
+ * @param {boolean} [opts.dontExtractOrigin]
+ * @returns {Promise<void>}
+ */
 const set = exports.set = async function (url, key, value, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
@@ -35,6 +47,11 @@ const set = exports.set = async function (url, key, value, opts) {
   })
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 const clear = exports.clear = async function (url, key) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -46,6 +63,13 @@ const clear = exports.clear = async function (url, key) {
   })
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @param {Object} [opts]
+ * @param {boolean} [opts.dontExtractOrigin]
+ * @returns {Promise<string>}
+ */
 const get = exports.get = async function (url, key, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
@@ -58,6 +82,19 @@ const get = exports.get = async function (url, key, opts) {
   })
 }
 
+/**
+ * @param {string} url
+ * @param {string} key
+ * @returns {Promise<string>}
+ */
+const getPermission = exports.getPermission = function (url, key) {
+  return get(url, 'perm:' + key)
+}
+
+/**
+ * @param {string} url
+ * @returns {Promise<Object>}
+ */
 const getPermissions = exports.getPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -75,6 +112,10 @@ const getPermissions = exports.getPermissions = async function (url) {
   })
 }
 
+/**
+ * @param {string} url
+ * @returns {Promise<Array<string>>}
+ */
 exports.getNetworkPermissions = async function (url) {
   await setupPromise
   var origin = await extractOrigin(url)
@@ -84,7 +125,7 @@ exports.getNetworkPermissions = async function (url) {
       if (err) return cb(err)
 
       // convert to array
-      var origins = []
+      var origins = /** @type string[] */([])
       if (rows) {
         rows.forEach(row => {
           if (row.value) origins.push(row.key.split(':').pop())
@@ -95,65 +136,30 @@ exports.getNetworkPermissions = async function (url) {
   })
 }
 
-const getAppPermissions = exports.getAppPermissions = async function (url) {
-  await setupPromise
-  var origin = await extractOrigin(url)
-  if (!origin) return null
-  return cbPromise(cb => {
-    db.all(`SELECT key, value FROM sitedata WHERE origin = ? AND key LIKE 'perm:app:%'`, [origin], (err, rows) => {
-      if (err) return cb(err)
-
-      // convert to app perms object
-      var appPerms = {}
-      if (rows) {
-        rows.forEach(row => {
-          let [api, perm] = row.key.split(':').slice(2)
-          if (!appPerms[api]) appPerms[api] = []
-          appPerms[api].push(perm)
-        })
-      }
-      cb(null, appPerms)
-    })
-  })
-}
-
-const getPermission = exports.getPermission = function (url, key) {
-  return get(url, 'perm:' + key)
-}
-
+/**
+ * @param {string} url
+ * @param {string} key
+ * @param {string | number} value
+ * @returns {Promise<void>}
+ */
 const setPermission = exports.setPermission = function (url, key, value) {
   value = value ? 1 : 0
   return set(url, 'perm:' + key, value)
 }
 
-const setAppPermissions = exports.setAppPermissions = async function (url, appPerms) {
-  await setupPromise
-  var origin = await extractOrigin(url)
-  if (!origin) return null
-  appPerms = appPerms || {}
-
-  // clear all existing app perms
-  await cbPromise(cb => {
-    db.run(`
-      DELETE FROM sitedata WHERE origin = ? AND key LIKE 'perm:app:%'
-    `, [origin], cb)
-  })
-
-  // set perms given
-  for (let api in appPerms) {
-    if (!Array.isArray(appPerms[api])) {
-      continue
-    }
-    for (let perm of appPerms[api]) {
-      await set(url, `perm:app:${api}:${perm}`, 1)
-    }
-  }
-}
-
+/**
+ * @param {string} url
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 const clearPermission = exports.clearPermission = function (url, key) {
   return clear(url, 'perm:' + key)
 }
 
+/**
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
 const clearPermissionAllOrigins = exports.clearPermissionAllOrigins = async function (key) {
   await setupPromise
   key = 'perm:' + key
@@ -164,34 +170,12 @@ const clearPermissionAllOrigins = exports.clearPermissionAllOrigins = async func
   })
 }
 
-exports.query = async function (values) {
-  await setupPromise
-
-  // massage query
-  if ('origin' in values) {
-    values.origin = await extractOrigin(values.origin)
-  }
-
-  return cbPromise(cb => {
-    // run query
-    const keys = Object.keys(values)
-    const where = keys.map(k => `${k} = ?`).join(' AND ')
-    values = keys.map(k => values[k])
-    db.all(`SELECT * FROM sitedata WHERE ${where}`, values, (err, res) => {
-      if (err) return cb(err)
-      cb(null, res && res.value)
-    })
-  })
-}
-
 exports.WEBAPI = {
   get,
   set,
   getPermissions,
   getPermission,
-  getAppPermissions,
   setPermission,
-  setAppPermissions,
   clearPermission,
   clearPermissionAllOrigins
 }
@@ -199,12 +183,13 @@ exports.WEBAPI = {
 // internal methods
 // =
 
+/**
+ * @param {string} originURL
+ * @returns {Promise<string>}
+ */
 async function extractOrigin (originURL) {
-  var urlp = url.parse(originURL)
+  var urlp = parseDatUrl(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return
-  if (urlp.protocol === 'dat:') {
-    urlp.host = await datDns.resolveName(urlp.host)
-  }
   return (urlp.protocol + urlp.host)
 }
 
@@ -221,7 +206,7 @@ migrations = [
       CREATE UNIQUE INDEX sitedata_origin_key ON sitedata (origin, key);
       INSERT OR REPLACE INTO "sitedata" VALUES('https:duckduckgo.com','favicon','data:image/png;base64,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');
       --- beakerbrowser.com
-      INSERT OR REPLACE INTO "sitedata" VALUES('dat:87ed2e3b160f261a032af03921a3bd09227d0a4cde73466c17114816cae43336','favicon','data:image/png;base64,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');
+      INSERT OR REPLACE INTO "sitedata" VALUES('dat:1919b7b61d581c7877d20842eea7a1a033f251e9c1bb0050b4209294d2c3a1ee','favicon','data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAFlklEQVRYR8VXaUxUVxT+3nuzgDN1wQ1RoyW1RaVWWxeQWnCARCFVREag1SjQNG6o0Da2tEFpYtXE2lpjjSaaVKVVJDYqYKs4aCKL1hWrFUOjVTBSZKDMMAuzvOZyHea9mXnDSH/0/oGce5bvnfOdc+4w+J8P09/42uh/QljVwJFgwTG8SX/0nOpJf3wFDEA7+Y6CDY1YxYBJ58FE+w7GN4Dnf7Y5rXtOXBjQFAigPgFotSUco1+8iwG7JhCHbh2+kuHas4+eHfrYn51fANq55liWDaoEIHux4G5tJ2//7LhOvk3KXhKAVmNZyzLK3f0NLLZznD52XrbAly+fAJZoLCsZRrlXKjjPA7ZuwOGgGiwLyBX0r7SNvaJEJ0/2vPcCkBrXFiXnQmp9ObLbgRGhwPxFwJQZwKjRNGjbM+BePaA7A1yvo7KgYMDpBDhOUA6n6cvjVapNQt9eANLjnQaAUfsCkFsAxGj8F4VkBjwgVwL6Z0BOCqAMctuYLQ8iTlWHN7gkIgCL5xqKZKy60DNE8ABg12Fg4CABx3mg8R7QbQVGjQFChnkDM5uAjASA2LsOz9t+K9EpZvoEkB7vdACMqJKkzvtLgSFDqUmXEfh+O1Cte55eBnDYgdAwIGsdMGuOO5ipC8hMFAPo8WG9P7Xs0mu3yP+9GVgU+7dWIRteIvwOUsPsXGDeIipt/gvIzwYYid7p7gaSU4GcDW4vKTGUD8LjsHcdLL2ozhEBSIs1HONk6iVCRZkcOHKGSkhuliW5mS/FBJsNWLMR0CRRjW0FwM0rYm2et7WX6BQhIgBajaWJZZSjhaqJ7wI566mkeD9w+pgwZ1IQaBf8eJbeX6sBthYAMsEoIxmsub865NGjve29yUyPd/CAu/yk9vmbgOg46ujDNKCzQzqo8MZuAzZ/C0ROAwgRMxOAIAERia7RdDOmvHZajQuAIiOBt5IB4zqknbbvA16ZSCULZ3uTSQoO8bN8DZCUSjV88cDY1bCwvC7ilAtAUEYCb/YEsG0fMKGfALLWusnrC4DBeDul4vKUk+4SaBy8sANJCTZ8AcTE069YnQnoWwMrAcnelj1AxOuA0QAsnefdCS0dlXMuXEu81AtgcZyhScapRSSMmwes/JgGLT0EHP9BugWF0BRK4FA5ldReBHZuFo9kQsKyugkjjMbG1l4AC95+fCJYOeZ5x1NjovjTObfrrAWUVP4OmYyffgXMfD6QivKAP26LLRx2k770oqpntPUC0Ey/sGzEoNhDAh6CdwLp2UDqUuqAlGD9croJfR2rBVi2Ckh9n94+bATyVoh3AZF3mR8Ul9WE93gVzjSlVmM1sIxCLnROBsvuI0DYWCol3Dj4HXDuNAVCskRG8cQpQPY64NXJbusPUgFjpxgq0b/zcOvs240FPRtXNFQTZ13ZEaKe8ZHn15GV+vVBIFTEEKC1BSBfTZaReO0C+VnA02bvPFksT26crB79puvGc6qr02KNzZxMNdDTlAyXrFwgOc0/B+qvAjuLAIvZW48Eu3pvdXRj8946KQCIDC9Mjny5qEzIBZcyWU5ksZAR/cZ0mhGWo9wgRDtfBjQ/oq8jz0NS36LXfVN1PT5feOdzr0VFFheMD31vi3Aw+cqI8ElGFpfUliRBOk13KytqJ88HYO8TAOFG1KTDhePDlm72B8J/MegtAdVhuHX2l8tTUwB4Fcbfs5yJGLcxMzK88ADHDhA8qgIJ69Zpai3ZUV2f/jkAn83b5w8TAGPnvnV++/BB72SyjIw89/o89Kvrq6/cXfGJ3nCDEE7SLBAArnYNj5pUnD3kpalJquBxE+VylbLXLZkFDhvM1uY/O7t+r7rRkHeg09x4DYCtL7SBAhD6IYNqMICRwwbHDue4IK6l7Vc9gKdkWAKw9BU0EBK+iI//pPsvk2faMApC4F8AAAAASUVORK5CYII=');
       PRAGMA user_version = 1;
     `, cb)
   },
@@ -259,6 +244,15 @@ migrations = [
       --- taravancil.com
       INSERT OR REPLACE INTO "sitedata" VALUES('dat:4fa30df06cbeda4ae87be8fd4334a61289be6648fb0bf7f44f6b91d2385c9328','favicon','data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHklEQVQ4T2MsOrXzPwMFgHHUAIbRMGAYDQOGYREGAKNTL1G9PdjfAAAAAElFTkSuQmCC');
       PRAGMA user_version = 5;
+    `, cb)
+  },
+  // version 6
+  // - more favicons
+  function (cb) {
+    db.exec(`
+      -- beaker.social
+      INSERT OR REPLACE INTO "sitedata" VALUES('dat:b3c82a26487167c276dc8539dcec97f52a95c8231bc2d41d28886ed36184d3b1','favicon','data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAjUlEQVR4Ac3BoQ0CQRCG0e/fG0UDJEs3WBw14KEVPDXgsBhquQs0gLsMKyasHYKA9/g5EXaX5whUcqbTZrGiKXSVvEoodDN5M8EIjq+FlmS43wnGm7ZAJUOagBuNEQR7PnOgKXzJ6I5AJcN9JBjB8bPQkgQXD4IRhK7AQILQDBhNoRvIGwiFbiJv5G+8ABIEG1xwcZ4JAAAAAElFTkSuQmCC');
+      PRAGMA user_version = 6;
     `, cb)
   }
 ]

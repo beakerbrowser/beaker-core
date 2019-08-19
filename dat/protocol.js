@@ -1,14 +1,16 @@
-const {join} = require('path')
+const {extname} = require('path')
 const parseDatUrl = require('parse-dat-url')
 const parseRange = require('range-parser')
 const once = require('once')
-const debug = require('../lib/debug-logger').debugLogger('dat-serve')
+const logger = require('../logger').child({category: 'dat', subcategory: 'dat-serve'})
 const intoStream = require('into-stream')
-const toZipStream = require('hyperdrive-to-zip-stream')
+const {toZipStream} = require('../lib/zip')
 const slugify = require('slugify')
+const markdown = require('../lib/markdown')
 
 const datDns = require('./dns')
 const datLibrary = require('./library')
+const datServeResolvePath = require('@beaker/dat-serve-resolve-path')
 
 const directoryListingPage = require('./directory-listing-page')
 const errorPage = require('../lib/error-page')
@@ -17,17 +19,15 @@ const {makeSafe} = require('../lib/strings')
 
 // HACK detect whether the native builds of some key deps are working -prf
 // -prf
-try {
-  require('utp-native')
-} catch (err) {
-  debug('Failed to load utp-native. Peer-to-peer connectivity may be degraded.', err.toString())
-  console.error('Failed to load utp-native. Peer-to-peer connectivity may be degraded.', err)
+var utpLoadError = false
+try { require('utp-native') }
+catch (err) {
+  utpLoadError = err
 }
-try {
-  require('sodium-native')
-} catch (err) {
-  debug('Failed to load sodium-native. Performance may be degraded.', err.toString())
-  console.error('Failed to load sodium-native. Performance may be degraded.', err)
+var sodiumLoadError = false
+try { require('sodium-native') }
+catch (err) {
+  sodiumLoadError = err
 }
 
 // constants
@@ -40,6 +40,14 @@ const REQUEST_TIMEOUT_MS = 30e3 // 30 seconds
 // =
 
 exports.electronHandler = async function (request, respond) {
+  // log warnings now, after the logger has setup its transports
+  if (utpLoadError) {
+    logger.warn('Failed to load utp-native. Peer-to-peer connectivity may be degraded.', {err: utpLoadError.toString()})
+  }
+  if (sodiumLoadError) {
+    logger.warn('Failed to load sodium-native. Performance may be degraded.', {err: sodiumLoadError.toString()})
+  }
+
   respond = once(respond)
   var respondError = (code, status, errorPageInfo) => {
     if (errorPageInfo) {
@@ -95,7 +103,7 @@ exports.electronHandler = async function (request, respond) {
   const cleanup = () => clearTimeout(timeout)
   timeout = setTimeout(() => {
     // cleanup
-    debug('Timed out searching for', archiveKey)
+    logger.debug('Timed out searching for', {url: archiveKey})
     if (fileReadStream) {
       fileReadStream.destroy()
       fileReadStream = null
@@ -113,7 +121,7 @@ exports.electronHandler = async function (request, respond) {
     // start searching the network
     archive = await datLibrary.getOrLoadArchive(archiveKey)
   } catch (err) {
-    debug('Failed to open archive', archiveKey, err)
+    logger.warn('Failed to open archive', {url: archiveKey, err})
     cleanup()
     return respondError(500, 'Failed')
   }
@@ -127,16 +135,21 @@ exports.electronHandler = async function (request, respond) {
   // checkout version if needed
   try {
     var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
+    if (urlp.version === 'preview') {
+      await checkoutFS.pda.stat('/') // run a stat to ensure preview mode exists
+    }
   } catch (err) {
     if (err.noPreviewMode) {
-      let latestUrl = makeSafe(request.url.replace('+preview', ''))
-      respondError(404, 'Cannot open preview', {
-        title: 'Cannot open preview',
-        errorInfo: `You are trying to open the "preview" version of this site, but no preview exists.`,
-        errorDescription: `<span>You can open the <a class="link" href="${latestUrl}">latest published version</a> instead.</span>`
+      // redirect to non-preview version
+      return respond({
+        statusCode: 303,
+        headers: {
+          Location: `dat://${urlp.host}${urlp.pathname || '/'}${urlp.search || ''}`
+        },
+        data: intoStream('')
       })
     } else {
-      debug('Failed to open archive', archiveKey, err)
+      logger.warn('Failed to open archive checkout', {url: archiveKey, err})
       cleanup()
       return respondError(500, 'Failed')
     }
@@ -178,8 +191,8 @@ exports.electronHandler = async function (request, respond) {
       })
     } else {
       // serve the zip
-      var zs = toZipStream(archive, filepath)
-      zs.on('error', err => console.log('Error while producing .zip file', err))
+      var zs = toZipStream(checkoutFS, filepath)
+      zs.on('error', err => logger.error('Error while producing .zip file', err))
       return respond({
         statusCode: 200,
         headers,
@@ -189,44 +202,24 @@ exports.electronHandler = async function (request, respond) {
   }
 
   // lookup entry
-  debug('Attempting to lookup', archiveKey, filepath)
   var statusCode = 200
   var headers = {}
-  var entry
-  const tryStat = async (path) => {
-    // abort if we've already found it
-    if (entry) return
-    // apply the web_root config
-    if (manifest && manifest.web_root && !urlp.query.disable_web_root) {
-      if (path) {
-        path = join(manifest.web_root, path)
-      } else {
-        path = manifest.web_root
-      }
-    }
-    // attempt lookup
-    try {
-      entry = await checkoutFS.pda.stat(path)
-      entry.path = path
-    } catch (e) {}
-  }
+  var entry = await datServeResolvePath(checkoutFS.pda, manifest, urlp, request.headers.Accept)
 
-  // do lookup
-  if (hasTrailingSlash) {
-    await tryStat(filepath + 'index.html')
-    await tryStat(filepath + 'index.md')
-    await tryStat(filepath)
-  } else {
-    await tryStat(filepath)
-    await tryStat(filepath + '.html') // fallback to .html
-    if (entry && entry.isDirectory()) {
-      // unexpected directory, give the .html fallback a chance
-      let dirEntry = entry
-      entry = null
-      await tryStat(filepath + '.html') // fallback to .html
-      if (dirEntry && !entry) {
-        // no .html fallback found, stick with directory that we found
-        entry = dirEntry
+  // use theme template if it exists
+  var themeSettings = {
+    active: false,
+    js: false,
+    css: false
+  }
+  if (!urlp.query.disable_theme) {
+    if (entry && mime.acceptHeaderWantsHTML(request.headers.Accept) && ['.html', '.htm', '.md'].includes(extname(entry.path))) {
+      let exists = async (path) => await checkoutFS.pda.stat(path).then(() => true, () => false)
+      let [js, css] = await Promise.all([exists('/theme/index.js'), exists('/theme/index.css')])
+      if (js || css) {
+        themeSettings.active = true
+        themeSettings.css = css
+        themeSettings.js = js
       }
     }
   }
@@ -246,39 +239,18 @@ exports.electronHandler = async function (request, respond) {
       })
     }
 
-    let headers = {
-      'Content-Type': 'text/html',
-      'Content-Security-Policy': cspHeader,
-      'Access-Control-Allow-Origin': '*'
-    }
-    if (request.method === 'HEAD') {
-      return respond({statusCode: 204, headers, data: intoStream('')})
-    } else {
-      return respond({
-        statusCode: 200,
-        headers,
-        data: intoStream(await directoryListingPage(checkoutFS, filepath, manifest && manifest.web_root))
-      })
-    }
+    // 404
+    entry = null
   }
 
   // handle not found
   if (!entry) {
-    debug('Entry not found:', urlp.path)
-
-    // check for a fallback page
-    if (manifest && manifest.fallback_page) {
-      await tryStat(manifest.fallback_page)
-    }
-
-    if (!entry) {
-      cleanup()
-      return respondError(404, 'File Not Found', {
-        errorDescription: 'File Not Found',
-        errorInfo: `Beaker could not find the file ${urlp.path}`,
-        title: 'File Not Found'
-      })
-    }
+    cleanup()
+    return respondError(404, 'File Not Found', {
+      errorDescription: 'File Not Found',
+      errorInfo: `Beaker could not find the file ${urlp.path}`,
+      title: 'File Not Found'
+    })
   }
 
   // TODO
@@ -309,15 +281,47 @@ exports.electronHandler = async function (request, respond) {
     statusCode = 206
     headers['Content-Range'] = 'bytes ' + range.start + '-' + range.end + '/' + entry.size
     headers['Content-Length'] = range.end - range.start + 1
-    debug('Serving range:', range)
   } else {
     if (entry.size) {
       headers['Content-Length'] = entry.size
     }
   }
 
+  Object.assign(headers, {
+    'Content-Security-Policy': cspHeader,
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-cache'
+  })
+
+  // markdown rendering
+  if (!range && entry.path.endsWith('.md') && mime.acceptHeaderWantsHTML(request.headers.Accept)) {
+    let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
+    return respond({
+      statusCode: 200,
+      headers: Object.assign(headers, {
+        'Content-Type': 'text/html'
+      }),
+      data: intoStream(markdown.render(content, themeSettings))
+    })
+  }
+
+  // theme wrapping
+  if (themeSettings.active) {
+    let html = await checkoutFS.pda.readFile(entry.path, 'utf8')
+    html = `
+${themeSettings.js ? `<script type="module" src="/theme/index.js"></script>` : ''}
+${themeSettings.css ? `<link rel="stylesheet" href="/theme/index.css">` : ''}
+${html}`
+    return respond({
+      statusCode: 200,
+      headers: Object.assign(headers, {
+        'Content-Type': 'text/html'
+      }),
+      data: intoStream(html)
+    })
+  }
+
   // fetch the entry and stream the response
-  debug('Entry found:', entry.path)
   fileReadStream = checkoutFS.createReadStream(entry.path, range)
   var dataStream = fileReadStream
     .pipe(mime.identifyStream(entry.path, mimeType => {
@@ -327,10 +331,7 @@ exports.electronHandler = async function (request, respond) {
       // send headers, now that we can identify the data
       headersSent = true
       Object.assign(headers, {
-        'Content-Type': mimeType,
-        'Content-Security-Policy': cspHeader,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-cache'
+        'Content-Type': mimeType
       })
       // TODO
       // Electron is being really aggressive about caching and not following the headers correctly
@@ -354,7 +355,6 @@ exports.electronHandler = async function (request, respond) {
   fileReadStream.once('end', () => {
     if (!headersSent) {
       cleanup()
-      debug('Served empty file')
       respond({
         statusCode: 200,
         headers: {
@@ -368,7 +368,7 @@ exports.electronHandler = async function (request, respond) {
 
   // handle read-stream errors
   fileReadStream.once('error', err => {
-    debug('Error reading file', err)
+    logger.warn('Error reading file', {url: archive.url, path: entry.path, err})
     if (!headersSent) respondError(500, 'Failed to read file')
   })
 }

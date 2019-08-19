@@ -13,8 +13,8 @@ module.exports = {
     return datWatchlist.getSites(0)
   },
 
-  async update (site, opts) {
-    return datWatchlist.updateWatchlist(0, site, opts)
+  async update (site) {
+    return datWatchlist.updateWatchlist(0, site)
   },
 
   async remove (url) {
