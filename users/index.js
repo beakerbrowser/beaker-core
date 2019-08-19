@@ -3,6 +3,7 @@ const Events = require('events')
 const logger = require('../logger').category('crawler')
 const dat = require('../dat')
 const crawler = require('../crawler')
+const filesystem = require('./filesystem')
 const followsCrawler = require('../crawler/follows')
 const bookmarksCrawler = require('../crawler/bookmarks')
 const db = require('../dbs/profile-data-db')
@@ -55,9 +56,6 @@ exports.removeListener = events.removeListener.bind(events)
  * @returns {Promise<void>}
  */
 exports.setup = async function () {
-  // initiate ticker
-  queueTick()
-
   // load the current users
   users = await db.all(`SELECT * FROM users`)
   await Promise.all(users.map(async (user) => {
@@ -104,6 +102,12 @@ exports.setup = async function () {
   invalids.forEach(async (invalidUser) => {
     await db.run(`DELETE FROM users WHERE url = ?`, [invalidUser.url])
   })
+
+  // ensure root archive fits desired shape
+  await filesystem.setup(users)
+
+  // initiate ticker
+  queueTick()
 }
 
 function queueTick () {
@@ -229,20 +233,21 @@ exports.add = async function (label, url, setDefault = false, isTemporary = fals
   if (existingUser) throw new Error('User already exists at that label')
 
   // create the new user
-  var user = {
+  var user = /** @type User */({
     label,
     url,
     archive: null,
     isDefault: setDefault || users.length === 0,
     isTemporary,
     createdAt: new Date()
-  }
+  })
   logger.verbose('Adding user', {details: user.url})
   await db.run(
     `INSERT INTO users (label, url, isDefault, isTemporary, createdAt) VALUES (?, ?, ?, ?, ?)`,
     [user.label, user.url, Number(user.isDefault), Number(user.isTemporary), Number(user.createdAt)]
   )
   users.push(user)
+  await filesystem.addUser(user)
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
@@ -271,8 +276,14 @@ exports.edit = async function (url, opts) {
   var existingUser = users.find(user => user.label === opts.label)
   if (existingUser && existingUser.url !== url) throw new Error('User already exists at that label')
 
-  // update the user
   var user = users.find(user => user.url === url)
+
+  // remove old filesystem mount if the label is changing
+  if (opts.label && opts.label !== user.label) {
+    await filesystem.removeUser(user)
+  }
+
+  // update the user
   if (opts.title) user.title = opts.title
   if (opts.description) user.description = opts.title
   if (opts.setDefault) {
@@ -286,7 +297,8 @@ exports.edit = async function (url, opts) {
     user.label = opts.label
     await db.run(`UPDATE users SET label = ? WHERE url = ?`, [opts.label, user.url])
   }
-  logger.verbose('Updating user', {details: user.url})
+  await filesystem.addUser(user)
+  logger.verbose('Updated user', {details: user.url})
 
   // fetch the user archive
   user.archive = await dat.library.getOrLoadArchive(user.url)
@@ -306,6 +318,7 @@ exports.remove = async function (url) {
 
   // remove the user
   logger.verbose('Removing user', {details: user.url})
+  await filesystem.removeUser(user)
   users.splice(users.indexOf(user), 1)
   await db.run(`DELETE FROM users WHERE url = ?`, [user.url])
   /* dont await */crawler.unwatchSite(user.archive)

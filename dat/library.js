@@ -214,6 +214,10 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 // archive creation
 // =
 
+/**
+ * @param {Object} [manifest]
+ * @param {Object|boolean} [settings]
+ */
 const createNewArchive = exports.createNewArchive = async function createNewArchive (manifest = {}, settings = false) {
   var userSettings = {
     isSaved: !(settings && settings.isSaved === false),
@@ -363,7 +367,9 @@ async function loadArchiveInner (key, userSettings = null) {
   key = archive.key
 
   // put the archive on the network
-  archive.session.publish()
+  if (userSettings.networked) {
+    archive.session.publish()
+  }
 
   // fetch dns name if known
   let dnsRecord = await datDnsDb.getCurrentByKey(datEncoding.toStr(key))
