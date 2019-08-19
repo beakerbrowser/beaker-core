@@ -285,8 +285,8 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
   // copy files
   var ignore = ['/.dat', '/.git', '/dat.json']
   await pda.exportArchiveToArchive({
-    srcArchive,
-    dstArchive,
+    srcArchive: srcArchive.session.drive,
+    dstArchive: dstArchive.session.drive,
     skipUndownloadedFiles: true,
     ignore
   })

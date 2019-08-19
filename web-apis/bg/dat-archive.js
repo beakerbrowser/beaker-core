@@ -77,7 +77,7 @@ module.exports = {
         let templatePath = path.join(globals.templatesPath, template)
         await pda.exportFilesystemToArchive({
           srcPath: templatePath,
-          dstArchive: archive,
+          dstArchive: archive.session.drive,
           dstPath: '/',
           inplaceImport: true
         })
@@ -550,7 +550,7 @@ module.exports = {
     if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
     return pda.exportFilesystemToArchive({
       srcPath: opts.src,
-      dstArchive: checkoutFS,
+      dstArchive: checkoutFS.session ? checkoutFS.session.drive : checkoutFS,
       dstPath: filepath,
       ignore: opts.ignore,
       inplaceImport: opts.inplaceImport !== false,
@@ -568,7 +568,7 @@ module.exports = {
 
     var {checkoutFS, filepath} = await lookupArchive(this.sender, opts.src, opts)
     return pda.exportArchiveToFilesystem({
-      srcArchive: checkoutFS,
+      srcArchive: checkoutFS.session ? checkoutFS.session.drive : checkoutFS,
       srcPath: filepath,
       dstPath: opts.dst,
       ignore: opts.ignore,
@@ -583,9 +583,9 @@ module.exports = {
     var dst = await lookupArchive(this.sender, opts.dst, opts)
     if (dst.isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
     return pda.exportArchiveToArchive({
-      srcArchive: src.checkoutFS,
+      srcArchive: src.checkoutFS.session ? src.checkoutFS.session.drive : src.checkoutFS,
       srcPath: src.filepath,
-      dstArchive: dst.checkoutFS,
+      dstArchive: dst.checkoutFS.session ? dst.checkoutFS.session.drive : dst.checkoutFS,
       dstPath: dst.filepath,
       ignore: opts.ignore,
       skipUndownloadedFiles: opts.skipUndownloadedFiles !== false
