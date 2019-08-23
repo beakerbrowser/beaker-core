@@ -194,12 +194,12 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
       archivesDb.getMeta(key),
       archive.pda.readSize('/')
     ])
-    var {title, description, type} = (manifest || {})
+    var {title, description, type, forkOf} = (manifest || {})
     var isOwner = archive.writable
     var mtime = updateMTime ? Date.now() : oldMeta.mtime
 
     // write the record
-    var details = {title, description, type, mtime, size, isOwner}
+    var details = {title, description, type, mtime, size, forkOf, isOwner}
     await archivesDb.setMeta(key, details)
 
     // emit the updated event
@@ -274,7 +274,8 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
     title: (manifest.title) ? manifest.title : srcManifest.title,
     description: (manifest.description) ? manifest.description : srcManifest.description,
     type: (manifest.type) ? manifest.type : srcManifest.type,
-    author: manifest.author
+    author: manifest.author,
+    forkOf: srcArchiveUrl
   }
   DAT_PRESERVED_FIELDS_ON_FORK.forEach(field => {
     if (srcManifest[field]) {

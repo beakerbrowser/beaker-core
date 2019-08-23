@@ -49,11 +49,11 @@ CREATE TABLE archives_meta (
   description TEXT,
   mtime INTEGER,
   size INTEGER,
+  forkOf TEXT,
   isOwner INTEGER,
   lastAccessTime INTEGER DEFAULT 0,
   lastLibraryAccessTime INTEGER DEFAULT 0,
 
-  forkOf TEXT, -- deprecated
   createdByUrl TEXT, -- deprecated
   createdByTitle TEXT, -- deprecated
   metaSize INTEGER, -- deprecated

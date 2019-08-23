@@ -27,6 +27,7 @@ const {
  * @prop {Array<string>} type
  * @prop {number} mtime
  * @prop {number} size
+ * @prop {string} forkOf
  * @prop {boolean} isOwner
  * @prop {number} lastAccessTime
  * @prop {number} lastLibraryAccessTime
@@ -48,6 +49,7 @@ const {
  * @prop {Array<string>} installedNames
  * @prop {number} mtime
  * @prop {number} size
+ * @prop {string} forkOf
  * @prop {boolean} isOwner
  * @prop {number} lastAccessTime
  * @prop {number} lastLibraryAccessTime
@@ -163,6 +165,7 @@ exports.removeListener = events.removeListener.bind(events)
  * @param {boolean} [query.isSaved]
  * @param {boolean} [query.isNetworked]
  * @param {boolean} [query.isOwner]
+ * @param {string} [query.forkOf]
  * @param {boolean} [query.showHidden]
  * @param {string} [query.type]
  * @param {string} [query.string]
@@ -176,6 +179,10 @@ exports.query = async function (profileId, query = {}) {
   if (query.isOwner === false) whereList.push('archives_meta.isOwner = 0')
   if (query.isNetworked === true) whereList.push('archives.networked = 1')
   if (query.isNetworked === false) whereList.push('archives.networked = 0')
+  if ('forkOf' in query) {
+    whereList.push('archives_meta.forkOf = ?')
+    values.push(query.forkOf)
+  }
   if ('isSaved' in query) {
     if (query.isSaved) {
       whereList.push('archives.profileId = ?')
@@ -242,7 +249,6 @@ exports.query = async function (profileId, query = {}) {
     // deprecated attrs
     delete archive.createdByTitle
     delete archive.createdByUrl
-    delete archive.forkOf
     delete archive.metaSize
     delete archive.stagingSize
     delete archive.stagingSizeLessIgnored
@@ -528,7 +534,6 @@ const getMeta = exports.getMeta = async function (key) {
   // remove old attrs
   delete meta.createdByTitle
   delete meta.createdByUrl
-  delete meta.forkOf
   delete meta.metaSize
   delete meta.stagingSize
   delete meta.stagingSizeLessIgnored
@@ -555,12 +560,13 @@ exports.setMeta = async function (key, value) {
   }
 
   // extract the desired values
-  var {title, description, type, size, mtime, isOwner} = value
+  var {title, description, type, size, forkOf, mtime, isOwner} = value
   title = typeof title === 'string' ? title : ''
   description = typeof description === 'string' ? description : ''
   if (typeof type === 'string') type = type.split(' ')
   else if (Array.isArray(type)) type = type.filter(v => v && typeof v === 'string')
   var isOwnerFlag = flag(isOwner)
+  if (typeof forkOf === 'string') forkOf = normalizeDatUrl(forkOf)
 
   // write
   var release = await lock('archives-db:meta')
@@ -568,9 +574,9 @@ exports.setMeta = async function (key, value) {
   try {
     await db.run(`
       INSERT OR REPLACE INTO
-        archives_meta (key, title, description, mtime, size, isOwner, lastAccessTime, lastLibraryAccessTime)
-        VALUES        (?,   ?,     ?,           ?,     ?,    ?,       ?,              ?)
-    `, [keyStr, title, description, mtime, size, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
+        archives_meta (key, title, description, mtime, size, forkOf, isOwner, lastAccessTime, lastLibraryAccessTime)
+        VALUES        (?,   ?,     ?,           ?,     ?,    ?,      ?,       ?,              ?)
+    `, [keyStr, title, description, mtime, size, forkOf, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
     await db.run(`DELETE FROM archives_meta_type WHERE key=?`, keyStr)
     if (type) {
       await Promise.all(type.map(t => (
@@ -612,6 +618,7 @@ function defaultMeta (key) {
     title: null,
     description: null,
     type: [],
+    forkOf: null,
     mtime: 0,
     isOwner: false,
     lastAccessTime: 0,
@@ -637,4 +644,12 @@ exports.extractOrigin = function (originURL) {
   var urlp = url.parse(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return
   return (urlp.protocol + (urlp.slashes ? '//' : '') + urlp.host)
+}
+
+function normalizeDatUrl (url) {
+  var match = url.match(DAT_HASH_REGEX)
+  if (match) {
+    return `dat://${match[0]}`
+  }
+  return exports.extractOrigin(url)
 }
