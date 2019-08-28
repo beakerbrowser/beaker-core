@@ -4,7 +4,6 @@ const SECURE_ORIGIN_REGEX = /^(beaker:|dat:|https:|http:\/\/localhost(\/|:))/i
 
 // internal manifests
 const loggerManifest = require('./manifests/internal/logger')
-const applicationsManifest = require('./manifests/internal/applications')
 const archivesManifest = require('./manifests/internal/archives')
 const beakerBrowserManifest = require('./manifests/internal/browser')
 const downloadsManifest = require('./manifests/internal/downloads')
@@ -17,7 +16,6 @@ const usersManifest = require('./manifests/internal/users')
 
 // internal apis
 const loggerAPI = require('../logger').WEBAPI
-const applicationsAPI = require('./bg/applications')
 const archivesAPI = require('./bg/archives')
 const historyAPI = require('./bg/history')
 const sitedataAPI = require('../dbs/sitedata').WEBAPI
@@ -76,7 +74,6 @@ const experimentalGlobalFetchAPI = require('./bg/experimental/global-fetch')
 exports.setup = function () {
   // internal apis
   globals.rpcAPI.exportAPI('logger', loggerManifest, loggerAPI, internalOnly)
-  globals.rpcAPI.exportAPI('applications', applicationsManifest, applicationsAPI, internalOnly)
   globals.rpcAPI.exportAPI('archives', archivesManifest, archivesAPI, internalOnly)
   globals.rpcAPI.exportAPI('beaker-browser', beakerBrowserManifest, globals.browserWebAPI, internalOnly)
   globals.rpcAPI.exportAPI('downloads', downloadsManifest, globals.downloadsWebAPI, internalOnly)
