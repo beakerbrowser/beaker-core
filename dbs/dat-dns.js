@@ -56,7 +56,7 @@ exports.update = async function ({key, name}) {
     if (old && old.key !== key) {
       // unset old
       await db.run(knex('dat_dns').update({isCurrent: 0}).where({name}))
-      events.emit('update', {key: old.key, name: undefined})
+      events.emit('updated', {key: old.key, name: undefined})
     }
 
     let curr = await db.get(knex('dat_dns').where({name, key}))
@@ -73,7 +73,7 @@ exports.update = async function ({key, name}) {
       // update current
       await db.run(knex('dat_dns').update({lastConfirmedAt: Date.now(), isCurrent: 1}).where({name, key}))
     }
-    events.emit('update', {key, name})
+    events.emit('updated', {key, name})
   } finally {
     release()
   }
@@ -87,7 +87,7 @@ exports.unset = async function (key) {
   var curr = await db.get(knex('dat_dns').where({key, isCurrent: 1}))
   if (curr) {
     await db.run(knex('dat_dns').update({isCurrent: 0}).where({key}))
-    events.emit('update', {key, name: undefined})
+    events.emit('updated', {key, name: undefined})
   }
 }
 

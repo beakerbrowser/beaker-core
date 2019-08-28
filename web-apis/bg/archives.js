@@ -1,16 +1,34 @@
-const path = require('path')
-const mkdirp = require('mkdirp')
-const jetpack = require('fs-jetpack')
 const datDns = require('../../dat/dns')
-const datLibrary = require('../../dat/library')
-const datGC = require('../../dat/garbage-collector')
-const datFolderSync = require('../../dat/folder-sync')
+const datArchives = require('../../dat/archives')
 const archivesDb = require('../../dbs/archives')
-const archiveDraftsDb = require('../../dbs/archive-drafts')
-const {cbPromise} = require('../../lib/functions')
-const {timer} = require('../../lib/time')
-const users = require('../../users')
+const datLibrary = require('../../filesystem/dat-library')
+const trash = require('../../filesystem/trash')
+const users = require('../../filesystem/users')
 const {PermissionsError} = require('beaker-error-constants')
+
+// typedefs
+// =
+
+/**
+ * @typedef {import('../../filesystem/dat-library').LibraryDat} LibraryDat
+ * 
+ * @typedef {Object} ArchivePublicAPIRecord
+ * @prop {string} url
+ * @prop {string} title
+ * @prop {string} description
+ * @prop {string | Array<string>} type
+ * @prop {number} mtime
+ * @prop {number} size
+ * @prop {string} forkOf
+ * @prop {boolean} isOwner
+ * @prop {number} lastAccessTime
+ * @prop {number} lastLibraryAccessTime
+ * @prop {Object} userSettings
+ * @prop {boolean} userSettings.isSaved
+ * @prop {boolean} userSettings.isHosting
+ * @prop {string} userSettings.visibility
+ * @prop {Date} userSettings.savedAt
+ */
 
 // exported api
 // =
@@ -22,7 +40,7 @@ module.exports = {
 
   async status () {
     var status = {archives: 0, peers: 0}
-    var archives = datLibrary.getActiveArchives()
+    var archives = datArchives.getActiveArchives()
     for (var k in archives) {
       status.archives++
       status.peers += archives[k].metadata.peers.length
@@ -33,240 +51,23 @@ module.exports = {
   // local cache management and querying
   // =
 
-  async setUserSettings (url, opts) {
-    var key = await datLibrary.fromURLToKey(url, true)
-    return archivesDb.setUserSettings(0, key, opts)
+  async list (query = {}) {
+    var dats = datLibrary.query(query)
+    return Promise.all(dats.map(massageRecord))
   },
 
-  async add (url, opts = {}) {
-    var key = await datLibrary.fromURLToKey(url, true)
-
-    // pull metadata
-    var archive = await datLibrary.getOrLoadArchive(key)
-    await datLibrary.pullLatestArchiveMeta(archive)
-
-    // update settings
-    opts.isSaved = true
-    return archivesDb.setUserSettings(0, key, opts)
-  },
-
-  async remove (url) {
-    var key = await datLibrary.fromURLToKey(url, true)
-    assertArchiveDeletable(key)
-    return archivesDb.setUserSettings(0, key, {isSaved: false})
-  },
-
-  async bulkRemove (urls) {
-    var results = []
-
-    // sanity check
-    if (!urls || !Array.isArray(urls)) {
-      return []
-    }
-
-    for (var i = 0; i < urls.length; i++) {
-      let key = await datLibrary.fromURLToKey(urls[i], true)
-      assertArchiveDeletable(key)
-      results.push(await archivesDb.setUserSettings(0, key, {isSaved: false}))
-    }
-    return results
+  async configure (url, opts) {
+    var archive = await datArchives.getOrLoadArchive(url)
+    return datLibrary.configureArchive(archive, opts)
   },
 
   async delete (url) {
-    const key = await datLibrary.fromURLToKey(url, true)
-    assertArchiveDeletable(key)
-    const drafts = await archiveDraftsDb.list(0, key)
-    const toDelete = [{key}].concat(drafts)
-    var bytes = 0
-    for (let archive of toDelete) {
-      await archivesDb.setUserSettings(0, archive.key, {isSaved: false})
-      await datLibrary.unloadArchive(archive.key)
-      bytes += await archivesDb.deleteArchive(archive.key)
-    }
+    var archive = await datArchives.getOrLoadArchive(url)
+    assertArchiveDeletable(archive.key)
+    await datLibrary.configureArchive(archive, {isSaved: false})
+    await datArchives.unloadArchive(archive.key)
+    var bytes = await archivesDb.deleteArchive(archive.key)
     return {bytes}
-  },
-
-  async list (query = {}) {
-    return datLibrary.queryArchives(query)
-  },
-
-  // folder sync
-  // =
-
-  async validateLocalSyncPath (key, localSyncPath) {
-    key = await datLibrary.fromURLToKey(key, true)
-    localSyncPath = path.normalize(localSyncPath)
-
-    // make sure the path is good
-    try {
-      await datFolderSync.assertSafePath(localSyncPath)
-    } catch (e) {
-      if (e.notFound) {
-        return {doesNotExist: true}
-      }
-      throw e
-    }
-
-    // check for conflicts
-    var archive = await datLibrary.getOrLoadArchive(key)
-    var diff = await datFolderSync.diffListing(archive, {localSyncPath})
-    diff = diff.filter(d => d.change === 'mod' && d.path !== '/dat.json')
-    if (diff.length) {
-      return {hasConflicts: true, conflicts: diff.map(d => d.path)}
-    }
-
-    return {}
-  },
-
-  async setLocalSyncPath (key, localSyncPath, opts = {}) {
-    key = await datLibrary.fromURLToKey(key, true)
-    localSyncPath = localSyncPath ? path.normalize(localSyncPath) : null
-
-    // disable path
-    if (!localSyncPath) {
-      let oldSettings = await archivesDb.getUserSettings(0, key)
-      await archivesDb.setUserSettings(0, key, {localSyncPath: ''})
-
-      if (opts.deleteSyncPath && oldSettings.localSyncPath) {
-        try {
-          await datFolderSync.assertSafePath(oldSettings.localSyncPath)
-          await jetpack.removeAsync(oldSettings.localSyncPath)
-        } catch (_) {}
-      }
-      return
-    }
-
-    // load the archive
-    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
-      checkin('searching for dat')
-      await datLibrary.getOrLoadArchive(key)
-    })
-
-    // make sure the path is good
-    try {
-      await datFolderSync.assertSafePath(localSyncPath)
-    } catch (e) {
-      if (e.notFound) {
-        // just create the folder
-        await cbPromise(cb => mkdirp(localSyncPath, cb))
-      } else {
-        throw e
-      }
-    }
-
-    // update the record
-    var newValues = {localSyncPath}
-    if ('previewMode' in opts) {
-      newValues.previewMode = opts.previewMode
-    }
-    await archivesDb.setUserSettings(0, key, newValues)
-  },
-
-  async ensureLocalSyncFinished (key) {
-    key = await datLibrary.fromURLToKey(key, true)
-
-    // load the archive
-    var archive
-    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
-      checkin('searching for dat')
-      archive = await datLibrary.getOrLoadArchive(key)
-    })
-
-    // ensure sync
-    await datFolderSync.ensureSyncFinished(archive)
-  },
-
-  // diff & publish
-  // =
-
-  async diffLocalSyncPathListing (key, opts) {
-    key = await datLibrary.fromURLToKey(key, true)
-
-    // load the archive
-    var archive
-    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
-      checkin('searching for dat')
-      archive = await datLibrary.getOrLoadArchive(key)
-    })
-
-    return datFolderSync.diffListing(archive, opts)
-  },
-
-  async diffLocalSyncPathFile (key, filepath) {
-    key = await datLibrary.fromURLToKey(key, true)
-
-    // load the archive
-    var archive
-    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
-      checkin('searching for dat')
-      archive = await datLibrary.getOrLoadArchive(key)
-    })
-
-    return datFolderSync.diffFile(archive, filepath)
-  },
-
-  async publishLocalSyncPathListing (key, opts = {}) {
-    key = await datLibrary.fromURLToKey(key, true)
-
-    // load the archive
-    var archive
-    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
-      checkin('searching for dat')
-      archive = await datLibrary.getOrLoadArchive(key)
-    })
-
-    opts.shallow = false
-    return datFolderSync.syncFolderToArchive(archive, opts)
-  },
-
-  async revertLocalSyncPathListing (key, opts = {}) {
-    key = await datLibrary.fromURLToKey(key, true)
-
-    // load the archive
-    var archive
-    await timer(3e3, async (checkin) => { // put a max 3s timeout on loading the dat
-      checkin('searching for dat')
-      archive = await datLibrary.getOrLoadArchive(key)
-    })
-
-    opts.shallow = false
-    return datFolderSync.syncArchiveToFolder(archive, opts)
-  },
-
-  // drafts
-  // =
-
-  async getDraftInfo (url) {
-    var key = await datLibrary.fromURLToKey(url, true)
-    var masterKey = await archiveDraftsDb.getMaster(0, key)
-    var master = await archivesDb.query(0, {key: masterKey})
-    var drafts = await archiveDraftsDb.list(0, masterKey)
-    return {master, drafts}
-  },
-
-  async listDrafts (masterUrl) {
-    var masterKey = await datLibrary.fromURLToKey(masterUrl, true)
-    return archiveDraftsDb.list(0, masterKey)
-  },
-
-  async addDraft (masterUrl, draftUrl) {
-    var masterKey = await datLibrary.fromURLToKey(masterUrl, true)
-    var draftKey = await datLibrary.fromURLToKey(draftUrl, true)
-
-    // make sure we're modifying the master
-    masterKey = await archiveDraftsDb.getMaster(0, masterKey)
-
-    return archiveDraftsDb.add(0, masterKey, draftKey)
-  },
-
-  async removeDraft (masterUrl, draftUrl) {
-    var masterKey = await datLibrary.fromURLToKey(masterUrl, true)
-    var draftKey = await datLibrary.fromURLToKey(draftUrl, true)
-
-    // make sure we're modifying the master
-    masterKey = await archiveDraftsDb.getMaster(0, masterKey)
-
-    return archiveDraftsDb.remove(0, masterKey, draftKey)
   },
 
   // internal management
@@ -277,11 +78,11 @@ module.exports = {
   },
 
   async clearFileCache (url) {
-    return datLibrary.clearFileCache(await datLibrary.fromURLToKey(url, true))
+    return datArchives.clearFileCache(await datArchives.fromURLToKey(url, true))
   },
 
-  async clearGarbage ({isOwner} = {}) {
-    return datGC.collect({olderThan: 0, biggerThan: 0, isOwner})
+  async clearGarbage () {
+    return trash.collect()
   },
 
   clearDnsCache () {
@@ -292,15 +93,15 @@ module.exports = {
   // =
 
   createEventStream () {
-    return datLibrary.createEventStream()
+    return datArchives.createEventStream()
   },
 
   getDebugLog (key) {
-    return datLibrary.getDebugLog(key)
+    return datArchives.getDebugLog(key)
   },
 
   createDebugStream () {
-    return datLibrary.createDebugStream()
+    return datArchives.createDebugStream()
   }
 }
 
@@ -310,5 +111,30 @@ module.exports = {
 function assertArchiveDeletable (key) {
   if (users.isUser(`dat://${key}`)) {
     throw new PermissionsError('Unable to delete the user profile.')
+  }
+}
+
+/**
+ * @param {LibraryDat} record 
+ * @returns {Promise<ArchivePublicAPIRecord>}
+ */
+async function massageRecord (record) {
+  return {
+    url: await datArchives.getPrimaryUrl(record.meta.key),
+    title: record.meta.title,
+    description: record.meta.description,
+    type: record.meta.type,
+    mtime: record.meta.mtime,
+    size: record.meta.size,
+    forkOf: record.meta.forkOf,
+    isOwner: record.meta.isOwner,
+    lastAccessTime: record.meta.lastAccessTime,
+    lastLibraryAccessTime: record.meta.lastLibraryAccessTime,
+    userSettings: {
+      isSaved: record.isSaved,
+      isHosting: record.isHosting,
+      visibility: record.visibility,
+      savedAt: record.savedAt
+    }
   }
 }

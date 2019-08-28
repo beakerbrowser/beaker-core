@@ -1,11 +1,11 @@
 const assert = require('assert')
 const Events = require('events')
-const logger = require('../logger').category('crawler')
+const logger = require('../logger').child({category: 'filesystem', subcategory: 'users'})
 const dat = require('../dat')
-const crawler = require('../crawler')
-const filesystem = require('./filesystem')
-const followsCrawler = require('../crawler/follows')
-const bookmarksCrawler = require('../crawler/bookmarks')
+const uwg = require('../uwg')
+const filesystem = require('./index')
+const follows = require('../uwg/follows')
+const bookmarks = require('../uwg/bookmarks')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const bookmarksDb = require('../dbs/bookmarks')
@@ -42,7 +42,7 @@ const LABEL_REGEX = /[a-z0-9-]/i
 // =
 
 var events = new Events()
-var users
+var users = []
 var nextCrawlUserIndex = 0
 
 // exported api
@@ -53,7 +53,7 @@ exports.addListener = events.addListener.bind(events)
 exports.removeListener = events.removeListener.bind(events)
 
 /**
- * @returns {Promise<void>}
+ * @returns {Promise<User[]>}
  */
 exports.setup = async function () {
   // load the current users
@@ -64,9 +64,8 @@ exports.setup = async function () {
       // delete old temporary user
       logger.info('Deleting temporary user', {details: user.url})
       user.isInvalid = true // let invalid-user-deletion clean up the record
-      let key = dat.library.fromURLToKey(user.url)
-      await archivesDb.setUserSettings(0, key, {isSaved: false})
-      await dat.library.clearFileCache(key)
+      let key = dat.archives.fromURLToKey(user.url)
+      let archive = await dat.archives.getOrLoadArchive(key)
       return
     }
 
@@ -87,13 +86,17 @@ exports.setup = async function () {
 
     // fetch the user archive
     try {
-      user.archive = await dat.library.getOrLoadArchive(user.url)
+      user.archive = await dat.archives.getOrLoadArchive(user.url)
       user.url = user.archive.url // copy the archive url, which includes the domain if set
       startWatch(user)
       events.emit('load-user', user)
     } catch (err) {
       logger.error('Failed to load user', {details: {user, err}})
     }
+
+    // ensure file structure
+    await ensureDirectory(user, '/.refs')
+    await ensureDirectory(user, '/.refs/authored')
   }))
 
   // remove any invalid users
@@ -103,11 +106,10 @@ exports.setup = async function () {
     await db.run(`DELETE FROM users WHERE url = ?`, [invalidUser.url])
   })
 
-  // ensure root archive fits desired shape
-  await filesystem.setup(users)
-
   // initiate ticker
   queueTick()
+
+  return users
 }
 
 function queueTick () {
@@ -136,10 +138,10 @@ async function tick () {
           try {
             // load archive
             var wasLoaded = true // TODO
-            var archive = await dat.library.getOrLoadArchive(crawlTarget) // TODO timeout on load
+            var archive = await dat.archives.getOrLoadArchive(crawlTarget) // TODO timeout on load
 
             // run crawl
-            await crawler.crawlSite(archive)
+            await uwg.crawlSite(archive)
 
             if (!wasLoaded) {
               // unload archive
@@ -250,7 +252,7 @@ exports.add = async function (label, url, setDefault = false, isTemporary = fals
   await filesystem.addUser(user)
 
   // fetch the user archive
-  user.archive = await dat.library.getOrLoadArchive(user.url)
+  user.archive = await dat.archives.getOrLoadArchive(user.url)
   user.url = user.archive.url // copy the archive url, which includes the domain if set
   startWatch(user)
   events.emit('load-user', user)
@@ -301,7 +303,7 @@ exports.edit = async function (url, opts) {
   logger.verbose('Updated user', {details: user.url})
 
   // fetch the user archive
-  user.archive = await dat.library.getOrLoadArchive(user.url)
+  user.archive = await dat.archives.getOrLoadArchive(user.url)
   user.url = user.archive.url // copy the archive url, which includes the domain if set
   return fetchUserInfo(user)
 }
@@ -321,7 +323,7 @@ exports.remove = async function (url) {
   await filesystem.removeUser(user)
   users.splice(users.indexOf(user), 1)
   await db.run(`DELETE FROM users WHERE url = ?`, [user.url])
-  /* dont await */crawler.unwatchSite(user.archive)
+  /* dont await */uwg.unwatchSite(user.archive)
   events.emit('unload-user', user)
 }
 
@@ -371,11 +373,11 @@ async function selectNextCrawlTargets (user) {
   var rows = [user.url]
 
   // get followed sites
-  var followedUrls = (await followsCrawler.list({filters: {authors: user.url}})).map(({topic}) => topic.url)
+  var followedUrls = (await follows.list({filters: {authors: user.url}})).map(({topic}) => topic.url)
   rows = rows.concat(followedUrls)
 
   // get sites followed by followed sites
-  var foafUrls = (await followsCrawler.list({filters: {authors: followedUrls}})).map(({topic}) => topic.url)
+  var foafUrls = (await follows.list({filters: {authors: followedUrls}})).map(({topic}) => topic.url)
   rows = rows.concat(foafUrls)
 
   // eleminate duplicates
@@ -432,15 +434,9 @@ function normalizeUrl (url) {
 async function validateUserUrl (url) {
   // make sure the archive is saved and that we own the archive
   var urlp = new URL(url)
-  var [meta, userSettings] = await Promise.all([
-    archivesDb.getMeta(urlp.hostname),
-    archivesDb.getUserSettings(0, urlp.hostname)
-  ])
+  var meta = await archivesDb.getMeta(urlp.hostname)
   if (!meta.isOwner) {
     throw new Error('User dat is not owned by this device')
-  }
-  if (!userSettings.isSaved) {
-    throw new Error('User dat has been deleted')
   }
 }
 
@@ -450,7 +446,7 @@ async function validateUserUrl (url) {
  */
 function startWatch (user) {
   return // TODO
-  /* dont await */crawler.watchSite(user.archive)
+  /* dont await */uwg.watchSite(user.archive)
   watchThumb(user)
   watchAndSyncBookmarks(user)
 }
@@ -463,6 +459,16 @@ function watchThumb (user) {
   dat.assets.on(`update:thumb:${user.archive.url}`, () => {
     events.emit('user-thumb-changed', {url: user.url})
   })
+}
+
+/**
+ * @param {User} user
+ * @param {string} pathname
+ * @returns {Promise<void>}
+ */
+async function ensureDirectory (user, pathname) {
+  try { await user.archive.pda.mkdir(pathname) }
+  catch (e) { /* ignore */ }
 }
 
 /**
@@ -485,22 +491,22 @@ function watchAndSyncBookmarks (user) {
   // async function syncBookmarks () {
   //   // fetch current public bookmarks
   //   var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {isPublic: true}})
-  //   var publishedBookmarks = await bookmarksCrawler.query({filters: {authors: user.url}})
+  //   var publishedBookmarks = await bookmarks.query({filters: {authors: user.url}})
 
   //   // diff and publish changes
   //   for (let b of publicBookmarks) {
   //     let existing = publishedBookmarks.find(b2 => b.href === b2.content.href)
   //     if (!existing) {
-  //       await bookmarksCrawler.addBookmark(user.archive, pickBookmarkAttrs(b)) // add
+  //       await bookmarks.addBookmark(user.archive, pickBookmarkAttrs(b)) // add
   //     } else {
   //       if (!_isEqual(pickBookmarkAttrs(b), existing.content)) {
-  //         await bookmarksCrawler.editBookmark(user.archive, existing.pathname, pickBookmarkAttrs(b)) // update
+  //         await bookmarks.editBookmark(user.archive, existing.pathname, pickBookmarkAttrs(b)) // update
   //       }
   //     }
   //   }
   //   for (let b of publishedBookmarks) {
   //     let existing = publicBookmarks.find(b2 => b2.href === b.content.href)
-  //     if (!existing) await bookmarksCrawler.deleteBookmark(user.archive, b.pathname) // remove
+  //     if (!existing) await bookmarks.deleteBookmark(user.archive, b.pathname) // remove
   //   }
   // }
 }

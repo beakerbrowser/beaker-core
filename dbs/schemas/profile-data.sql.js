@@ -24,25 +24,6 @@ CREATE TABLE user_site_sessions (
   FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE TABLE archives (
-  profileId INTEGER NOT NULL,
-  key TEXT NOT NULL, -- dat key
-  
-  previewMode INTEGER, -- automatically publish changes (0) or write to local folder (1)
-  localSyncPath TEXT, -- custom local folder that the data is synced to
-
-  isSaved INTEGER, -- is this archive saved to our library?
-  hidden INTEGER DEFAULT 0, -- should this archive be hidden in the library or select-archive modals? (this is useful for internal dats, such as drafts)
-  networked INTEGER DEFAULT 1, -- join the swarm (1) or do not swarm (0)
-  autoDownload INTEGER DEFAULT 1, -- watch and download all available data (1) or sparsely download on demand (0)
-  autoUpload INTEGER DEFAULT 1, -- join the swarm at startup (1) or only swarm when visiting (0)
-  expiresAt INTEGER, -- change autoUpload to 0 at this time (used for temporary seeding)
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-
-  localPath TEXT, -- deprecated
-  autoPublishLocal INTEGER DEFAULT 0 -- deprecated -- watch localSyncPath and automatically publish changes (1) or not (0)
-);
-
 CREATE TABLE archives_meta (
   key TEXT PRIMARY KEY,
   title TEXT,
@@ -132,18 +113,6 @@ CREATE TABLE watchlist (
   updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
   createdAt INTEGER DEFAULT (strftime('%s', 'now')),
  
-  PRIMARY KEY (profileId, url),
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
--- list of the users current templates
-CREATE TABLE templates (
-  profileId INTEGER,
-  url TEXT NOT NULL,
-  title TEXT,
-  screenshot,
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-
   PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
@@ -413,6 +382,27 @@ CREATE TABLE crawl_media_tags (
   FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
 );
 
+-- a list of saved archives
+-- deprecated
+CREATE TABLE archives (
+  profileId INTEGER NOT NULL,
+  key TEXT NOT NULL, -- dat key
+  
+  previewMode INTEGER, -- automatically publish changes (0) or write to local folder (1)
+  localSyncPath TEXT, -- custom local folder that the data is synced to
+
+  isSaved INTEGER, -- is this archive saved to our library?
+  hidden INTEGER DEFAULT 0, -- should this archive be hidden in the library or select-archive modals? (this is useful for internal dats, such as drafts)
+  networked INTEGER DEFAULT 1, -- join the swarm (1) or do not swarm (0)
+  autoDownload INTEGER DEFAULT 1, -- watch and download all available data (1) or sparsely download on demand (0)
+  autoUpload INTEGER DEFAULT 1, -- join the swarm at startup (1) or only swarm when visiting (0)
+  expiresAt INTEGER, -- change autoUpload to 0 at this time (used for temporary seeding)
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  localPath TEXT, -- deprecated
+  autoPublishLocal INTEGER DEFAULT 0 -- deprecated -- watch localSyncPath and automatically publish changes (1) or not (0)
+);
+
 -- a list of the draft-dats for a master-dat
 -- deprecated
 CREATE TABLE archive_drafts (
@@ -423,6 +413,19 @@ CREATE TABLE archive_drafts (
 
   isActive INTEGER, -- is this the active draft? (deprecated)
 
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- list of the users current templates
+-- deprecated
+CREATE TABLE templates (
+  profileId INTEGER,
+  url TEXT NOT NULL,
+  title TEXT,
+  screenshot,
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+
+  PRIMARY KEY (profileId, url),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 

@@ -2,7 +2,7 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const followsCrawler = require('../../crawler/follows')
+const followsAPI = require('../../uwg/follows')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -63,7 +63,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var links = await followsCrawler.list(opts)
+    var links = await followsAPI.list(opts)
     return Promise.all(links.map(massageFollowRecord))
   },
 
@@ -81,7 +81,7 @@ module.exports = {
     assert(author, 'The `author` parameter must be a valid URL')
     assert(topic, 'The `topic` parameter must be a valid URL')
 
-    return followsCrawler.get(author, topic)
+    return followsAPI.get(author, topic)
   },
 
   /**
@@ -100,7 +100,7 @@ module.exports = {
     assert(topic, 'The `topic` parameter must be a valid URL')
     assert(['public', 'private'].includes(opts.visibility), 'The `visibility` parameter must be "public" or "private"')
 
-    await followsCrawler.add(userArchive, topic, opts)
+    await followsAPI.add(userArchive, topic, opts)
   },
 
   /**
@@ -119,7 +119,7 @@ module.exports = {
     assert(topic, 'The `topic` parameter must be a valid URL')
     assert(['public', 'private'].includes(opts.visibility), 'The `visibility` parameter must be "public" or "private"')
 
-    await followsCrawler.edit(userArchive, topic, opts)
+    await followsAPI.edit(userArchive, topic, opts)
   },
 
   /**
@@ -133,7 +133,7 @@ module.exports = {
     topic = normalizeFollowUrl(topic)
     assert(topic, 'The `topic` parameter must be a valid URL')
 
-    await followsCrawler.remove(userArchive, topic)
+    await followsAPI.remove(userArchive, topic)
   }
 }
 

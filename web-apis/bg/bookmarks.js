@@ -1,8 +1,8 @@
 const globals = require('../../globals')
 const bookmarksDb = require('../../dbs/bookmarks')
-const bookmarksCrawler = require('../../crawler/bookmarks')
-const siteDescriptions = require('../../crawler/site-descriptions')
-const {toOrigin} = require('../../crawler/util')
+const bookmarksAPI = require('../../uwg/bookmarks')
+const siteDescriptions = require('../../uwg/site-descriptions')
+const {toOrigin} = require('../../uwg/util')
 const _get = require('lodash.get')
 const sessionPerms = require('../../lib/session-perms')
 
@@ -74,7 +74,7 @@ module.exports = {
     }
 
     // if the pinned filter is truthy, only fetch from the local database
-    // (the bookmarksCrawler cant filter on 'pinned' and we only need local results anyway)
+    // (the bookmarksAPI cant filter on 'pinned' and we only need local results anyway)
     if (pinnedFilter) publicFilter = false
 
     // construct results
@@ -89,7 +89,7 @@ module.exports = {
     if (publicFilter === undefined || publicFilter === true) {
       let uwFilters = {}
       if (authorsFilter) uwFilters.authors = authorsFilter
-      let uwBookmarks = await bookmarksCrawler.query({filters: uwFilters})
+      let uwBookmarks = await bookmarksAPI.query({filters: uwFilters})
       if (publicFilter === undefined) {
         // filter out the user's bookmarks, because they'll be duplicates
         uwBookmarks = uwBookmarks.filter(b => b.author.url !== user.url)

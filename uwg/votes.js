@@ -2,13 +2,21 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'votes'})
+const logger = require('../logger').child({category: 'uwg', dataset: 'votes'})
 const db = require('../dbs/profile-data-db')
-const crawler = require('./index')
-const datLibrary = require('../dat/library')
+const uwg = require('./index')
+const datArchives = require('../dat/archives')
 const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, normalizeTopicUrl, generateTimeFilename} = require('./util')
+const {
+  doCrawl,
+  doCheckpoint,
+  emitProgressEvent,
+  getMatchingChangesInOrder,
+  ensureDirectory,
+  normalizeTopicUrl,
+  generateTimeFilename
+} = require('./util')
 const voteSchema = require('./json-schemas/vote')
 
 // constants
@@ -183,7 +191,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('topics' in opts.filters) {
       if (Array.isArray(opts.filters.topics)) {
@@ -244,7 +252,7 @@ exports.tabulate = async function (topic, opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -292,7 +300,7 @@ exports.tabulate = async function (topic, opts) {
  * @returns {Promise<Vote>}
  */
 const get = exports.get = async function (author, topic) {
-  author = await datLibrary.getPrimaryUrl(author)
+  author = await datArchives.getPrimaryUrl(author)
   topic = normalizeTopicUrl(topic)
 
   // execute query
@@ -347,7 +355,7 @@ exports.set = async function (archive, topic, vote) {
     await ensureDirectory(archive, '/data/votes')
     await archive.pda.writeFile(filepath, JSON.stringify(voteObject, null, 2))
   }
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 // internal methods

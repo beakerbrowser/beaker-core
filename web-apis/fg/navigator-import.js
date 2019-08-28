@@ -7,19 +7,6 @@ const APIs = {
     manifest: require('../manifests/external/bookmarks'),
     create: makeCreateFn('bookmarks')
   },
-  library: {
-    manifest: require('../manifests/external/library'),
-    create (rpc) {
-      var libraryMethods = ['list', 'get', 'add', 'requestAdd', 'edit', 'remove', 'requestRemove', 'uncache']
-      var libraryEvents = ['added', 'removed', 'updated', 'folder-synced', 'network-changed']
-      var libraryRPC = rpc.importAPI('library', APIs.library.manifest, RPC_OPTS)
-      var api = new EventTargetFromStream(libraryRPC.createEventStream.bind(libraryRPC), libraryEvents)
-      for (let method of libraryMethods) {
-        api[method] = libraryRPC[method].bind(api)
-      }
-      return api
-    }
-  },
   search: {
     manifest: require('../manifests/external/search'),
     create: makeCreateFn('search')

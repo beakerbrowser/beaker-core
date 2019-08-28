@@ -36,6 +36,8 @@ const SETUP_RETRIES = 10
 * @prop {function(string, string): Promise<void>} rename
 * @prop {function(string): Promise<void>} unlink
 * @prop {function(string, Object=): Promise<void>} rmdir
+* @prop {function(string, string|Buffer): Promise<void>} mount
+* @prop {function(string): Promise<void>} unmount
 * @prop {function(string=): Promise<void>} download
 * @prop {function(string=): NodeJS.ReadableStream} watch
 * @prop {function(): NodeJS.ReadableStream} createNetworkActivityStream

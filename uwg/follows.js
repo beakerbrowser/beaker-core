@@ -3,12 +3,12 @@ const _difference = require('lodash.difference')
 const Events = require('events')
 const {URL} = require('url')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'follows'})
+const logger = require('../logger').child({category: 'uwg', dataset: 'follows'})
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
-const crawler = require('./index')
-const datLibrary = require('../dat/library')
+const uwg = require('./index')
+const datArchives = require('../dat/archives')
 const siteDescriptions = require('./site-descriptions')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
 const followsSchema = require('./json-schemas/follows')
@@ -170,7 +170,7 @@ const list = exports.list = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('topics' in opts.filters) {
       if (Array.isArray(opts.filters.topics)) {
@@ -179,7 +179,7 @@ const list = exports.list = async function (opts) {
         assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
         opts.filters.topics = [opts.filters.topics]
       }
-      opts.filters.topics = await Promise.all(opts.filters.topics.map(datLibrary.getPrimaryUrl))
+      opts.filters.topics = await Promise.all(opts.filters.topics.map(datArchives.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -223,8 +223,8 @@ const list = exports.list = async function (opts) {
  * @returns {Promise<Follow>}
  */
 const get = exports.get = async function (author, topic) {
-  author = await datLibrary.getPrimaryUrl(author)
-  topic = await datLibrary.getPrimaryUrl(topic)
+  author = await datArchives.getPrimaryUrl(author)
+  topic = await datArchives.getPrimaryUrl(topic)
   var res = await db.get(knex('crawl_follows')
     .select('crawl_follows.*')
     .select('crawl_sources.url AS authorUrl')
@@ -255,7 +255,7 @@ exports.add = async function (archive, topic, opts) {
   // TODO visibility
 
   // normalize topic
-  topic = await datLibrary.getPrimaryUrl(topic)
+  topic = await datArchives.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
   // write new follows.json
@@ -283,7 +283,7 @@ exports.edit = async function (archive, topic, opts) {
   // TODO visibility
 
   // normalize topic
-  topic = await datLibrary.getPrimaryUrl(topic)
+  topic = await datArchives.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
   // write new follows.json
@@ -306,7 +306,7 @@ exports.remove = async function (archive, topic) {
   // TODO private follows
 
   // normalize topic
-  topic = await datLibrary.getPrimaryUrl(topic)
+  topic = await datArchives.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Unfollow() must be given a valid URL')
 
   // write new follows.json
@@ -383,7 +383,7 @@ async function updateFollowsFile (archive, updateFn) {
     await archive.pda.writeFile(JSON_PATH, JSON.stringify(followsJson, null, 2), 'utf8')
 
     // trigger crawl now
-    await crawler.crawlSite(archive)
+    await uwg.crawlSite(archive)
   } finally {
     release()
   }

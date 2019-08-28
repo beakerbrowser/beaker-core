@@ -2,7 +2,7 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const commentsCrawler = require('../../crawler/comments')
+const commentsAPI = require('../../uwg/comments')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -81,7 +81,7 @@ module.exports = {
       }
     }
 
-    var comments = await commentsCrawler.list(opts)
+    var comments = await commentsAPI.list(opts)
     return Promise.all(comments.map(massageCommentRecord))
   },
 
@@ -118,7 +118,7 @@ module.exports = {
       }
     }
 
-    var comments = await commentsCrawler.thread(topic, opts)
+    var comments = await commentsAPI.thread(topic, opts)
     return Promise.all(comments.map(massageThreadedCommentRecord))
   },
 
@@ -128,7 +128,7 @@ module.exports = {
    */
   async get (url) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
-    return massageCommentRecord(await commentsCrawler.get(url))
+    return massageCommentRecord(await commentsAPI.get(url))
   },
 
   /**
@@ -159,8 +159,8 @@ module.exports = {
       comment.visibility = 'public'
     }
 
-    var url = await commentsCrawler.add(userArchive, topic, comment)
-    return massageCommentRecord(await commentsCrawler.get(url))
+    var url = await commentsAPI.add(userArchive, topic, comment)
+    return massageCommentRecord(await commentsAPI.get(url))
   },
 
   /**
@@ -187,8 +187,8 @@ module.exports = {
     if ('visibility' in comment) assert(typeof comment.visibility === 'string', 'The `comment.visibility` parameter must be "public" or "private"')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await commentsCrawler.edit(userArchive, filepath, comment)
-    return massageCommentRecord(await commentsCrawler.get(userArchive.url + filepath))
+    await commentsAPI.edit(userArchive, filepath, comment)
+    return massageCommentRecord(await commentsAPI.get(userArchive.url + filepath))
   },
 
   /**
@@ -202,7 +202,7 @@ module.exports = {
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await commentsCrawler.remove(userArchive, filepath)
+    await commentsAPI.remove(userArchive, filepath)
   }
 }
 

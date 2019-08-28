@@ -2,7 +2,7 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const postsCrawler = require('../../crawler/posts')
+const postsAPI = require('../../uwg/posts')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -58,7 +58,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var posts = await postsCrawler.list(opts)
+    var posts = await postsAPI.list(opts)
     return Promise.all(posts.map(massagePostRecord))
   },
 
@@ -68,7 +68,7 @@ module.exports = {
    */
   async get (url) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'read')
-    return massagePostRecord(await postsCrawler.get(url))
+    return massagePostRecord(await postsAPI.get(url))
   },
 
   /**
@@ -95,8 +95,8 @@ module.exports = {
       post.visibility = 'public'
     }
 
-    var url = await postsCrawler.add(userArchive, post)
-    return massagePostRecord(await postsCrawler.get(url))
+    var url = await postsAPI.add(userArchive, post)
+    return massagePostRecord(await postsAPI.get(url))
   },
 
   /**
@@ -121,8 +121,8 @@ module.exports = {
     if ('visibility' in post) assert(typeof post.visibility === 'string', 'The `post.visibility` parameter must be "public" or "private"')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await postsCrawler.edit(userArchive, filepath, post)
-    return massagePostRecord(await postsCrawler.get(userArchive.url + filepath))
+    await postsAPI.edit(userArchive, filepath, post)
+    return massagePostRecord(await postsAPI.get(userArchive.url + filepath))
   },
 
   /**
@@ -136,7 +136,7 @@ module.exports = {
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await postsCrawler.remove(userArchive, filepath)
+    await postsAPI.remove(userArchive, filepath)
   }
 }
 

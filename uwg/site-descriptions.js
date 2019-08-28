@@ -1,10 +1,10 @@
 const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
-const logger = require('../logger').child({category: 'crawler', dataset: 'site-descriptions'})
+const logger = require('../logger').child({category: 'uwg', dataset: 'site-descriptions'})
 const db = require('../dbs/profile-data-db')
 const dat = require('../dat')
-const crawler = require('./index')
+const uwg = require('./index')
 const {
   doCrawl,
   doCheckpoint,
@@ -169,12 +169,12 @@ const list = exports.list = async function ({offset, limit, reverse, author, sub
 
   if (author) {
     author = Array.isArray(author) ? author : [author]
-    try { author = await Promise.all(author.map(dat.library.getPrimaryUrl)) }
+    try { author = await Promise.all(author.map(dat.archives.getPrimaryUrl)) }
     catch (e) { throw new Error('Author must contain valid URLs') }
   }
   if (subject) {
     subject = Array.isArray(subject) ? subject : [subject]
-    try { subject = await Promise.all(subject.map(dat.library.getPrimaryUrl)) }
+    try { subject = await Promise.all(subject.map(dat.archives.getPrimaryUrl)) }
     catch (e) { throw new Error('Subject must contain valid URLs') }
   }
 
@@ -254,7 +254,7 @@ exports.getBest = async function ({subject, author} = {}) {
 exports.capture = async function (archive, subject) {
   var subjectArchive
   if (typeof subject === 'string') {
-    subjectArchive = await dat.library.getOrLoadArchive(subject)
+    subjectArchive = await dat.archives.getOrLoadArchive(subject)
   } else {
     subjectArchive = subject
   }
@@ -303,7 +303,7 @@ exports.deleteCapture = async function (archive, subject) {
   assert(typeof subjectUrl === 'string', 'Delete() must be provided a valid URL string')
   var hostname = toHostname(subjectUrl)
   await archive.pda.rmdir(`/data/known-sites/${hostname}`, {recursive: true})
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 // internal methods

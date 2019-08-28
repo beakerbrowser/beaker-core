@@ -2,13 +2,21 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'reactions'})
+const logger = require('../logger').child({category: 'uwg', dataset: 'reactions'})
 const db = require('../dbs/profile-data-db')
-const crawler = require('./index')
-const datLibrary = require('../dat/library')
+const uwg = require('./index')
+const datArchives = require('../dat/archives')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, ensureDirectory, normalizeTopicUrl, slugifyUrl} = require('./util')
+const {
+  doCrawl,
+  doCheckpoint,
+  emitProgressEvent,
+  getMatchingChangesInOrder,
+  ensureDirectory,
+  normalizeTopicUrl,
+  slugifyUrl
+} = require('./util')
 const reactionSchema = require('./json-schemas/reaction')
 
 // constants
@@ -166,7 +174,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('topics' in opts.filters) {
       if (Array.isArray(opts.filters.topics)) {
@@ -232,7 +240,7 @@ exports.tabulate = async function (topic, opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -286,7 +294,7 @@ exports.add = async function (archive, topic, emoji) {
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/reactions')
   await updateReactionFile(archive, filepath, topic, emoji, false)
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 /**
@@ -308,7 +316,7 @@ exports.remove = async function (archive, topic, emoji) {
 
   var filepath = `/data/reactions/${slugifyUrl(topic)}.json`
   await updateReactionFile(archive, filepath, topic, false, emoji)
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 // internal methods

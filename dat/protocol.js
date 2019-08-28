@@ -9,7 +9,7 @@ const slugify = require('slugify')
 const markdown = require('../lib/markdown')
 
 const datDns = require('./dns')
-const datLibrary = require('./library')
+const datArchives = require('./archives')
 const datServeResolvePath = require('@beaker/dat-serve-resolve-path')
 
 const errorPage = require('../lib/error-page')
@@ -118,7 +118,7 @@ exports.electronHandler = async function (request, respond) {
 
   try {
     // start searching the network
-    archive = await datLibrary.getOrLoadArchive(archiveKey)
+    archive = await datArchives.getOrLoadArchive(archiveKey)
   } catch (err) {
     logger.warn('Failed to open archive', {url: archiveKey, err})
     cleanup()
@@ -133,25 +133,11 @@ exports.electronHandler = async function (request, respond) {
 
   // checkout version if needed
   try {
-    var {checkoutFS} = await datLibrary.getArchiveCheckout(archive, urlp.version)
-    if (urlp.version === 'preview') {
-      await checkoutFS.pda.stat('/') // run a stat to ensure preview mode exists
-    }
+    var {checkoutFS} = await datArchives.getArchiveCheckout(archive, urlp.version)
   } catch (err) {
-    if (err.noPreviewMode) {
-      // redirect to non-preview version
-      return respond({
-        statusCode: 303,
-        headers: {
-          Location: `dat://${urlp.host}${urlp.pathname || '/'}${urlp.search || ''}`
-        },
-        data: intoStream('')
-      })
-    } else {
-      logger.warn('Failed to open archive checkout', {url: archiveKey, err})
-      cleanup()
-      return respondError(500, 'Failed')
-    }
+    logger.warn('Failed to open archive checkout', {url: archiveKey, err})
+    cleanup()
+    return respondError(500, 'Failed')
   }
 
   // read the manifest (it's needed in a couple places)
@@ -257,7 +243,7 @@ exports.electronHandler = async function (request, respond) {
   // caching is disabled till we can figure out why
   // -prf
   // caching if-match
-  // const ETag = (checkoutFS.isLocalFS) ? false : 'block-' + entry.offset
+  // const ETag = 'block-' + entry.offset
   // if (request.headers['if-none-match'] === ETag) {
   //   return respondError(304, 'Not Modified')
   // }

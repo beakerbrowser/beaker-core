@@ -2,14 +2,22 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'comments'})
+const logger = require('../logger').child({category: 'uwg', dataset: 'comments'})
 const db = require('../dbs/profile-data-db')
-const crawler = require('./index')
-const datLibrary = require('../dat/library')
+const uwg = require('./index')
+const datArchives = require('../dat/archives')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, ensureDirectory, normalizeTopicUrl} = require('./util')
+const {
+  doCrawl,
+  doCheckpoint,
+  emitProgressEvent,
+  getMatchingChangesInOrder,
+  generateTimeFilename,
+  ensureDirectory,
+  normalizeTopicUrl
+} = require('./util')
 const commentSchema = require('./json-schemas/comment')
 
 // constants
@@ -193,7 +201,7 @@ exports.list = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('topics' in opts.filters) {
       if (Array.isArray(opts.filters.topics)) {
@@ -265,7 +273,7 @@ exports.thread = async function (topic, opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('visibility' in opts.filters) {
       assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
@@ -395,7 +403,7 @@ exports.add = async function (archive, topic, comment) {
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/comments')
   await archive.pda.writeFile(filepath, JSON.stringify(commentObject, null, 2))
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
   return archive.url + filepath
 }
 
@@ -436,7 +444,7 @@ exports.edit = async function (archive, pathname, comment) {
 
     // write
     await archive.pda.writeFile(pathname, JSON.stringify(commentObject, null, 2))
-    await crawler.crawlSite(archive)
+    await uwg.crawlSite(archive)
   } finally {
     release()
   }
@@ -453,7 +461,7 @@ exports.edit = async function (archive, pathname, comment) {
 exports.remove = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Remove() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 // internal methods

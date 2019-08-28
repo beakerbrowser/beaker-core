@@ -2,13 +2,21 @@ const assert = require('assert')
 const {URL} = require('url')
 const Events = require('events')
 const Ajv = require('ajv')
-const logger = require('../logger').child({category: 'crawler', dataset: 'bookmarks'})
+const logger = require('../logger').child({category: 'uwg', dataset: 'bookmarks'})
 const db = require('../dbs/profile-data-db')
-const datLibrary = require('../dat/library')
+const datArchives = require('../dat/archives')
 const knex = require('../lib/knex')
-const crawler = require('./index')
+const uwg = require('./index')
 const siteDescriptions = require('./site-descriptions')
-const {doCrawl, doCheckpoint, emitProgressEvent, getMatchingChangesInOrder, generateTimeFilename, normalizeTopicUrl, ensureDirectory} = require('./util')
+const {
+  doCrawl,
+  doCheckpoint,
+  emitProgressEvent,
+  getMatchingChangesInOrder,
+  generateTimeFilename,
+  normalizeTopicUrl,
+  ensureDirectory
+} = require('./util')
 const bookmarkSchema = require('./json-schemas/bookmark')
 
 // constants
@@ -180,7 +188,7 @@ exports.query = async function (opts) {
         assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
         opts.filters.authors = [opts.filters.authors]
       }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datLibrary.getPrimaryUrl))
+      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
     }
     if ('tags' in opts.filters) {
       if (Array.isArray(opts.filters.tags)) {
@@ -286,7 +294,7 @@ exports.addBookmark = async function (archive, bookmark) {
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/bookmarks')
   await archive.pda.writeFile(filepath, JSON.stringify(bookmarkObject, null, 2))
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
   return archive.url + filepath
 }
 
@@ -321,7 +329,7 @@ exports.editBookmark = async function (archive, pathname, bookmark) {
   if (!valid) throw ajv.errorsText(validateBookmark.errors)
 
   await archive.pda.writeFile(pathname, JSON.stringify(bookmarkObject, null, 2))
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 /**
@@ -335,7 +343,7 @@ exports.editBookmark = async function (archive, pathname, bookmark) {
 exports.deleteBookmark = async function (archive, pathname) {
   assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
   await archive.pda.unlink(pathname)
-  await crawler.crawlSite(archive)
+  await uwg.crawlSite(archive)
 }
 
 // internal methods

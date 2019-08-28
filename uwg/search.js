@@ -3,12 +3,12 @@ const _uniqWith = require('lodash.uniqwith')
 const db = require('../dbs/profile-data-db')
 const bookmarksDb = require('../dbs/bookmarks')
 const historyDb = require('../dbs/history')
-const datLibrary = require('../dat/library')
+const datArchives = require('../dat/archives')
 const follows = require('./follows')
 const siteDescriptions = require('./site-descriptions')
 const {getSiteDescriptionThumbnailUrl} = require('./util')
 const knex = require('../lib/knex')
-const users = require('../users')
+const users = require('../filesystem/users')
 
 const KNOWN_SITE_TYPES = [
   'unwalled.garden/person',
@@ -119,7 +119,7 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
 
   // websites
-  suggestions.websites = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true}))
+  suggestions.websites = /** @type LibraryArchiveRecord[] */(await datArchives.queryArchives({isSaved: true}))
   suggestions.websites = suggestions.websites.filter(w => (
     w.url !== user // filter out the user's site
     && (!w.type || !w.type.find(t => KNOWN_SITE_TYPES.includes(t))) // filter out other site types
@@ -129,13 +129,13 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
 
   // people
   suggestions.people = (await follows.list({filters: {authors: user}})).map(({topic}) => topic)
-  suggestions.people = (await datLibrary.queryArchives({isSaved: true, type: 'unwalled.garden/person'})).concat(suggestions.people)
+  suggestions.people = (await datArchives.queryArchives({isSaved: true, type: 'unwalled.garden/person'})).concat(suggestions.people)
   suggestions.people = dedup(suggestions.people)
   suggestions.people = suggestions.people.filter(filterFn)
   suggestions.people.sort(sortFn)
 
   // themes
-  suggestions.themes = /** @type LibraryArchiveRecord[] */(await datLibrary.queryArchives({isSaved: true, type: 'unwalled.garden/theme'}))
+  suggestions.themes = /** @type LibraryArchiveRecord[] */(await datArchives.queryArchives({isSaved: true, type: 'unwalled.garden/theme'}))
   suggestions.themes = suggestions.themes.filter(filterFn)
   suggestions.themes.sort(sortFn)
 

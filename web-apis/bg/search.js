@@ -1,6 +1,6 @@
 const globals = require('../../globals')
 const {PermissionsError} = require('beaker-error-constants')
-const crawler = require('../../crawler/search')
+const search = require('../../uwg/search')
 
 // typedefs
 // =
@@ -57,7 +57,7 @@ module.exports = {
     await assertPermission(this.sender, 'dangerousAppControl')
     var sess = globals.userSessionAPI.getFor(this.sender)
     if (!sess) return null
-    return crawler.query(sess.url, opts)
+    return search.query(sess.url, opts)
   }
 }
 

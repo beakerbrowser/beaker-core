@@ -6,10 +6,11 @@ const pda = require('pauls-dat-api2')
 const concat = require('concat-stream')
 const pick = require('lodash.pick')
 const datDns = require('../../dat/dns')
-const datLibrary = require('../../dat/library')
+const datArchives = require('../../dat/archives')
+const datLibrary = require('../../filesystem/dat-library')
 const archivesDb = require('../../dbs/archives')
 const {timer} = require('../../lib/time')
-const users = require('../../users')
+const users = require('../../filesystem/users')
 const {
   DAT_MANIFEST_FILENAME,
   DAT_CONFIGURABLE_FIELDS,
@@ -37,19 +38,19 @@ const to = (opts) =>
     : DEFAULT_DAT_API_TIMEOUT
 
 module.exports = {
-  async createArchive ({title, description, type, hidden, networked, links, template, prompt} = {}) {
+  async createArchive ({title, description, type, visibility, links, template, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow networked, hidden, and template to be set by beaker, for now
+    // only allow visibility and template to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      hidden = networked = template = undefined
+      visibility = template = undefined
     }
 
     if (prompt !== false) {
       // run the creation modal
       let res
       try {
-        res = await globals.uiAPI.showModal(this.sender, 'create-archive', {title, description, type, networked, links})
+        res = await globals.uiAPI.showModal(this.sender, 'create-archive', {title, description, type, visibility, links})
       } catch (e) {
         if (e.name !== 'Error') {
           throw e // only rethrow if a specific error
@@ -63,17 +64,18 @@ module.exports = {
 
       // create
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.createNewArchive(
-        Object.assign({title, description, type, author, links}, generateManifest(type)),
-        {networked, hidden}
+      var newArchive = await datArchives.createNewArchive(
+        Object.assign({title, description, type, author, links}, generateManifest(type))
       )
+      await datLibrary.configureArchive(newArchive, {isSaved: true, isHosting: true, visibility})
+      newArchiveUrl = newArchive.url
     }
     let newArchiveKey = await lookupUrlDatKey(newArchiveUrl)
 
     // apply the template
     if (template) {
       try {
-        let archive = datLibrary.getArchive(newArchiveKey)
+        let archive = datArchives.getArchive(newArchiveKey)
         let templatePath = path.join(globals.templatesPath, template)
         await pda.exportFilesystemToArchive({
           srcPath: templatePath,
@@ -91,12 +93,12 @@ module.exports = {
     return newArchiveUrl
   },
 
-  async forkArchive (url, {title, description, type, networked, hidden, links, prompt} = {}) {
+  async forkArchive (url, {title, description, type, visibility, links, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow networked, hidden to be set by beaker, for now
+    // only allow visibility to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      networked = hidden = undefined
+      visibility = undefined
     }
 
     if (prompt !== false) {
@@ -106,7 +108,7 @@ module.exports = {
       let isSelfFork = key1 === key2
       let res
       try {
-        res = await globals.uiAPI.showModal(this.sender, 'fork-archive', {url, title, description, type, networked, links, isSelfFork})
+        res = await globals.uiAPI.showModal(this.sender, 'fork-archive', {url, title, description, type, visibility, links, isSelfFork})
       } catch (e) {
         if (e.name !== 'Error') {
           throw e // only rethrow if a specific error
@@ -121,7 +123,13 @@ module.exports = {
       // create
       let key = await lookupUrlDatKey(url)
       let author = await getAuthor()
-      newArchiveUrl = await datLibrary.forkArchive(key, {title, description, type, author, links}, {networked, hidden})
+      let newArchive = await datArchives.forkArchive(key, {title, description, type, author, links})
+      await datLibrary.configureArchive(newArchive, {
+        isSaved: true,
+        isHosting: true,
+        visibility
+      })
+      newArchiveUrl = newArchive.url
     }
 
     // grant write permissions to the creating app
@@ -134,7 +142,7 @@ module.exports = {
     var {archive} = await lookupArchive(this.sender, url)
     await assertDeleteArchivePermission(archive, this.sender)
     assertArchiveDeletable(archive)
-    await archivesDb.setUserSettings(0, archive.key, {isSaved: false})
+    await datLibrary.configureArchive(archive, {isSaved: false})
   },
 
   async loadArchive (url) {
@@ -142,27 +150,16 @@ module.exports = {
       return Promise.reject(new InvalidURLError())
     }
     url = await datDns.resolveName(url)
-    await datLibrary.getOrLoadArchive(url)
+    await datArchives.getOrLoadArchive(url)
     return Promise.resolve(true)
   },
 
   async getInfo (url, opts = {}) {
     return timer(to(opts), async () => {
-      var info = await datLibrary.getArchiveInfo(url)
+      var info = await datArchives.getArchiveInfo(url)
 
       // request from beaker internal sites: give all data
       if (this.sender.getURL().startsWith('beaker:')) {
-        // check that the local sync path is valid
-        if (info && info.userSettings.localSyncPath) {
-          const stat = await new Promise(resolve => {
-            fs.stat(info.userSettings.localSyncPath, (_, st) => resolve(st))
-          })
-          if (!stat || !stat.isDirectory()) {
-            info.localSyncPathIsMissing = true
-            info.missingLocalSyncPath = info.userSettings.localSyncPath // store on other attr
-            info.userSettings.localSyncPath = undefined // unset to avoid accidents
-          }
-        }
         return info
       }
 
@@ -197,13 +194,10 @@ module.exports = {
       if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
       if (!settings || typeof settings !== 'object') throw new Error('Invalid argument')
 
-      // handle 'networked' specially
-      // also, only allow beaker to set 'networked' for now
-      if (('networked' in settings) && this.sender.getURL().startsWith('beaker:')) {
-        if (settings.networked === false) {
-          await assertArchiveOfflineable(archive)
-        }
-        await archivesDb.setUserSettings(0, archive.key, {networked: settings.networked, expiresAt: 0})
+      // handle 'visibility' specially
+      // also, only allow beaker to set 'visibility' for now
+      if (('visibility' in settings) && this.sender.getURL().startsWith('beaker:')) {
+        await datLibrary.configureArchive(archive, {visibility: settings.visibility})
       }
 
       // manifest updates
@@ -221,7 +215,7 @@ module.exports = {
 
       checkin('updating archive')
       await checkoutFS.pda.updateManifest(manifestUpdates)
-      await datLibrary.pullLatestArchiveMeta(archive)
+      await datArchives.pullLatestArchiveMeta(archive)
     })
   },
 
@@ -231,13 +225,8 @@ module.exports = {
 
       var reverse = opts.reverse === true
       var {start, end} = opts
-      var {archive, checkoutFS, isPreview} = await lookupArchive(this.sender, url, opts)
+      var {archive, checkoutFS} = await lookupArchive(this.sender, url, opts)
       var archiveInfo = await archive.getInfo()
-
-      if (isPreview) {
-        // dont use the checkout FS in previews, it has no history() api
-        checkoutFS = archive
-      }
 
       checkin('reading history')
 
@@ -486,11 +475,7 @@ module.exports = {
   },
 
   async watch (url, pathPattern) {
-    var {archive, checkoutFS, version} = await lookupArchive(this.sender, url)
-    if (version === 'preview') {
-      // staging area
-      return checkoutFS.pda.watch(pathPattern)
-    }
+    var {archive} = await lookupArchive(this.sender, url)
     return archive.pda.watch(pathPattern)
   },
 
@@ -519,7 +504,7 @@ module.exports = {
   },
 
   async diff (srcUrl, dstUrl, opts) {
-    assertTmpBeakerOnly(this.sender)
+    assertBeakerOnly(this.sender)
     if (!srcUrl || typeof srcUrl !== 'string') {
       throw new InvalidURLError('The first parameter of diff() must be a dat URL')
     }
@@ -527,11 +512,11 @@ module.exports = {
       throw new InvalidURLError('The second parameter of diff() must be a dat URL')
     }
     var [src, dst] = await Promise.all([lookupArchive(this.sender, srcUrl), lookupArchive(this.sender, dstUrl)])
-    return pda.diff(src.checkoutFS, src.filepath, dst.checkoutFS, dst.filepath, opts)
+    return pda.diff(src.checkoutFS.pda, src.filepath, dst.checkoutFS.pda, dst.filepath, opts)
   },
 
   async merge (srcUrl, dstUrl, opts) {
-    assertTmpBeakerOnly(this.sender)
+    assertBeakerOnly(this.sender)
     if (!srcUrl || typeof srcUrl !== 'string') {
       throw new InvalidURLError('The first parameter of merge() must be a dat URL')
     }
@@ -541,11 +526,11 @@ module.exports = {
     var [src, dst] = await Promise.all([lookupArchive(this.sender, srcUrl), lookupArchive(this.sender, dstUrl)])
     if (!dst.archive.writable) throw new ArchiveNotWritableError('The destination archive is not writable')
     if (dst.isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
-    return pda.merge(src.checkoutFS, src.filepath, dst.checkoutFS, dst.filepath, opts)
+    return pda.merge(src.checkoutFS.pda, src.filepath, dst.checkoutFS.pda, dst.filepath, opts)
   },
 
   async importFromFilesystem (opts) {
-    assertTmpBeakerOnly(this.sender)
+    assertBeakerOnly(this.sender)
     var {checkoutFS, filepath, isHistoric} = await lookupArchive(this.sender, opts.dst, opts)
     if (isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
     return pda.exportFilesystemToArchive({
@@ -559,7 +544,7 @@ module.exports = {
   },
 
   async exportToFilesystem (opts) {
-    assertTmpBeakerOnly(this.sender)
+    assertBeakerOnly(this.sender)
 
     // TODO do we need to replace this? -prf
     // if (await checkFolderIsEmpty(opts.dst) === false) {
@@ -578,7 +563,7 @@ module.exports = {
   },
 
   async exportToArchive (opts) {
-    assertTmpBeakerOnly(this.sender)
+    assertBeakerOnly(this.sender)
     var src = await lookupArchive(this.sender, opts.src, opts)
     var dst = await lookupArchive(this.sender, opts.dst, opts)
     if (dst.isHistoric) throw new ArchiveNotWritableError('Cannot modify a historic version')
@@ -607,7 +592,7 @@ function assertUnprotectedFilePath (filepath, sender) {
 }
 
 // temporary helper to make sure the call is made by a beaker: page
-function assertTmpBeakerOnly (sender) {
+function assertBeakerOnly (sender) {
   if (!sender.getURL().startsWith('beaker:')) {
     throw new PermissionsError()
   }
@@ -628,7 +613,7 @@ async function assertCreateArchivePermission (sender) {
 
 async function assertWritePermission (archive, sender) {
   var archiveKey = archive.key.toString('hex')
-  var details = await datLibrary.getArchiveInfo(archiveKey)
+  var details = await datArchives.getArchiveInfo(archiveKey)
   const perm = ('modifyDat:' + archiveKey)
 
   // ensure we have the archive's private key
@@ -667,18 +652,10 @@ async function assertDeleteArchivePermission (archive, sender) {
   }
 
   // ask the user
-  var details = await datLibrary.getArchiveInfo(archiveKey)
+  var details = await datArchives.getArchiveInfo(archiveKey)
   var allowed = await globals.permsAPI.requestPermission(perm, sender, { title: details.title })
   if (!allowed) throw new UserDeniedError()
   return true
-}
-
-async function assertArchiveOfflineable (archive) {
-  // TODO(profiles) disabled -prf
-  // var profileRecord = await getProfileRecord(0)
-  // if ('dat://' + archive.key.toString('hex') === profileRecord.url) {
-  //   throw new PermissionsError('Unable to set the user archive to offline.')
-  // }
 }
 
 function assertArchiveDeletable (archive) {
@@ -694,14 +671,11 @@ async function assertQuotaPermission (archive, senderOrigin, byteLength) {
     return
   }
 
-  // fetch the archive meta and settings
-  const [meta, userSettings] = await Promise.all([
-    archivesDb.getMeta(archive.key),
-    archivesDb.getUserSettings(0, archive.key)
-  ])
+  // fetch the archive meta
+  const meta = await archivesDb.getMeta(archive.key)
 
   // fallback to default quota
-  var bytesAllowed = userSettings.bytesAllowed || DAT_QUOTA_DEFAULT_BYTES_ALLOWED
+  var bytesAllowed = /* TODO userSettings.bytesAllowed ||*/ DAT_QUOTA_DEFAULT_BYTES_ALLOWED
 
   // check the new size
   var newSize = (meta.size + byteLength)
@@ -725,13 +699,7 @@ function assertValidPath (fileOrFolderPath) {
 
 function generateManifest (type) {
   type = Array.isArray(type) ? type : [type]
-  if (type.includes('application')) {
-    return {
-      application: {
-        permissions: {}
-      }
-    }
-  }
+  // TODO
   return {}
 }
 
@@ -793,13 +761,13 @@ function normalizeFilepath (str) {
 async function lookupArchive (sender, url, opts = {}) {
   // lookup the archive
   var {archiveKey, filepath, version} = await parseUrlParts(url)
-  var archive = datLibrary.getArchive(archiveKey)
-  if (!archive) archive = await datLibrary.loadArchive(archiveKey)
+  var archive = datArchives.getArchive(archiveKey)
+  if (!archive) archive = await datArchives.loadArchive(archiveKey)
 
   // get specific checkout
-  var {checkoutFS, isHistoric, isPreview} = await datLibrary.getArchiveCheckout(archive, version)
+  var {checkoutFS, isHistoric} = await datArchives.getArchiveCheckout(archive, version)
 
-  return {archive, filepath, version, isHistoric, isPreview, checkoutFS}
+  return {archive, filepath, version, isHistoric, checkoutFS}
 }
 
 async function lookupUrlDatKey (url) {

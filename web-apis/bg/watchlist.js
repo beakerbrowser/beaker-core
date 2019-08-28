@@ -1,5 +1,4 @@
 const datWatchlist = require('../../dat/watchlist')
-const datLibrary = require('../../dat/library')
 
 // exported api
 // =

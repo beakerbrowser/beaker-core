@@ -1,4 +1,4 @@
-const {getActiveArchives} = require('./library')
+const {getActiveArchives} = require('./archives')
 const datDns = require('./dns')
 
 /**

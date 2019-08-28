@@ -2,15 +2,15 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const reactionsCrawler = require('../../crawler/reactions')
-const siteDescriptionsCrawler = require('../../crawler/site-descriptions')
+const reactionsAPI = require('../../uwg/reactions')
+const siteDescriptionsAPI = require('../../uwg/site-descriptions')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../crawler/reactions').Reaction} Reaction
+ * @typedef {import('../../uwg/reactions').Reaction} Reaction
  *
  * @typedef {Object} ReactionAuthorPublicAPIRecord
  * @prop {string} url
@@ -73,7 +73,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var reactions = await reactionsCrawler.list(opts)
+    var reactions = await reactionsAPI.list(opts)
     return Promise.all(reactions.map(massageReactionRecord))
   },
 
@@ -102,12 +102,12 @@ module.exports = {
       }
     }
 
-    var reactions = await reactionsCrawler.tabulate(topic, opts)
+    var reactions = await reactionsAPI.tabulate(topic, opts)
     return Promise.all(reactions.map(async (reaction) => ({
       topic,
       emoji: reaction.emoji,
       authors: await Promise.all(reaction.authors.map(async (url) => {
-        var desc = await siteDescriptionsCrawler.getBest({subject: url})
+        var desc = await siteDescriptionsAPI.getBest({subject: url})
         return {
           url: desc.url,
           title: desc.title,
@@ -130,7 +130,7 @@ module.exports = {
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    await reactionsCrawler.add(userArchive, topic, emoji)
+    await reactionsAPI.add(userArchive, topic, emoji)
   },
 
   /**
@@ -145,7 +145,7 @@ module.exports = {
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    await reactionsCrawler.remove(userArchive, topic, emoji)
+    await reactionsAPI.remove(userArchive, topic, emoji)
   }
 }
 
@@ -165,7 +165,7 @@ function normalizeTopicUrl (url) {
  * @returns {Promise<ReactionPublicAPIRecord>}
  */
 async function massageReactionRecord (reaction) {
-  var desc = await siteDescriptionsCrawler.getBest({subject: reaction.author})
+  var desc = await siteDescriptionsAPI.getBest({subject: reaction.author})
   return {
     url: reaction.recordUrl,
     topic: reaction.topic,

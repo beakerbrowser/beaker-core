@@ -23,8 +23,8 @@ const READ_TIMEOUT = 30e3
 // exported api
 // =
 
-const crawlerEvents = new EventEmitter()
-exports.crawlerEvents = crawlerEvents
+const uwgEvents = new EventEmitter()
+exports.uwgEvents = uwgEvents
 
 /**
  * @param {DaemonDatArchive} archive
@@ -68,7 +68,7 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
       pump(stream, concat({encoding: 'object'}, resolve), reject)
     })
   }
-  
+
   changes.forEach(c => {
     if (!c.name.startsWith('/')) {
       c.name = '/' + c.name
@@ -82,7 +82,7 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
     c.version = version
   })
 
-  crawlerEvents.emit('crawl-dataset-start', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
+  uwgEvents.emit('crawl-dataset-start', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 
   // handle changes
   await handlerFn({changes, resetRequired})
@@ -90,7 +90,7 @@ exports.doCrawl = async function (archive, crawlSource, crawlDataset, crawlDatas
   // final checkpoint
   await doCheckpoint(crawlDataset, crawlDatasetVersion, crawlSource, version)
 
-  crawlerEvents.emit('crawl-dataset-finish', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
+  uwgEvents.emit('crawl-dataset-finish', {sourceUrl: archive.url, crawlDataset, crawlRange: {start, end}})
 }
 
 /**
@@ -119,7 +119,7 @@ const doCheckpoint = exports.doCheckpoint = async function (crawlDataset, crawlD
  * @param {number} numUpdates
  */
 exports.emitProgressEvent = function (sourceUrl, crawlDataset, progress, numUpdates) {
-  crawlerEvents.emit('crawl-dataset-progress', {sourceUrl, crawlDataset, progress, numUpdates})
+  uwgEvents.emit('crawl-dataset-progress', {sourceUrl, crawlDataset, progress, numUpdates})
 }
 
 /**

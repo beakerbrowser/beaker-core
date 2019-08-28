@@ -1,12 +1,12 @@
 const globals = require('../../globals')
-const users = require('../../users')
+const users = require('../../filesystem/users')
 const dat = require('../../dat')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../users').User} User
+ * @typedef {import('../../filesystem/users').User} User
  *
  * @typedef {Object} WebAPIUser
  * @prop {string} label
@@ -74,12 +74,11 @@ module.exports = {
     users.validateUserLabel(opts.label)
 
     // create new dat archive
-    var url = await dat.library.createNewArchive({
+    var archive = await dat.archives.createNewArchive({
       type: 'unwalled.garden/person',
       title: opts.title,
       description: opts.description
     })
-    var archive = dat.library.getArchive(url)
 
     // write thumbnail
     if (opts.thumbBase64) {
@@ -87,7 +86,7 @@ module.exports = {
     }
 
     // save user
-    return massageUserRecord(await users.add(opts.label, url), sessionUrl)
+    return massageUserRecord(await users.add(opts.label, archive.url), sessionUrl)
   },
 
   /**
@@ -97,14 +96,14 @@ module.exports = {
     var sessionUrl = getSessionUrl(this.sender)
 
     // create new dat archive
-    var url = await dat.library.createNewArchive({
+    var archive = await dat.archives.createNewArchive({
       type: 'unwalled.garden/person',
       title: 'Temporary User',
       description: 'Created ' + (new Date()).toLocaleString()
     })
 
     // save user
-    return massageUserRecord(await users.add(`temp-${Date.now()}`, url, false, true), sessionUrl)
+    return massageUserRecord(await users.add(`temp-${Date.now()}`, archive.url, false, true), sessionUrl)
   },
 
   /**

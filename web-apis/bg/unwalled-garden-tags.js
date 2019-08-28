@@ -1,13 +1,13 @@
 const globals = require('../../globals')
 const assert = require('assert')
-const tagsCrawler = require('../../crawler/tags')
+const tagsAPI = require('../../uwg/tags')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../crawler/tags').Tag} Tag
+ * @typedef {import('../../uwg/tags').Tag} Tag
  *
  * @typedef {Object} TagPublicAPIRecord
  * @prop {string} tag
@@ -48,7 +48,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var tags = await tagsCrawler.listBookmarkTags(opts)
+    var tags = await tagsAPI.listBookmarkTags(opts)
     return tags.map(massageTagRecord)
   },
 
@@ -82,7 +82,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var tags = await tagsCrawler.listDiscussionTags(opts)
+    var tags = await tagsAPI.listDiscussionTags(opts)
     return tags.map(massageTagRecord)
   },
 
@@ -124,7 +124,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var tags = await tagsCrawler.listMediaTags(opts)
+    var tags = await tagsAPI.listMediaTags(opts)
     return tags.map(massageTagRecord)
   }
 }

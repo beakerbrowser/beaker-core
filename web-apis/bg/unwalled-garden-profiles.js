@@ -1,6 +1,7 @@
 const globals = require('../../globals')
-const datLibrary = require('../../dat/library')
-const crawler = require('../../crawler')
+const datArchives = require('../../dat/archives')
+const archivesDb = require('../../dbs/archives')
+const uwg = require('../../uwg')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -19,15 +20,20 @@ const sessionPerms = require('../../lib/session-perms')
 // exported api
 // =
 
+/**
+ * 
+ * @param {string} url 
+ * @returns {Promise<ProfilesPublicAPIRecord>}
+ */
 async function get (url) {
-  var key = await datLibrary.fromURLToKey(url, true)
-  var archive = /** @type LibraryArchiveRecord */(await datLibrary.queryArchives({key}))
-  if (!archive) return null
+  var key = await datArchives.fromURLToKey(url, true)
+  var meta = await archivesDb.getMeta(key)
+  if (!meta) return null
   return {
-    url: toOrigin(archive.url),
-    title: archive.title,
-    description: archive.description,
-    type: archive.type
+    url: await datArchives.getPrimaryUrl(key),
+    title: meta.title,
+    description: meta.description,
+    type: /** @type string[] */(meta.type)
   }
 }
 
@@ -57,7 +63,7 @@ module.exports = {
    */
   async index (url) {
     await sessionPerms.getSessionOrThrow(this.sender)
-    await crawler.crawlSite(url)
+    await uwg.crawlSite(url)
     return get(url)
   }
 }

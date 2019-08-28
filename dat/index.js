@@ -1,9 +1,12 @@
 module.exports = {
+  archives: require('./archives'),
   assets: require('./assets'),
   debug: require('./debugging'),
   dns: require('./dns'),
-  garbageCollector: require('./garbage-collector'),
-  library: require('./library'),
   protocol: require('./protocol'),
-  watchlist: require('./watchlist')
+  watchlist: require('./watchlist'),
+  async setup (opts) {
+    await this.archives.setup(opts)
+    await this.watchlist.setup()
+  }
 }

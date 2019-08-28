@@ -1,19 +1,17 @@
 const emitStream = require('emit-stream')
 const _throttle = require('lodash.throttle')
-const logger = require('../logger').category('crawler')
+const logger = require('../logger').category('uwg')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
-const users = require('../users')
+const users = require('../filesystem/users')
 
-const {crawlerEvents, toHostname} = require('./util')
+const {uwgEvents, toHostname} = require('./util')
 const bookmarks = require('./bookmarks')
 const comments = require('./comments')
-const discussions = require('./discussions')
 const follows = require('./follows')
-const media = require('./media')
 const posts = require('./posts')
 const reactions = require('./reactions')
 const siteDescriptions = require('./site-descriptions')
@@ -29,14 +27,12 @@ var watches = {}
 
 exports.bookmarks = bookmarks
 exports.comments = comments
-exports.discussions = discussions
 exports.follows = follows
-exports.media = media
 exports.posts = posts
 exports.reactions = reactions
 exports.siteDescriptions = siteDescriptions
 exports.votes = votes
-const createEventsStream = exports.createEventsStream = () => emitStream(crawlerEvents)
+const createEventsStream = exports.createEventsStream = () => emitStream(uwgEvents)
 
 exports.setup = async function () {
   logger.info('Initialized crawler')
@@ -44,12 +40,12 @@ exports.setup = async function () {
 
 exports.watchSite = async function (archive) {
   if (typeof archive === 'string') {
-    archive = await dat.library.getOrLoadArchive(archive)
+    archive = await dat.archives.getOrLoadArchive(archive)
   }
   logger.silly('Watching site', {url: archive.url})
 
   if (!(archive.url in watches)) {
-    crawlerEvents.emit('watch', {sourceUrl: archive.url})
+    uwgEvents.emit('watch', {sourceUrl: archive.url})
     const queueCrawl = _throttle(() => crawlSite(archive), 5e3)
 
     // watch for file changes
@@ -69,10 +65,10 @@ exports.watchSite = async function (archive) {
 
 exports.unwatchSite = async function (url) {
   // stop watching for file changes
-  url = await dat.library.getPrimaryUrl(url)
+  url = await dat.archives.getPrimaryUrl(url)
   if (url in watches) {
     logger.silly('Unwatching site', {url})
-    crawlerEvents.emit('unwatch', {sourceUrl: url})
+    uwgEvents.emit('unwatch', {sourceUrl: url})
     watches[url].close()
     watches[url] = null
   }
@@ -81,10 +77,10 @@ exports.unwatchSite = async function (url) {
 const crawlSite =
 exports.crawlSite = async function (archive) {
   if (typeof archive === 'string') {
-    archive = await dat.library.getOrLoadArchive(archive)
+    archive = await dat.archives.getOrLoadArchive(archive)
   }
   logger.silly('Crawling site', {details: {url: archive.url}})
-  crawlerEvents.emit('crawl-start', {sourceUrl: archive.url})
+  uwgEvents.emit('crawl-start', {sourceUrl: archive.url})
   var release = await lock('crawl:' + archive.url)
   try {
     var url = archive.url
@@ -111,16 +107,14 @@ exports.crawlSite = async function (archive) {
     if (didDnsChange) {
       crawlSource.globalResetRequired = true
       logger.verbose('Site DNS change detected, recrawling site', {details: {url: archive.url}})
-      crawlerEvents.emit('crawl-dns-change', {sourceUrl: archive.url})
+      uwgEvents.emit('crawl-dns-change', {sourceUrl: archive.url})
     }
 
     // crawl individual sources
     await Promise.all([
       bookmarks.crawlSite(archive, crawlSource),
       comments.crawlSite(archive, crawlSource),
-      // discussions.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
-      // media.crawlSite(archive, crawlSource),
       posts.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       siteDescriptions.crawlSite(archive, crawlSource),
@@ -137,9 +131,9 @@ exports.crawlSite = async function (archive) {
     }
   } catch (err) {
     logger.error('Failed to crawl site', {details: {url: archive.url, err: err.toString()}})
-    crawlerEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
+    uwgEvents.emit('crawl-error', {sourceUrl: archive.url, err: err.toString()})
   } finally {
-    crawlerEvents.emit('crawl-finish', {sourceUrl: archive.url})
+    uwgEvents.emit('crawl-finish', {sourceUrl: archive.url})
     release()
   }
 }
@@ -175,7 +169,7 @@ exports.getCrawlStates = async function () {
 
 const resetSite =
 exports.resetSite = async function (url) {
-  url = await dat.library.getPrimaryUrl(url)
+  url = await dat.archives.getPrimaryUrl(url)
   var release = await lock('crawl:' + url)
   try {
     logger.debug('Resetting site', {details: {url}})

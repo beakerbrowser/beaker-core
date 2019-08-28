@@ -2,15 +2,15 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const votesCrawler = require('../../crawler/votes')
+const votesAPI = require('../../uwg/votes')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../crawler/votes').Vote} Vote
- * @typedef {import('../../crawler/votes').TabulatedVotes} TabulatedVotes
+ * @typedef {import('../../uwg/votes').Vote} Vote
+ * @typedef {import('../../uwg/votes').TabulatedVotes} TabulatedVotes
  *
  * @typedef {Object} VoteAuthorPublicAPIRecord
  * @prop {string} url
@@ -77,7 +77,7 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var votes = await votesCrawler.list(opts)
+    var votes = await votesAPI.list(opts)
     return votes.map(massageVoteRecord)
   },
 
@@ -106,7 +106,7 @@ module.exports = {
       }
     }
 
-    var tally = await votesCrawler.tabulate(topic, opts)
+    var tally = await votesAPI.tabulate(topic, opts)
     return {
       topic: tally.topic,
       upvotes: tally.upvotes,
@@ -133,7 +133,7 @@ module.exports = {
    */
   async get (author, topic) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'read')
-    return massageVoteRecord(await votesCrawler.get(author, topic))
+    return massageVoteRecord(await votesAPI.get(author, topic))
   },
 
   /**
@@ -148,8 +148,8 @@ module.exports = {
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    await votesCrawler.set(userArchive, topic, vote)
-    return massageVoteRecord(await votesCrawler.get(userArchive.url, topic))
+    await votesAPI.set(userArchive, topic, vote)
+    return massageVoteRecord(await votesAPI.get(userArchive.url, topic))
   }
 }
 

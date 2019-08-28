@@ -1,5 +1,5 @@
 const { PermissionsError } = require('beaker-error-constants')
-const filesystem = require('../../users/filesystem')
+const filesystem = require('../../filesystem')
 
 // typedefs
 // =

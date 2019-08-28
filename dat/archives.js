@@ -1,15 +1,12 @@
 const emitStream = require('emit-stream')
 const EventEmitter = require('events')
 const datEncoding = require('dat-encoding')
-const pify = require('pify')
-const signatures = require('sodium-signatures')
 const parseDatURL = require('parse-dat-url')
 const _debounce = require('lodash.debounce')
-const mkdirp = require('mkdirp')
 const pda = require('pauls-dat-api2')
 const scopedFSes = require('../lib/scoped-fses')
 const baseLogger = require('../logger').get()
-const logger = baseLogger.child({category: 'dat', subcategory: 'library'})
+const logger = baseLogger.child({category: 'dat', subcategory: 'archives'})
 
 // dbs
 const siteData = require('../dbs/sitedata')
@@ -19,9 +16,7 @@ const datDnsDb = require('../dbs/dat-dns')
 
 // dat modules
 const daemon = require('./daemon')
-const datGC = require('./garbage-collector')
 const datAssets = require('./assets')
-const folderSync = require('./folder-sync')
 
 // constants
 // =
@@ -52,6 +47,10 @@ var archivesEvents = new EventEmitter()
 // exported API
 // =
 
+exports.on = archivesEvents.on.bind(archivesEvents)
+exports.addListener = archivesEvents.addListener.bind(archivesEvents)
+exports.removeListener = archivesEvents.removeListener.bind(archivesEvents)
+
 /**
  * @param {Object} opts
  * @param {Object} opts.rpcAPI
@@ -62,49 +61,8 @@ var archivesEvents = new EventEmitter()
 exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
   // connect to the daemon
   await daemon.setup()
-  folderSync.setup({
-    datPath: archivesDb.getDatPath(),
-    disallowedSavePaths
-  })
-  // daemonEvents = emitStream(daemon.createEventStream()) TODO
 
-  // pipe the log
-  // TODO needed?
-  // var daemonLogEvents = emitStream(daemon.createLogStream())
-  // daemonLogEvents.on('log', ({level, message, etc}) => {
-  //   baseLogger.log(level, message, etc)
-  // })
-
-  // wire up event handlers
-  archivesDb.on('update:archive-user-settings', async (key, userSettings, newUserSettings) => {
-    // emit event
-    var details = {
-      url: 'dat://' + key,
-      isSaved: userSettings.isSaved,
-      hidden: userSettings.hidden,
-      networked: userSettings.networked,
-      autoDownload: userSettings.autoDownload,
-      autoUpload: userSettings.autoUpload,
-      localSyncPath: userSettings.localSyncPath,
-      previewMode: userSettings.previewMode
-    }
-    archivesEvents.emit('updated', {details})
-    if ('isSaved' in newUserSettings) {
-      archivesEvents.emit(newUserSettings.isSaved ? 'added' : 'removed', {details})
-    }
-
-    // delete all perms for deleted archives
-    if (!userSettings.isSaved) {
-      siteData.clearPermissionAllOrigins('modifyDat:' + key)
-    }
-
-    // update the archive based on these settings
-    let archive = getArchive(key)
-    if (archive) {
-      folderSync.reconfigureArchive(archive, userSettings)
-    }
-  })
-  datDnsDb.on('update', ({key, name}) => {
+  datDnsDb.on('updated', ({key, name}) => {
     var archive = getArchive(key)
     if (archive) {
       archive.domain = name
@@ -114,8 +72,6 @@ exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
   // re-export events
   // TODO
   // daemonEvents.on('network-changed', evt => archivesEvents.emit('network-changed', evt))
-  // daemonEvents.on('folder-synced', evt => archivesEvents.emit('folder-synced', evt))
-  // daemonEvents.on('folder-sync-error', evt => archivesEvents.emit('folder-sync-error', evt))
 
   // configure the bandwidth throttle
   // TODO
@@ -128,33 +84,27 @@ exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
   // settingsDb.on('set:dat_bandwidth_limit_up', up => daemon.setBandwidthThrottle({up}))
   // settingsDb.on('set:dat_bandwidth_limit_down', down => daemon.setBandwidthThrottle({down}))
 
-  // start the GC manager
-  datGC.setup()
-  logger.info('Initialized dat library')
+  logger.info('Initialized dat daemon')
 }
 
 /**
  * @returns {Promise<void>}
  */
-exports.loadSavedArchives = function () {
-  // load and configure all saved archives
-  return archivesDb.query(0, {isSaved: true}).then(
-    async (/** @type LibraryArchiveRecord[] */archives) => {
-      // HACK
-      // load the archives one at a time and give 5 seconds between each
-      // why: the purpose of loading saved archives is to seed them
-      // loading them all at once can bog down the user's device
-      // if the user tries to access an archive, Beaker will load it immediately
-      // so spacing out the loads has no visible impact on the user
-      // (except for reducing the overall load for the user)
-      // -prf
-      for (let a of archives) {
-        loadArchive(a.key, a.userSettings)
-        await new Promise(r => setTimeout(r, 5e3)) // wait 5s
-      }
-    },
-    err => console.error('Failed to load networked archives', err)
-  )
+exports.loadSavedArchives = async function () {
+  // load all saved archives
+  var archives = require('../filesystem/dat-library').query({isHosting: true})
+  // HACK
+  // load the archives one at a time and give 5 seconds between each
+  // why: the purpose of loading saved archives is to seed them
+  // loading them all at once can bog down the user's device
+  // if the user tries to access an archive, Beaker will load it immediately
+  // so spacing out the loads has no visible impact on the user
+  // (except for reducing the overall load for the user)
+  // -prf
+  for (let a of archives) {
+    loadArchive(a.key)
+    await new Promise(r => setTimeout(r, 5e3)) // wait 5s
+  }
 }
 
 /**
@@ -204,7 +154,7 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 
     // emit the updated event
     details.url = 'dat://' + key
-    archivesEvents.emit('updated', {details})
+    archivesEvents.emit('updated', {key, details, oldMeta})
     return details
   } catch (e) {
     console.error('Error pulling meta', e)
@@ -215,21 +165,21 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
 // =
 
 /**
- * @param {Object} [manifest]
- * @param {Object|boolean} [settings]
+ * @returns {Promise<DaemonDatArchive>}
  */
-const createNewArchive = exports.createNewArchive = async function createNewArchive (manifest = {}, settings = false) {
-  var userSettings = {
-    isSaved: !(settings && settings.isSaved === false),
-    networked: !(settings && settings.networked === false),
-    hidden: settings && settings.hidden === true,
-    previewMode: settings && settings.previewMode === true,
-    localSyncPath: settings && settings.localSyncPath
-  }
+exports.createNewRootArchive = async function () {
+  var archive = await loadArchive(null, {visibility: 'private'})
+  await pullLatestArchiveMeta(archive)
+  return archive
+}
 
+/**
+ * @param {Object} [manifest]
+ * @returns {Promise<DaemonDatArchive>}
+ */
+const createNewArchive = exports.createNewArchive = async function (manifest = {}) {
   // create the archive
-  var archive = await loadArchive(null, userSettings)
-  var key = datEncoding.toStr(archive.key)
+  var archive = await loadArchive(null)
 
   // write the manifest and default datignore
   await Promise.all([
@@ -237,16 +187,18 @@ const createNewArchive = exports.createNewArchive = async function createNewArch
     archive.pda.writeFile('/.datignore', await settingsDb.get('default_dat_ignore'), 'utf8')
   ])
 
-  // write the user settings
-  await archivesDb.setUserSettings(0, key, userSettings)
-
-  // write the metadata
+  // save the metadata
   await pullLatestArchiveMeta(archive)
 
-  return `dat://${key}/`
+  return archive
 }
 
-exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, settings = undefined) {
+/**
+ * @param {string} srcArchiveUrl
+ * @param {Object} [manifest]
+ * @returns {Promise<DaemonDatArchive>}
+ */
+exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}) {
   srcArchiveUrl = fromKeyToURL(srcArchiveUrl)
 
   // get the source archive
@@ -284,8 +236,7 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
   })
 
   // create the new archive
-  var dstArchiveUrl = await createNewArchive(dstManifest, settings)
-  var dstArchive = getArchive(dstArchiveUrl)
+  var dstArchive = await createNewArchive(dstManifest)
 
   // copy files
   var ignore = ['/.dat', '/.git', '/dat.json']
@@ -303,13 +254,13 @@ exports.forkArchive = async function forkArchive (srcArchiveUrl, manifest = {}, 
     await dstArchive.pda.writeFile('/.datignore', await settingsDb.get('default_dat_ignore'), 'utf8')
   }
 
-  return dstArchiveUrl
+  return dstArchive
 }
 
 // archive management
 // =
 
-const loadArchive = exports.loadArchive = async function loadArchive (key, userSettings = null) {
+const loadArchive = exports.loadArchive = async function loadArchive (key, settingsOverride) {
   // validate key
   if (key) {
     if (!Buffer.isBuffer(key)) {
@@ -329,7 +280,7 @@ const loadArchive = exports.loadArchive = async function loadArchive (key, userS
   }
 
   // run and cache the promise
-  var p = loadArchiveInner(key, userSettings)
+  var p = loadArchiveInner(key, settingsOverride)
   if (key) archiveLoadPromises[keyStr] = p
   p.catch(err => {
     console.error('Failed to load archive', keyStr, err.toString())
@@ -345,19 +296,7 @@ const loadArchive = exports.loadArchive = async function loadArchive (key, userS
 }
 
 // main logic, separated out so we can capture the promise
-async function loadArchiveInner (key, userSettings = null) {
-  // load the user settings as needed
-  if (!userSettings) {
-    try {
-      userSettings = await archivesDb.getUserSettings(0, key)
-    } catch (e) {
-      userSettings = {networked: true}
-    }
-  }
-  if (!('networked' in userSettings)) {
-    userSettings.networked = true
-  }
-
+async function loadArchiveInner (key, settingsOverride) {
   // ensure the folders exist
   // TODO needed?
   // var metaPath = archivesDb.getArchiveMetaPath(key)
@@ -366,9 +305,21 @@ async function loadArchiveInner (key, userSettings = null) {
   // create the archive session with the daemon
   var archive = await daemon.createDatArchiveSession({key})
   key = archive.key
+  var keyStr = datEncoding.toStr(archive.key)
 
+  // fetch library settings
+  var userSettings = require('../filesystem/dat-library').getConfig(keyStr)
+  if (!userSettings) {
+    if (require('../filesystem/users').isUser(archive.url)) {
+      userSettings = {key: keyStr, isSaved: true, isHosting: true, visibility: 'unlisted', savedAt: null, meta: null}
+    }
+  }
+  if (settingsOverride) {
+    userSettings = Object.assign(userSettings || {}, settingsOverride)
+  }
+  
   // put the archive on the network
-  if (userSettings.networked) {
+  if (!userSettings || userSettings.visibility !== 'private') {
     archive.session.publish()
   }
 
@@ -380,8 +331,6 @@ async function loadArchiveInner (key, userSettings = null) {
   archivesDb.touch(archive.key).catch(err => console.error('Failed to update lastAccessTime for archive', archive.key, err))
   await pullLatestArchiveMeta(archive)
   datAssets.update(archive)
-  // configure subsystems
-  folderSync.reconfigureArchive(archive, userSettings)
 
   // wire up events
   archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
@@ -390,22 +339,10 @@ async function loadArchiveInner (key, userSettings = null) {
     if (event !== 'changed') return
     archive.pullLatestArchiveMeta({updateMTime: true})
     datAssets.update(archive, [path])
-    
-    let localSyncSettings = folderSync.getLocalSyncSettings(archive)
-    if (localSyncSettings) {
-      // need to sync this change to the local folder
-      if (localSyncSettings.autoPublish) {
-        // bidirectional sync: use the sync queue
-        folderSync.queueSyncEvent(archive, {toFolder: true})
-      } else {
-        // preview mode: just write this update to disk
-        folderSync.syncArchiveToFolder(archive, {paths: [path], shallow: false})
-      }
-    }
   })
 
   // now store in main archives listing, as loaded
-  archives[datEncoding.toStr(archive.key)] = archive
+  archives[keyStr] = archive
   return archive
 }
 
@@ -416,25 +353,12 @@ const getArchive = exports.getArchive = function getArchive (key) {
 
 exports.getArchiveCheckout = async function getArchiveCheckout (archive, version) {
   var isHistoric = false
-  var isPreview = false
   var checkoutFS = archive
   if (typeof version !== 'undefined' && version !== null) {
     let seq = parseInt(version)
     if (Number.isNaN(seq)) {
       if (version === 'latest') {
         // ignore, we use latest by default
-      } else if (version === 'preview') {
-        let localSyncSettings = folderSync.getLocalSyncSettings(archive)
-        if (localSyncSettings) {
-          isPreview = true
-          checkoutFS = scopedFSes.get(localSyncSettings.path)
-          checkoutFS.setFilter(p => folderSync.applyDatIgnoreFilter(archive, p))
-          checkoutFS.domain = archive.domain
-        } else {
-          var err = new Error('Preview mode is not active')
-          err.noPreviewMode = true
-          throw err
-        }
       } else {
         throw new Error('Invalid version identifier:' + version)
       }
@@ -452,20 +376,20 @@ exports.getArchiveCheckout = async function getArchiveCheckout (archive, version
       isHistoric = true
     }
   }
-  return {isHistoric, isPreview, checkoutFS}
+  return {isHistoric, checkoutFS}
 }
 
 exports.getActiveArchives = function getActiveArchives () {
   return archives
 }
 
-const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArchive (key, opts) {
+const getOrLoadArchive = exports.getOrLoadArchive = async function getOrLoadArchive (key) {
   key = await fromURLToKey(key, true)
   var archive = getArchive(key)
   if (archive) {
     return archive
   }
-  return loadArchive(key, opts)
+  return loadArchive(key)
 }
 
 exports.unloadArchive = async function unloadArchive (key) {
@@ -489,41 +413,15 @@ const isArchiveLoaded = exports.isArchiveLoaded = function isArchiveLoaded (key)
 // archive fetch/query
 // =
 
-exports.queryArchives = async function queryArchives (query) {
-  // run the query
-  var archiveInfos = await archivesDb.query(0, query)
-  if (!archiveInfos) return undefined
-  var isArray = Array.isArray(archiveInfos)
-  if (!isArray) archiveInfos = [archiveInfos]
-
-  if (query && ('inMemory' in query)) {
-    archiveInfos = archiveInfos.filter(archiveInfo => isArchiveLoaded(archiveInfo.key) === query.inMemory)
-  }
-
-  // attach some live data
-  await Promise.all(archiveInfos.map(async (archiveInfo) => {
-    var archive = getArchive(archiveInfo.key)
-    if (archive) {
-      var info = await archive.getInfo()
-      archiveInfo.isSwarmed = archiveInfo.userSettings.networked
-      archiveInfo.peers = info.peers
-    } else {
-      archiveInfo.isSwarmed = false
-      archiveInfo.peers = 0
-    }
-  }))
-  return isArray ? archiveInfos : archiveInfos[0]
-}
-
 exports.getArchiveInfo = async function getArchiveInfo (key) {
   // get the archive
   key = await fromURLToKey(key, true)
   var archive = await getOrLoadArchive(key)
 
   // fetch archive data
-  var [meta, userSettings, manifest, archiveInfo] = await Promise.all([
+  var userSettings = require('../filesystem/dat-library').getConfig(key)
+  var [meta, manifest, archiveInfo] = await Promise.all([
     archivesDb.getMeta(key),
-    archivesDb.getUserSettings(0, key),
     archive.pda.readManifest().catch(_ => {}),
     archive.getInfo()
   ])
@@ -535,14 +433,10 @@ exports.getArchiveInfo = async function getArchiveInfo (key) {
   meta.manifest = manifest
   meta.version = archiveInfo.version
   meta.userSettings = {
-    isSaved: userSettings.isSaved,
-    hidden: userSettings.hidden,
-    networked: userSettings.networked,
-    autoDownload: userSettings.autoDownload,
-    autoUpload: userSettings.autoUpload,
-    expiresAt: userSettings.expiresAt,
-    localSyncPath: userSettings.localSyncPath,
-    previewMode: userSettings.previewMode
+    isSaved: userSettings ? true : false,
+    isHosting: userSettings ? userSettings.isHosting : false,
+    visibility: userSettings ? userSettings.visibility : undefined,
+    savedAt: userSettings ? userSettings.savedAt : null
   }
   meta.peers = archiveInfo.peers
   meta.networkStats = archiveInfo.networkStats
@@ -556,7 +450,6 @@ exports.getArchiveNetworkStats = async function getArchiveNetworkStats (key) {
 }
 
 exports.clearFileCache = async function clearFileCache (key) {
-  var userSettings = await archivesDb.getUserSettings(0, key)
   return {} // TODO daemon.clearFileCache(key, userSettings)
 }
 

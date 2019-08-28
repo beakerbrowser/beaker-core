@@ -13,7 +13,6 @@ module.exports = {
   setSetting: 'promise',
   getUserSetupStatus: 'promise',
   setUserSetupStatus: 'promise',
-  getDefaultLocalPath: 'promise',
   setStartPageBackgroundImage: 'promise',
   getDefaultProtocolSettings: 'promise',
   setAsDefaultProtocolClient: 'promise',
