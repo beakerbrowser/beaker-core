@@ -28,11 +28,6 @@ const APIs = {
     manifest: require('../manifests/external/unwalled-garden-comments'),
     create: makeCreateFn('unwalled-garden-comments')
   },
-  // TODO readd when stablized -prf
-  // 'unwalled-garden-discussions': {
-  //   manifest: require('../manifests/external/unwalled-garden-discussions'),
-  //   create: makeCreateFn('unwalled-garden-discussions')
-  // },
   'unwalled-garden-follows': {
     manifest: require('../manifests/external/unwalled-garden-follows'),
     create: makeCreateFn('unwalled-garden-follows')
