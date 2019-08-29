@@ -23,8 +23,8 @@ exports.setup = function (rpc) {
 
   var filesystemApi = rpc.importAPI('navigator-filesystem', filesystemManifest, RPC_OPTS)
   navigator.filesystem = {
-    async getRootArchive () {
-      var {url} = await filesystemApi.getRootArchive()
+    async getRoot () {
+      var {url} = await filesystemApi.getRoot()
       return new DatArchive(url)
     }
   }

@@ -5,7 +5,7 @@ const filesystem = require('../../filesystem')
 // =
 
 /**
- * @typedef {Object} NavigatorFilesystemPublicAPIRootArchiveRecord
+ * @typedef {Object} NavigatorFilesystemPublicAPIRootRecord
  * @prop {string} url
  */
 
@@ -14,9 +14,9 @@ const filesystem = require('../../filesystem')
 
 module.exports = {
   /**
-   * @returns {Promise<NavigatorFilesystemPublicAPIRootArchiveRecord>}
+   * @returns {Promise<NavigatorFilesystemPublicAPIRootRecord>}
    */
-  async getRootArchive () {
+  async getRoot () {
     if (!this.sender.getURL().startsWith('beaker:')) {
       throw new PermissionsError()
     }
