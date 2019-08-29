@@ -15,6 +15,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} title
  * @prop {string} description
  * @prop {string[]} type
+ * @prop {boolean} isOwner
  */
 
 // exported api
@@ -28,12 +29,12 @@ const sessionPerms = require('../../lib/session-perms')
 async function get (url) {
   var key = await datArchives.fromURLToKey(url, true)
   var meta = await archivesDb.getMeta(key)
-  if (!meta) return null
   return {
-    url: await datArchives.getPrimaryUrl(key),
+    url: meta.url,
     title: meta.title,
     description: meta.description,
-    type: /** @type string[] */(meta.type)
+    type: /** @type string[] */(meta.type),
+    isOwner: meta.isOwner
   }
 }
 

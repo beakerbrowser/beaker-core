@@ -7,7 +7,6 @@ const filesystem = require('../filesystem')
 const datLibrary = require('../filesystem/dat-library')
 const follows = require('./follows')
 const bookmarks = require('./bookmarks')
-const siteDescriptions = require('./site-descriptions')
 const knex = require('../lib/knex')
 const libTools = require('@beaker/library-tools')
 
@@ -17,7 +16,6 @@ const SITE_TYPES = Object.values(libTools.getCategoriesMap()).filter(Boolean)
 // =
 
 /**
- * @typedef {import("./site-descriptions").SiteDescription} SiteDescription
  * @typedef {import("../filesystem/dat-library").LibraryDat} LibraryDat
  *
  * @typedef {Object} SuggestionResults

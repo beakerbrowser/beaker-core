@@ -5,9 +5,9 @@ const Ajv = require('ajv')
 const logger = require('../logger').child({category: 'uwg', dataset: 'bookmarks'})
 const db = require('../dbs/profile-data-db')
 const datArchives = require('../dat/archives')
+const archivesDb = require('../dbs/archives')
 const knex = require('../lib/knex')
 const uwg = require('./index')
-const siteDescriptions = require('./site-descriptions')
 const {
   doCrawl,
   doCheckpoint,
@@ -32,7 +32,7 @@ const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/bookmarks\/([^/]+)\.json$/
 /**
  * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
- * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
+ * @typedef { import("../dbs/archives").LibraryArchiveMeta } LibraryArchiveMeta
  *
  * @typedef {Object} Bookmark
  * @prop {string} pathname
@@ -44,7 +44,7 @@ const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/bookmarks\/([^/]+)\.json$/
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
- * @prop {SiteDescription} author
+ * @prop {LibraryArchiveMeta} author
  */
 
 // globals
@@ -404,18 +404,7 @@ function joinPath (origin, pathname) {
  */
 async function massageBookmarkRow (row) {
   if (!row) return null
-  var author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
-  if (!author) {
-    author = {
-      url: row.crawlSourceUrl,
-      title: '',
-      description: '',
-      type: [],
-      thumbUrl: `${row.crawlSourceUrl}/thumb`,
-      descAuthor: {url: null},
-      isOwner: false
-    }
-  }
+  var author = await archivesDb.getMeta(row.crawlSourceUrl)
   return {
     pathname: row.pathname,
     author,

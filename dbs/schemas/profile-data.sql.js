@@ -120,32 +120,6 @@ CREATE TABLE crawl_sources_meta (
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
--- crawled descriptions of other sites
-CREATE TABLE crawl_site_descriptions (
-  crawlSourceId INTEGER NOT NULL,
-  crawledAt INTEGER,
-
-  url TEXT,
-  title TEXT,
-  description TEXT,
-  type TEXT, -- comma separated strings
-
-  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
-);
-CREATE VIRTUAL TABLE crawl_site_descriptions_fts_index USING fts5(title, description, content='crawl_site_descriptions');
-
--- triggers to keep crawl_site_descriptions_fts_index updated
-CREATE TRIGGER crawl_site_descriptions_ai AFTER INSERT ON crawl_site_descriptions BEGIN
-  INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
-END;
-CREATE TRIGGER crawl_site_descriptions_ad AFTER DELETE ON crawl_site_descriptions BEGIN
-  INSERT INTO crawl_site_descriptions_fts_index(crawl_site_descriptions_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
-END;
-CREATE TRIGGER crawl_site_descriptions_au AFTER UPDATE ON crawl_site_descriptions BEGIN
-  INSERT INTO crawl_site_descriptions_fts_index(crawl_site_descriptions_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
-  INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
-END;
-
 -- crawled tags
 CREATE TABLE crawl_tags (
   id INTEGER PRIMARY KEY,
@@ -286,87 +260,6 @@ CREATE TABLE crawl_follows (
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
--- crawled discussions
-CREATE TABLE crawl_discussions (
-  id INTEGER PRIMARY KEY,
-  crawlSourceId INTEGER NOT NULL,
-  pathname TEXT NOT NULL,
-  crawledAt INTEGER,
-  
-  title TEXT NOT NULL,
-  body TEXT,
-  href TEXT,
-  createdAt INTEGER,
-  updatedAt INTEGER,
-
-  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
-);
-CREATE INDEX crawl_discussions_url ON crawl_discussions (crawlSourceId, pathname);
-CREATE VIRTUAL TABLE crawl_discussions_fts_index USING fts5(title, body, content='crawl_discussions');
-
--- triggers to keep crawl_discussions_fts_index updated
-CREATE TRIGGER crawl_discussions_ai AFTER INSERT ON crawl_discussions BEGIN
-  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
-END;
-CREATE TRIGGER crawl_discussions_ad AFTER DELETE ON crawl_discussions BEGIN
-  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
-END;
-CREATE TRIGGER crawl_discussions_au AFTER UPDATE ON crawl_discussions BEGIN
-  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
-  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
-END;
-
--- crawled discussion tags
-CREATE TABLE crawl_discussions_tags (
-  crawlDiscussionId INTEGER,
-  crawlTagId INTEGER,
-
-  FOREIGN KEY (crawlDiscussionId) REFERENCES crawl_discussions (id) ON DELETE CASCADE,
-  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
-);
-
--- crawled media
-CREATE TABLE crawl_media (
-  id INTEGER PRIMARY KEY,
-  crawlSourceId INTEGER NOT NULL,
-  pathname TEXT NOT NULL,
-  crawledAt INTEGER,
-  
-  subtype TEXT NOT NULL,
-  href TEXT NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  createdAt INTEGER,
-  updatedAt INTEGER,
-
-  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
-);
-CREATE INDEX crawl_media_url ON crawl_media (crawlSourceId, pathname);
-CREATE INDEX crawl_media_subtype ON crawl_media (subtype);
-CREATE INDEX crawl_media_href ON crawl_media (href);
-CREATE VIRTUAL TABLE crawl_media_fts_index USING fts5(title, description, content='crawl_media');
-
--- triggers to keep crawl_media_fts_index updated
-CREATE TRIGGER crawl_media_ai AFTER INSERT ON crawl_media BEGIN
-  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
-END;
-CREATE TRIGGER crawl_media_ad AFTER DELETE ON crawl_media BEGIN
-  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
-END;
-CREATE TRIGGER crawl_media_au AFTER UPDATE ON crawl_media BEGIN
-  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
-  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
-END;
-
--- crawled media tags
-CREATE TABLE crawl_media_tags (
-  crawlMediaId INTEGER,
-  crawlTagId INTEGER,
-
-  FOREIGN KEY (crawlMediaId) REFERENCES crawl_media (id) ON DELETE CASCADE,
-  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
-);
-
 -- deprecated
 CREATE TABLE bookmarks (
   profileId INTEGER,
@@ -466,6 +359,121 @@ CREATE TABLE workspaces (
 
   PRIMARY KEY (profileId, name),
   FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
+);
+
+-- deprecated
+-- crawled descriptions of other sites
+CREATE TABLE crawl_site_descriptions (
+  crawlSourceId INTEGER NOT NULL,
+  crawledAt INTEGER,
+
+  url TEXT,
+  title TEXT,
+  description TEXT,
+  type TEXT, -- comma separated strings
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE VIRTUAL TABLE crawl_site_descriptions_fts_index USING fts5(title, description, content='crawl_site_descriptions');
+
+-- deprecated
+-- triggers to keep crawl_site_descriptions_fts_index updated
+CREATE TRIGGER crawl_site_descriptions_ai AFTER INSERT ON crawl_site_descriptions BEGIN
+  INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_site_descriptions_ad AFTER DELETE ON crawl_site_descriptions BEGIN
+  INSERT INTO crawl_site_descriptions_fts_index(crawl_site_descriptions_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_site_descriptions_au AFTER UPDATE ON crawl_site_descriptions BEGIN
+  INSERT INTO crawl_site_descriptions_fts_index(crawl_site_descriptions_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_site_descriptions_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+
+-- deprecated
+-- crawled media
+CREATE TABLE crawl_media (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  subtype TEXT NOT NULL,
+  href TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_media_url ON crawl_media (crawlSourceId, pathname);
+CREATE INDEX crawl_media_subtype ON crawl_media (subtype);
+CREATE INDEX crawl_media_href ON crawl_media (href);
+CREATE VIRTUAL TABLE crawl_media_fts_index USING fts5(title, description, content='crawl_media');
+
+-- deprecated
+-- triggers to keep crawl_media_fts_index updated
+CREATE TRIGGER crawl_media_ai AFTER INSERT ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_media_ad AFTER DELETE ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_media_au AFTER UPDATE ON crawl_media BEGIN
+  INSERT INTO crawl_media_fts_index(crawl_media_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_media_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+
+-- deprecated
+-- crawled media tags
+CREATE TABLE crawl_media_tags (
+  crawlMediaId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlMediaId) REFERENCES crawl_media (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
+-- deprecated
+-- crawled discussions
+CREATE TABLE crawl_discussions (
+  id INTEGER PRIMARY KEY,
+  crawlSourceId INTEGER NOT NULL,
+  pathname TEXT NOT NULL,
+  crawledAt INTEGER,
+  
+  title TEXT NOT NULL,
+  body TEXT,
+  href TEXT,
+  createdAt INTEGER,
+  updatedAt INTEGER,
+
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+CREATE INDEX crawl_discussions_url ON crawl_discussions (crawlSourceId, pathname);
+CREATE VIRTUAL TABLE crawl_discussions_fts_index USING fts5(title, body, content='crawl_discussions');
+
+-- deprecated
+-- triggers to keep crawl_discussions_fts_index updated
+CREATE TRIGGER crawl_discussions_ai AFTER INSERT ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+END;
+CREATE TRIGGER crawl_discussions_ad AFTER DELETE ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+END;
+CREATE TRIGGER crawl_discussions_au AFTER UPDATE ON crawl_discussions BEGIN
+  INSERT INTO crawl_discussions_fts_index(crawl_discussions_fts_index, rowid, title, body) VALUES('delete', old.rowid, old.title, old.body);
+  INSERT INTO crawl_discussions_fts_index(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+END;
+
+-- deprecated
+-- crawled discussion tags
+CREATE TABLE crawl_discussions_tags (
+  crawlDiscussionId INTEGER,
+  crawlTagId INTEGER,
+
+  FOREIGN KEY (crawlDiscussionId) REFERENCES crawl_discussions (id) ON DELETE CASCADE,
+  FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
 );
 
 -- default profile

@@ -9,12 +9,12 @@ const dat = require('../dat')
 const users = require('../filesystem/users')
 
 const {uwgEvents, toHostname} = require('./util')
+const metadata = require('./metadata')
 const bookmarks = require('./bookmarks')
 const comments = require('./comments')
 const follows = require('./follows')
 const posts = require('./posts')
 const reactions = require('./reactions')
-const siteDescriptions = require('./site-descriptions')
 const votes = require('./votes')
 
 // globals
@@ -30,7 +30,6 @@ exports.comments = comments
 exports.follows = follows
 exports.posts = posts
 exports.reactions = reactions
-exports.siteDescriptions = siteDescriptions
 exports.votes = votes
 const createEventsStream = exports.createEventsStream = () => emitStream(uwgEvents)
 
@@ -114,12 +113,12 @@ exports.crawlSite = async function (archive) {
 
     // crawl individual sources
     await Promise.all([
+      metadata.crawlSite(archive, crawlSource),
       bookmarks.crawlSite(archive, crawlSource),
       comments.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
       posts.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
-      siteDescriptions.crawlSite(archive, crawlSource),
       votes.crawlSite(archive, crawlSource)
     ])
 

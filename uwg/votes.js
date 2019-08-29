@@ -6,8 +6,8 @@ const logger = require('../logger').child({category: 'uwg', dataset: 'votes'})
 const db = require('../dbs/profile-data-db')
 const uwg = require('./index')
 const datArchives = require('../dat/archives')
+const archivesDb = require('../dbs/archives')
 const knex = require('../lib/knex')
-const siteDescriptions = require('./site-descriptions')
 const {
   doCrawl,
   doCheckpoint,
@@ -32,7 +32,7 @@ const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/votes\/([^/]+)\.json$/i
 /**
  * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
- * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
+ * @typedef { import("../dbs/archives").LibraryArchiveMeta } LibraryArchiveMeta
  *
  * @typedef {Object} Vote
  * @prop {string} pathname
@@ -40,15 +40,15 @@ const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/votes\/([^/]+)\.json$/i
  * @prop {number} vote
  * @prop {string} createdAt
  * @prop {string} updatedAt
- * @prop {SiteDescription} author
+ * @prop {LibraryArchiveMeta} author
  * @prop {string} visibility
  *
  * @typedef {Object} TabulatedVotes
  * @prop {string} topic
  * @prop {number} upvotes
- * @prop {SiteDescription[]} upvoters
+ * @prop {LibraryArchiveMeta[]} upvoters
  * @prop {number} downvotes
- * @prop {SiteDescription[]} downvoters
+ * @prop {LibraryArchiveMeta[]} downvoters
  */
 
 // globals
@@ -279,7 +279,7 @@ exports.tabulate = async function (topic, opts) {
     downvoters: []
   }
   await Promise.all(rows.map(async (row) => {
-    let author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
+    let author = await archivesDb.getMeta(row.crawlSourceUrl)
     if ((+row.vote) === 1) {
       tally.upvotes++
       tally.upvoters.push(author)
@@ -368,17 +368,7 @@ exports.set = async function (archive, topic, vote) {
  */
 async function massageVoteRow (row) {
   if (!row) return null
-  var author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
-  if (!author) {
-    author = {
-      url: row.crawlSourceUrl,
-      title: '',
-      description: '',
-      type: [],
-      thumbUrl: `${row.crawlSourceUrl}/thumb`,
-      descAuthor: {url: null}
-    }
-  }
+  var author = await archivesDb.getMeta(row.crawlSourceUrl)
   return {
     pathname: row.pathname,
     author,

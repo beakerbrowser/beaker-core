@@ -2,8 +2,8 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
+const archivesDb = require('../../dbs/archives')
 const reactionsAPI = require('../../uwg/reactions')
-const siteDescriptionsAPI = require('../../uwg/site-descriptions')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -17,6 +17,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} title
  * @prop {string} description
  * @prop {string[]} type
+ * @prop {boolean} isOwner
  *
  * @typedef {Object} TopicReactionsPublicAPIRecord
  * @prop {string} topic
@@ -107,12 +108,13 @@ module.exports = {
       topic,
       emoji: reaction.emoji,
       authors: await Promise.all(reaction.authors.map(async (url) => {
-        var desc = await siteDescriptionsAPI.getBest({subject: url})
+        var desc = await archivesDb.getMeta(url)
         return {
           url: desc.url,
           title: desc.title,
           description: desc.description,
-          type: desc.type
+          type: /** @type string[] */(desc.type),
+          isOwner: desc.isOwner
         }
       }))
     })))
@@ -165,7 +167,7 @@ function normalizeTopicUrl (url) {
  * @returns {Promise<ReactionPublicAPIRecord>}
  */
 async function massageReactionRecord (reaction) {
-  var desc = await siteDescriptionsAPI.getBest({subject: reaction.author})
+  var desc = await archivesDb.getMeta(reaction.author)
   return {
     url: reaction.recordUrl,
     topic: reaction.topic,
@@ -174,7 +176,8 @@ async function massageReactionRecord (reaction) {
       url: desc.url,
       title: desc.title,
       description: desc.description,
-      type: desc.type
+      type: /** @type string[] */(desc.type),
+      isOwner: desc.isOwner
     },
     visibility: reaction.visibility
   }

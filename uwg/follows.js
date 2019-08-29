@@ -9,7 +9,7 @@ const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const uwg = require('./index')
 const datArchives = require('../dat/archives')
-const siteDescriptions = require('./site-descriptions')
+const archivesDb = require('../dbs/archives')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
 const followsSchema = require('./json-schemas/follows')
 
@@ -26,11 +26,11 @@ const JSON_PATH = '/.data/unwalled.garden/follows.json'
 /**
  * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
- * @typedef {import('./site-descriptions').SiteDescription} SiteDescription
+ * @typedef {import('../dbs/archives').LibraryArchiveMeta} LibraryArchiveMeta
  *
  * @typedef {Object} Follow
- * @prop {SiteDescription} author
- * @prop {SiteDescription} topic
+ * @prop {LibraryArchiveMeta} author
+ * @prop {LibraryArchiveMeta} topic
  * @prop {string} visibility
  */
 
@@ -207,8 +207,8 @@ const list = exports.list = async function (opts) {
     var author = toOrigin(row.authorUrl)
     var topic = toOrigin(row.destUrl)
     return {
-      author: await siteDescriptions.getBest({subject: author}),
-      topic: await siteDescriptions.getBest({subject: topic}),
+      author: await archivesDb.getMeta(author),
+      topic: await archivesDb.getMeta(topic),
       visibility: 'public'
     }
   }))).filter(record => !!record.author && !!record.topic)
@@ -233,8 +233,8 @@ const get = exports.get = async function (author, topic) {
     .where('crawl_follows.destUrl', topic))
   if (!res) return null
   var record = {
-    author: await siteDescriptions.getBest({subject: toOrigin(res.authorUrl)}),
-    topic: await siteDescriptions.getBest({subject: toOrigin(res.destUrl)}),
+    author: await archivesDb.getMeta(toOrigin(res.authorUrl)),
+    topic: await archivesDb.getMeta(toOrigin(res.destUrl)),
     visibility: 'public'
   }
   if (!record.author || !record.topic) return null
@@ -264,9 +264,6 @@ exports.add = async function (archive, topic, opts) {
       followsJson.urls.push(topic)
     }
   })
-
-  // capture site description
-  /* dont await */siteDescriptions.capture(archive, topic)
 }
 
 /**

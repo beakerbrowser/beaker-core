@@ -6,9 +6,9 @@ const logger = require('../logger').child({category: 'uwg', dataset: 'posts'})
 const db = require('../dbs/profile-data-db')
 const uwg = require('./index')
 const datArchives = require('../dat/archives')
+const archivesDb = require('../dbs/archives')
 const lock = require('../lib/lock')
 const knex = require('../lib/knex')
-const siteDescriptions = require('./site-descriptions')
 const {
   doCrawl,
   doCheckpoint,
@@ -32,14 +32,14 @@ const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/posts\/([^/]+)\.json$/i
 /**
  * @typedef {import('../dat/daemon').DaemonDatArchive} DaemonDatArchive
  * @typedef {import('./util').CrawlSourceRecord} CrawlSourceRecord
- * @typedef { import("./site-descriptions").SiteDescription } SiteDescription
+ * @typedef { import("../dbs/archives").LibraryArchiveMeta } LibraryArchiveMeta
  *
  * @typedef {Object} Post
  * @prop {string} pathname
  * @prop {string} body
  * @prop {string} createdAt
  * @prop {string} updatedAt
- * @prop {SiteDescription} author
+ * @prop {LibraryArchiveMeta} author
  * @prop {string} visibility
  */
 
@@ -343,17 +343,7 @@ function joinPath (origin, pathname) {
  */
 async function massagePostRow (row) {
   if (!row) return null
-  var author = await siteDescriptions.getBest({subject: row.crawlSourceUrl})
-  if (!author) {
-    author = {
-      url: row.crawlSourceUrl,
-      title: '',
-      description: '',
-      type: [],
-      thumbUrl: `${row.crawlSourceUrl}/thumb`,
-      descAuthor: {url: null}
-    }
-  }
+  var author = await archivesDb.getMeta(row.crawlSourceUrl)
   return {
     pathname: row.pathname,
     author,

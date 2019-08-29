@@ -17,6 +17,7 @@ const {DAT_HASH_REGEX} = require('../lib/const')
  *
  * @typedef {Object} LibraryArchiveMeta
  * @prop {string} key
+ * @prop {string} url
  * @prop {string} title
  * @prop {string} description
  * @prop {string | Array<string>} type
@@ -119,6 +120,31 @@ exports.touch = async function (key, timeVar = 'lastAccessTime', value = -1) {
 }
 
 /**
+ * @param {string} key
+ * @returns {Promise<boolean>}
+ */
+exports.hasMeta = async function (key) {
+  // massage inputs
+  var keyStr = typeof key !== 'string' ? datEncoding.toStr(key) : key
+  if (!DAT_HASH_REGEX.test(keyStr)) {
+    try {
+      keyStr = await require('../dat/dns').resolveName(keyStr)
+    } catch (e) {
+      return false
+    }
+  }
+
+  // fetch
+  var meta = await db.get(`
+    SELECT
+        archives_meta.key
+      FROM archives_meta
+      WHERE archives_meta.key = ?
+  `, [keyStr])
+  return !!meta
+}
+
+/**
  * @description
  * Get a single archive's metadata.
  * Returns an empty object on not-found.
@@ -128,29 +154,38 @@ exports.touch = async function (key, timeVar = 'lastAccessTime', value = -1) {
 const getMeta = exports.getMeta = async function (key) {
   // massage inputs
   var keyStr = typeof key !== 'string' ? datEncoding.toStr(key) : key
+  var origKeyStr = keyStr
 
   // validate inputs
   if (!DAT_HASH_REGEX.test(keyStr)) {
-    keyStr = await require('../dat/dns').resolveName(keyStr)
+    try {
+      keyStr = await require('../dat/dns').resolveName(keyStr)
+    } catch (e) {
+      return defaultMeta(keyStr, origKeyStr)
+    }
   }
 
   // fetch
   var meta = await db.get(`
     SELECT
         archives_meta.*,
-        GROUP_CONCAT(archives_meta_type.type) AS type
+        GROUP_CONCAT(archives_meta_type.type) AS type,
+        dat_dns.name as dnsName
       FROM archives_meta
       LEFT JOIN archives_meta_type ON archives_meta_type.key = archives_meta.key
+      LEFT JOIN dat_dns ON dat_dns.key = archives_meta.key AND dat_dns.isCurrent = 1
       WHERE archives_meta.key = ?
       GROUP BY archives_meta.key
   `, [keyStr])
   if (!meta) {
-    return defaultMeta(keyStr)
+    return defaultMeta(keyStr, origKeyStr)
   }
 
   // massage some values
+  meta.url = `dat://${meta.dnsName || meta.key}`
   meta.isOwner = !!meta.isOwner
   meta.type = meta.type ? meta.type.split(',') : []
+  delete meta.dnsName
 
   // remove old attrs
   delete meta.createdByTitle
@@ -215,11 +250,13 @@ exports.setMeta = async function (key, value) {
 
 /**
  * @param {string} key
+ * @param {string} name
  * @returns {LibraryArchiveMeta}
  */
-function defaultMeta (key) {
+function defaultMeta (key, name) {
   return {
     key,
+    url: `dat://${name}`,
     title: null,
     description: null,
     type: [],

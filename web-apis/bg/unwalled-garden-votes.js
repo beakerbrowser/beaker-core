@@ -17,6 +17,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} title
  * @prop {string} description
  * @prop {string[]} type
+ * @prop {boolean} isOwner
  *
  * @typedef {Object} TabulatedVotesPublicAPIRecord
  * @prop {string} topic
