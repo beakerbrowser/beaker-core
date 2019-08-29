@@ -317,7 +317,7 @@ async function loadArchiveInner (key, settingsOverride) {
   if (settingsOverride) {
     userSettings = Object.assign(userSettings || {}, settingsOverride)
   }
-  
+
   // put the archive on the network
   if (!userSettings || userSettings.visibility !== 'private') {
     archive.session.publish()

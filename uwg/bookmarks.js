@@ -13,7 +13,7 @@ const {
   doCheckpoint,
   emitProgressEvent,
   getMatchingChangesInOrder,
-  generateTimeFilename,
+  slugifyUrl,
   normalizeTopicUrl,
   ensureDirectory
 } = require('./util')
@@ -40,6 +40,7 @@ const JSON_PATH_REGEX = /^\/data\/bookmarks\/([^/]+)\.json$/i
  * @prop {string} title
  * @prop {string?} description
  * @prop {string[]?} tags
+ * @prop {string} visibility
  * @prop {number} crawledAt
  * @prop {number} createdAt
  * @prop {number} updatedAt
@@ -166,13 +167,14 @@ exports.crawlSite = async function (archive, crawlSource) {
   * @param {Object} [opts.filters]
   * @param {string|string[]} [opts.filters.authors]
   * @param {string|string[]} [opts.filters.tags]
+  * @param {string} [opts.filters.visibility]
   * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
   * @param {number} [opts.limit]
   * @param {boolean} [opts.reverse]
  * @returns {Promise<Array<Bookmark>>}
  */
-exports.query = async function (opts) {
+exports.list = async function (opts) {
   // TODO tags filter
 
   // validate & parse params
@@ -198,12 +200,16 @@ exports.query = async function (opts) {
         opts.filters.tags = [opts.filters.tags]
       }
     }
+    if ('visibility' in opts.filters) {
+      assert(opts.filters.visibility === 'private' || opts.filters.visibility === 'public', 'Visibility filter must be "private" or "public"')
+    }
   }
 
   // build query
   var sql = knex('crawl_bookmarks')
     .select('crawl_bookmarks.*')
     .select('crawl_sources.url as crawlSourceUrl')
+    .select('crawl_sources.isPrivate as isPrivate')
     .select(knex.raw('group_concat(crawl_tags.tag, ",") as tags'))
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
     .leftJoin('crawl_bookmarks_tags', 'crawl_bookmarks_tags.crawlBookmarkId', '=', 'crawl_bookmarks.id')
@@ -212,6 +218,9 @@ exports.query = async function (opts) {
     .orderBy('crawl_bookmarks.createdAt', opts.reverse ? 'DESC' : 'ASC')
   if (opts && opts.filters && opts.filters.authors) {
     sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  }
+  if (opts && opts.filters && opts.filters.visibility) {
+    sql.where('crawl_sources.isPrivate', (opts.filters.visibility === 'private') ? 1 : 0)
   }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)
@@ -248,6 +257,7 @@ const getBookmark = exports.getBookmark = async function (url) {
   var sql = knex('crawl_bookmarks')
     .select('crawl_bookmarks.*')
     .select('crawl_sources.url as crawlSourceUrl')
+    .select('crawl_sources.isPrivate as isPrivate')
     .select(knex.raw('group_concat(crawl_tags.tag, ",") as tags'))
     .innerJoin('crawl_sources', function () {
       this.on('crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
@@ -264,14 +274,58 @@ const getBookmark = exports.getBookmark = async function (url) {
 
 /**
  * @description
+ * Get crawled bookmark.
+ *
+ * @param {string} author - The URL of the author of the bookmark
+ * @param {string} href - The href of the bookmark
+ * @returns {Promise<Bookmark>}
+ */
+exports.getBookmarkByHref = async function (author, href) {
+  // build query
+  var sql = knex('crawl_bookmarks')
+    .select('crawl_bookmarks.*')
+    .select('crawl_sources.url as crawlSourceUrl')
+    .select('crawl_sources.isPrivate as isPrivate')
+    .select(knex.raw('group_concat(crawl_tags.tag, ",") as tags'))
+    .innerJoin('crawl_sources', function () {
+      this.on('crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
+        .andOn('crawl_sources.url', '=', knex.raw('?', author))
+    })
+    .leftJoin('crawl_bookmarks_tags', 'crawl_bookmarks_tags.crawlBookmarkId', '=', 'crawl_bookmarks.id')
+    .leftJoin('crawl_tags', 'crawl_tags.id', '=', 'crawl_bookmarks_tags.crawlTagId')
+    .where('crawl_bookmarks.href', href)
+    .groupBy('crawl_bookmarks.id')
+
+  // execute query
+  return await massageBookmarkRow(await db.get(sql))
+}
+
+/**
+ * @description
+ * Get crawled bookmark by the local user.
+ *
+ * @param {Object} userSession - The current user session
+ * @param {string} href - The href of the bookmark
+ * @returns {Promise<Bookmark>}
+ */
+exports.getOwnBookmarkByHref = async function (userSession, href) {
+  var bookmarks = await Promise.all([
+    exports.getBookmarkByHref(require('../filesystem').get().url, href), // private bookmark
+    exports.getBookmarkByHref(userSession.url, href) // public bookmark
+  ])
+  return bookmarks[0] || bookmarks[1]
+}
+
+/**
+ * @description
  * Create a new bookmark.
  *
  * @param {DaemonDatArchive} archive - where to write the bookmark to.
  * @param {Object} bookmark
  * @param {string} bookmark.href
  * @param {string} bookmark.title
- * @param {string?} bookmark.description
- * @param {string?|string[]?} bookmark.tags
+ * @param {string} [bookmark.description]
+ * @param {string|string[]} [bookmark.tags]
  * @returns {Promise<string>} url
  */
 exports.addBookmark = async function (archive, bookmark) {
@@ -289,7 +343,7 @@ exports.addBookmark = async function (archive, bookmark) {
   var valid = validateBookmark(bookmarkObject)
   if (!valid) throw ajv.errorsText(validateBookmark.errors)
 
-  var filename = generateTimeFilename()
+  var filename = slugifyUrl(bookmarkObject.href)
   var filepath = `/data/bookmarks/${filename}.json`
   await ensureDirectory(archive, '/data')
   await ensureDirectory(archive, '/data/bookmarks')
@@ -300,50 +354,29 @@ exports.addBookmark = async function (archive, bookmark) {
 
 /**
  * @description
- * Update the content of an existing bookmark.
- *
- * @param {DaemonDatArchive} archive - where to write the bookmark to.
- * @param {string} pathname - the pathname of the bookmark.
- * @param {Object} bookmark
- * @param {string} bookmark.href
- * @param {string} bookmark.title
- * @param {string?} bookmark.description
- * @param {string?|string[]?} bookmark.tags
- * @returns {Promise<void>}
- */
-exports.editBookmark = async function (archive, pathname, bookmark) {
-  if (bookmark && typeof bookmark.tags === 'string') bookmark.tags = bookmark.tags.split(' ')
-  var existingBookmark = JSON.parse(await archive.pda.readFile(pathname))
-
-  var bookmarkObject = {
-    type: JSON_TYPE,
-    href: bookmark.href ? normalizeTopicUrl(bookmark.href) : existingBookmark.title,
-    title: ('title' in bookmark) ? bookmark.title : existingBookmark.title,
-    description: ('description' in bookmark) ? bookmark.description : existingBookmark.description,
-    tags: ('tags' in bookmark) ? bookmark.tags : existingBookmark.tags,
-    createdAt: existingBookmark.createdAt,
-    updatedAt: (new Date()).toISOString()
-  }
-
-  var valid = validateBookmark(bookmark)
-  if (!valid) throw ajv.errorsText(validateBookmark.errors)
-
-  await archive.pda.writeFile(pathname, JSON.stringify(bookmarkObject, null, 2))
-  await uwg.crawlSite(archive)
-}
-
-/**
- * @description
  * Delete an existing bookmark
  *
  * @param {DaemonDatArchive} archive - where to write the bookmark to.
- * @param {string} pathname - the pathname of the bookmark.
+ * @param {string} href - the href of the bookmark.
  * @returns {Promise<void>}
  */
-exports.deleteBookmark = async function (archive, pathname) {
-  assert(typeof pathname === 'string', 'Delete() must be provided a valid URL string')
-  await archive.pda.unlink(pathname)
-  await uwg.crawlSite(archive)
+exports.removeBookmarkByHref = async function (archive, href) {
+  assert(typeof href === 'string', 'Remove() must be provided a valid URL string')
+
+  // build query
+  var sql = knex('crawl_bookmarks')
+    .select('crawl_bookmarks.pathname')
+    .innerJoin('crawl_sources', function () {
+      this.on('crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
+        .andOn('crawl_sources.url', '=', knex.raw('?', archive.url))
+    })
+
+  // execute query
+  var record = await db.get(sql)
+  if (record) {
+    await archive.pda.unlink(record.pathname)
+    await uwg.crawlSite(archive)
+  }
 }
 
 // internal methods
@@ -378,7 +411,8 @@ async function massageBookmarkRow (row) {
       description: '',
       type: [],
       thumbUrl: `${row.crawlSourceUrl}/thumb`,
-      descAuthor: {url: null}
+      descAuthor: {url: null},
+      isOwner: false
     }
   }
   return {
@@ -388,6 +422,7 @@ async function massageBookmarkRow (row) {
     title: row.title,
     description: row.description,
     tags: row.tags ? row.tags.split(',').filter(Boolean) : [],
+    visibility: row.isPrivate ? 'private' : 'public',
     crawledAt: row.crawledAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt

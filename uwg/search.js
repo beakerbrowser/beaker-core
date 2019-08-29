@@ -1,7 +1,6 @@
 const _groupBy = require('lodash.groupby')
 const _uniqWith = require('lodash.uniqwith')
 const db = require('../dbs/profile-data-db')
-const bookmarksDb = require('../dbs/bookmarks')
 const historyDb = require('../dbs/history')
 const datArchives = require('../dat/archives')
 const follows = require('./follows')
@@ -108,15 +107,16 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   var userId = (await users.get(user)).id
 
   // bookmarks
-  var bookmarkResults = await bookmarksDb.listBookmarks(0)
-  if (opts.filterPins) {
-    bookmarkResults = bookmarkResults.filter(b => !b.pinned && filterFn(b))
-  } else {
-    bookmarkResults = bookmarkResults.filter(filterFn)
-  }
-  bookmarkResults.sort(sortFn)
-  bookmarkResults = bookmarkResults.slice(0, 12)
-  suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
+  // TODO
+  // var bookmarkResults = await bookmarksDb.listBookmarks(0)
+  // if (opts.filterPins) {
+  //   bookmarkResults = bookmarkResults.filter(b => !b.pinned && filterFn(b))
+  // } else {
+  //   bookmarkResults = bookmarkResults.filter(filterFn)
+  // }
+  // bookmarkResults.sort(sortFn)
+  // bookmarkResults = bookmarkResults.slice(0, 12)
+  // suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
 
   // websites
   suggestions.websites = /** @type LibraryArchiveRecord[] */(await datArchives.queryArchives({isSaved: true}))

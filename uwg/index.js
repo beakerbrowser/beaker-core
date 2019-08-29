@@ -94,11 +94,13 @@ exports.crawlSite = async function (archive) {
     // get/create crawl source
     var crawlSource = await db.get(`SELECT id, url, datDnsId FROM crawl_sources WHERE url = ?`, [url])
     if (!crawlSource) {
+      let isPrivate = require('../filesystem/index').isRootUrl(url)
       let res = await db.run(knex('crawl_sources').insert({
         url,
-        datDnsId: datDnsRecord ? datDnsRecord.id : undefined
+        datDnsId: datDnsRecord ? datDnsRecord.id : undefined,
+        isPrivate: isPrivate ? 1 : 0
       }))
-      crawlSource = {id: res.lastID, url, datDnsId: datDnsRecord ? datDnsRecord.id : undefined}
+      crawlSource = {id: res.lastID, url, datDnsId: datDnsRecord ? datDnsRecord.id : undefined, isPrivate}
     }
     crawlSource.globalResetRequired = false
 

@@ -5,12 +5,8 @@ const dat = require('../dat')
 const uwg = require('../uwg')
 const filesystem = require('./index')
 const follows = require('../uwg/follows')
-const bookmarks = require('../uwg/bookmarks')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
-const bookmarksDb = require('../dbs/bookmarks')
-const _isEqual = require('lodash.isequal')
-const _pick = require('lodash.pick')
 
 // constants
 // =
@@ -88,7 +84,7 @@ exports.setup = async function () {
     try {
       user.archive = await dat.archives.getOrLoadArchive(user.url)
       user.url = user.archive.url // copy the archive url, which includes the domain if set
-      startWatch(user)
+      uwg.watchSite(user.archive)
       events.emit('load-user', user)
     } catch (err) {
       logger.error('Failed to load user', {details: {user, err}})
@@ -254,7 +250,7 @@ exports.add = async function (label, url, setDefault = false, isTemporary = fals
   // fetch the user archive
   user.archive = await dat.archives.getOrLoadArchive(user.url)
   user.url = user.archive.url // copy the archive url, which includes the domain if set
-  startWatch(user)
+  uwg.watchSite(user.archive)
   events.emit('load-user', user)
   return fetchUserInfo(user)
 }
@@ -441,27 +437,6 @@ async function validateUserUrl (url) {
 }
 
 /**
- * @param {Object} user
- * @returns {void}
- */
-function startWatch (user) {
-  return // TODO
-  /* dont await */uwg.watchSite(user.archive)
-  watchThumb(user)
-  watchAndSyncBookmarks(user)
-}
-
-/**
- * @param {Object} user
- * @returns {void}
- */
-function watchThumb (user) {
-  dat.assets.on(`update:thumb:${user.archive.url}`, () => {
-    events.emit('user-thumb-changed', {url: user.url})
-  })
-}
-
-/**
  * @param {User} user
  * @param {string} pathname
  * @returns {Promise<void>}
@@ -469,44 +444,4 @@ function watchThumb (user) {
 async function ensureDirectory (user, pathname) {
   try { await user.archive.pda.mkdir(pathname) }
   catch (e) { /* ignore */ }
-}
-
-/**
- * @param {Object} user
- * @returns {void}
- */
-function watchAndSyncBookmarks (user) {
-  // DISABLED
-  // we're going to replace this with a purely FS based bookmarking system
-  // -prf
-
-  // TODO support multiple users
-  // syncBookmarks()
-  // bookmarksDb.on('changed', syncBookmarks)
-
-  // function pickBookmarkAttrs (b) {
-  //   return _pick(b, ['href', 'title', 'description', 'tags'])
-  // }
-
-  // async function syncBookmarks () {
-  //   // fetch current public bookmarks
-  //   var publicBookmarks = await bookmarksDb.listBookmarks(0, {filters: {isPublic: true}})
-  //   var publishedBookmarks = await bookmarks.query({filters: {authors: user.url}})
-
-  //   // diff and publish changes
-  //   for (let b of publicBookmarks) {
-  //     let existing = publishedBookmarks.find(b2 => b.href === b2.content.href)
-  //     if (!existing) {
-  //       await bookmarks.addBookmark(user.archive, pickBookmarkAttrs(b)) // add
-  //     } else {
-  //       if (!_isEqual(pickBookmarkAttrs(b), existing.content)) {
-  //         await bookmarks.editBookmark(user.archive, existing.pathname, pickBookmarkAttrs(b)) // update
-  //       }
-  //     }
-  //   }
-  //   for (let b of publishedBookmarks) {
-  //     let existing = publicBookmarks.find(b2 => b2.href === b.content.href)
-  //     if (!existing) await bookmarks.deleteBookmark(user.archive, b.pathname) // remove
-  //   }
-  // }
 }

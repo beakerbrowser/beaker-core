@@ -3,9 +3,9 @@ const {EventTargetFromStream} = require('./event-target')
 
 const RPC_OPTS = { timeout: false, errors }
 const APIs = {
-  bookmarks: {
-    manifest: require('../manifests/external/bookmarks'),
-    create: makeCreateFn('bookmarks')
+  'unwalled-garden-bookmarks': {
+    manifest: require('../manifests/external/unwalled-garden-bookmarks'),
+    create: makeCreateFn('unwalled-garden-bookmarks')
   },
   search: {
     manifest: require('../manifests/external/search'),

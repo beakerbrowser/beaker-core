@@ -4,6 +4,7 @@ const db = require('../dbs/profile-data-db')
 const users = require('./users')
 const datLibrary = require('./dat-library')
 const trash = require('./trash')
+const uwg = require('../uwg')
 const libTools = require('@beaker/library-tools')
 const {
   LIBRARY_PATH,
@@ -59,6 +60,7 @@ exports.setup = async function () {
 
   // load root archive
   rootArchive = await dat.archives.getOrLoadArchive(browsingProfile.url)
+  uwg.watchSite(rootArchive)
 
   // setup users
   var userList = await users.setup()

@@ -57,22 +57,6 @@ CREATE TABLE dat_dns (
 CREATE INDEX dat_dns_name ON dat_dns (name);
 CREATE INDEX dat_dns_key ON dat_dns (key);
 
-CREATE TABLE bookmarks (
-  profileId INTEGER,
-  url TEXT NOT NULL,
-  title TEXT,
-  description TEXT,
-  isPublic INTEGER,
-  pinned INTEGER,
-  pinOrder INTEGER DEFAULT 0,
-  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-  tags TEXT,
-  notes TEXT,
-
-  PRIMARY KEY (profileId, url),
-  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
-);
-
 CREATE TABLE visits (
   profileId INTEGER,
   url TEXT NOT NULL,
@@ -121,7 +105,8 @@ CREATE TABLE watchlist (
 CREATE TABLE crawl_sources (
   id INTEGER PRIMARY KEY NOT NULL,
   url TEXT NOT NULL,
-  datDnsId INTEGER
+  datDnsId INTEGER,
+  isPrivate INTEGER
 );
 
 -- tracking information on the crawl-state of the sources
@@ -380,6 +365,23 @@ CREATE TABLE crawl_media_tags (
 
   FOREIGN KEY (crawlMediaId) REFERENCES crawl_media (id) ON DELETE CASCADE,
   FOREIGN KEY (crawlTagId) REFERENCES crawl_tags (id) ON DELETE CASCADE
+);
+
+-- deprecated
+CREATE TABLE bookmarks (
+  profileId INTEGER,
+  url TEXT NOT NULL,
+  title TEXT,
+  description TEXT,
+  isPublic INTEGER,
+  pinned INTEGER,
+  pinOrder INTEGER DEFAULT 0,
+  createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+  tags TEXT,
+  notes TEXT,
+
+  PRIMARY KEY (profileId, url),
+  FOREIGN KEY (profileId) REFERENCES profiles (id) ON DELETE CASCADE
 );
 
 -- a list of saved archives

@@ -21,8 +21,8 @@ const sessionPerms = require('../../lib/session-perms')
 // =
 
 /**
- * 
- * @param {string} url 
+ *
+ * @param {string} url
  * @returns {Promise<ProfilesPublicAPIRecord>}
  */
 async function get (url) {

@@ -11,7 +11,7 @@ const {PermissionsError} = require('beaker-error-constants')
 
 /**
  * @typedef {import('../../filesystem/dat-library').LibraryDat} LibraryDat
- * 
+ *
  * @typedef {Object} ArchivePublicAPIRecord
  * @prop {string} url
  * @prop {string} title
@@ -115,7 +115,7 @@ function assertArchiveDeletable (key) {
 }
 
 /**
- * @param {LibraryDat} record 
+ * @param {LibraryDat} record
  * @returns {Promise<ArchivePublicAPIRecord>}
  */
 async function massageRecord (record) {

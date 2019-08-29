@@ -94,25 +94,17 @@ debug('dat-related stuff')
 
 ### `dbs.archives`
 
-### `dbs.bookmarks`
-
 ### `dbs.history`
 
 ### `dbs.settings`
 
 ### `dbs.sitedata`
 
-### `dbs.templates`
-
 ### `dat`
 
 ### `dat.library`
 
 ### `dat.dns`
-
-### `dat.folderSync`
-
-### `dat.garbageCollector`
 
 ### `dat.protocol`
 

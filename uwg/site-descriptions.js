@@ -3,6 +3,7 @@ const {URL} = require('url')
 const Events = require('events')
 const logger = require('../logger').child({category: 'uwg', dataset: 'site-descriptions'})
 const db = require('../dbs/profile-data-db')
+const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
 const uwg = require('./index')
 const {
@@ -37,6 +38,7 @@ const JSON_PATH_REGEX = /^\/(dat\.json|data\/known-sites\/([^/]+)\/dat\.json)$/i
  * @prop {string} descAuthor.url
  * @prop {boolean} [followsUser] - does this site follow the specified user site?
  * @prop {Array<SiteDescription>} [followedBy] - list of sites following this site.
+ * @prop {boolean} isOwner
  */
 
 // globals
@@ -225,7 +227,7 @@ const list = exports.list = async function ({offset, limit, reverse, author, sub
   }
 
   // execute query
-  return (await db.all(query, values)).map(massageSiteDescriptionRow)
+  return Promise.all((await db.all(query, values)).map(massageSiteDescriptionRow))
 }
 
 /**
@@ -353,13 +355,14 @@ async function fileExists (archive, pathname) {
 
 /**
  * @param {Object} row
- * @returns {SiteDescription}
+ * @returns {Promise<SiteDescription>}
  */
-function massageSiteDescriptionRow (row) {
+async function massageSiteDescriptionRow (row) {
   if (!row) return null
   row.author = {url: row.crawlSourceUrl}
   row.type = row.type && typeof row.type === 'string' ? row.type.split(',') : undefined
   row.thumbUrl = getSiteDescriptionThumbnailUrl(row.author.url, row.url)
+  row.isOwner = (await archivesDb.getMeta(row.url)).isOwner
   delete row.crawlSourceUrl
   delete row.crawlSourceId
   return row
