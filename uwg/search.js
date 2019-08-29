@@ -3,30 +3,31 @@ const _uniqWith = require('lodash.uniqwith')
 const db = require('../dbs/profile-data-db')
 const historyDb = require('../dbs/history')
 const datArchives = require('../dat/archives')
+const filesystem = require('../filesystem')
+const datLibrary = require('../filesystem/dat-library')
 const follows = require('./follows')
+const bookmarks = require('./bookmarks')
 const siteDescriptions = require('./site-descriptions')
-const {getSiteDescriptionThumbnailUrl} = require('./util')
 const knex = require('../lib/knex')
-const users = require('../filesystem/users')
+const libTools = require('@beaker/library-tools')
 
-const KNOWN_SITE_TYPES = [
-  'unwalled.garden/person',
-  'unwalled.garden/theme'
-]
+const SITE_TYPES = Object.values(libTools.getCategoriesMap()).filter(Boolean)
 
 // typedefs
 // =
 
 /**
  * @typedef {import("./site-descriptions").SiteDescription} SiteDescription
- * @typedef {import("../dbs/archives").LibraryArchiveRecord} LibraryArchiveRecord
+ * @typedef {import("../filesystem/dat-library").LibraryDat} LibraryDat
  *
  * @typedef {Object} SuggestionResults
  * @prop {Array<Object>} bookmarks
- * @prop {Array<Object>} websites
- * @prop {Array<Object>} people
- * @prop {Array<Object>} themes
  * @prop {(undefined|Array<Object>)} history
+ * @prop {Array<Object>} modules
+ * @prop {Array<Object>} people
+ * @prop {Array<Object>} templates
+ * @prop {Array<Object>} themes
+ * @prop {Array<Object>} websites
  *
  * TODO: define the SuggestionResults values
  *
@@ -82,16 +83,17 @@ const KNOWN_SITE_TYPES = [
  * @param {string} user - The current user's URL.
  * @param {string} [query=''] - The search query.
  * @param {Object} [opts={}]
- * @param {boolean} [opts.filterPins] - If true, will filter out pinned bookmarks.
  * @returns {Promise<SuggestionResults>}
  */
 exports.listSuggestions = async function (user, query = '', opts = {}) {
   var suggestions = {
     bookmarks: [],
-    websites: [],
+    history: undefined,
+    modules: [],
     people: [],
+    templates: [],
     themes: [],
-    history: undefined
+    websites: []
   }
   const filterFn = a => query ? ((a.url || a.href).includes(query) || a.title.toLowerCase().includes(query)) : true
   const sortFn = (a, b) => (a.title||'').localeCompare(b.title||'')
@@ -104,40 +106,46 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
     })
   }
 
-  var userId = (await users.get(user)).id
-
   // bookmarks
-  // TODO
-  // var bookmarkResults = await bookmarksDb.listBookmarks(0)
-  // if (opts.filterPins) {
-  //   bookmarkResults = bookmarkResults.filter(b => !b.pinned && filterFn(b))
-  // } else {
-  //   bookmarkResults = bookmarkResults.filter(filterFn)
-  // }
-  // bookmarkResults.sort(sortFn)
-  // bookmarkResults = bookmarkResults.slice(0, 12)
-  // suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
+  var bookmarkResults = await bookmarks.list({
+    filters: {authors: [filesystem.get().url, user]}
+  })
+  bookmarkResults = bookmarkResults.filter(filterFn)
+  bookmarkResults.sort(sortFn)
+  bookmarkResults = bookmarkResults.slice(0, 12)
+  suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
 
-  // websites
-  suggestions.websites = /** @type LibraryArchiveRecord[] */(await datArchives.queryArchives({isSaved: true}))
-  suggestions.websites = suggestions.websites.filter(w => (
-    w.url !== user // filter out the user's site
-    && (!w.type || !w.type.find(t => KNOWN_SITE_TYPES.includes(t))) // filter out other site types
-  ))
-  suggestions.websites = suggestions.websites.filter(filterFn)
-  suggestions.websites.sort(sortFn)
+  // modules
+  suggestions.modules = datLibrary.query({type: 'unwalled.garden/module'}).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+  suggestions.modules = suggestions.modules.filter(filterFn)
+  suggestions.modules.sort(sortFn)
 
   // people
   suggestions.people = (await follows.list({filters: {authors: user}})).map(({topic}) => topic)
-  suggestions.people = (await datArchives.queryArchives({isSaved: true, type: 'unwalled.garden/person'})).concat(suggestions.people)
+  suggestions.people = datLibrary.query({type: 'unwalled.garden/person'})
+    .map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+    .concat(suggestions.people)
   suggestions.people = dedup(suggestions.people)
   suggestions.people = suggestions.people.filter(filterFn)
   suggestions.people.sort(sortFn)
 
+  // templates
+  suggestions.templates = datLibrary.query({type: 'unwalled.garden/template'}).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+  suggestions.templates = suggestions.templates.filter(filterFn)
+  suggestions.templates.sort(sortFn)
+  suggestions.people = suggestions.people.map(site => ({title: site.meta.title, url: site.meta.url}))
+
   // themes
-  suggestions.themes = /** @type LibraryArchiveRecord[] */(await datArchives.queryArchives({isSaved: true, type: 'unwalled.garden/theme'}))
+  suggestions.themes = datLibrary.query({type: 'unwalled.garden/theme'}).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
   suggestions.themes = suggestions.themes.filter(filterFn)
   suggestions.themes.sort(sortFn)
+
+  // websites
+  suggestions.websites = datLibrary.query()
+    .filter(w => (!w.meta.type || !w.meta.type.find(t => SITE_TYPES.includes(t)))) // filter out other site types
+    .map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+  suggestions.websites = suggestions.websites.filter(filterFn)
+  suggestions.websites.sort(sortFn)
 
   if (query) {
     // history
