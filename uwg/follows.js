@@ -18,7 +18,7 @@ const followsSchema = require('./json-schemas/follows')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/follows'
-const JSON_PATH = '/data/follows.json'
+const JSON_PATH = '/.data/unwalled.garden/follows.json'
 
 // typedefs
 // =
@@ -379,7 +379,8 @@ async function updateFollowsFile (archive, updateFn) {
     updateFn(followsJson)
 
     // write the follows file
-    await archive.pda.mkdir('/data').catch(err => undefined)
+    await archive.pda.mkdir('/.data').catch(err => undefined)
+    await archive.pda.mkdir('/.data/unwalled.garden').catch(err => undefined)
     await archive.pda.writeFile(JSON_PATH, JSON.stringify(followsJson, null, 2), 'utf8')
 
     // trigger crawl now

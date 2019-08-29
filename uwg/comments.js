@@ -25,7 +25,7 @@ const commentSchema = require('./json-schemas/comment')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/comment'
-const JSON_PATH_REGEX = /^\/data\/comments\/([^/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/comments\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -399,9 +399,10 @@ exports.add = async function (archive, topic, comment) {
   if (!valid) throw ajv.errorsText(validateComment.errors)
 
   var filename = generateTimeFilename()
-  var filepath = `/data/comments/${filename}.json`
-  await ensureDirectory(archive, '/data')
-  await ensureDirectory(archive, '/data/comments')
+  var filepath = `/.data/unwalled.garden/comments/${filename}.json`
+  await ensureDirectory(archive, '/.data')
+  await ensureDirectory(archive, '/.data/unwalled.garden/')
+  await ensureDirectory(archive, '/.data/unwalled.garden/comments')
   await archive.pda.writeFile(filepath, JSON.stringify(commentObject, null, 2))
   await uwg.crawlSite(archive)
   return archive.url + filepath

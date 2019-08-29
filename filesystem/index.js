@@ -6,14 +6,7 @@ const datLibrary = require('./dat-library')
 const trash = require('./trash')
 const uwg = require('../uwg')
 const libTools = require('@beaker/library-tools')
-const {
-  LIBRARY_PATH,
-  LIBRARY_SAVED_DAT_PATH,
-  TRASH_PATH,
-  USERS_PATH,
-  USER_PATH,
-  DEFAULT_USER_PATH
-} = require('./const')
+const {PATHS} = require('../lib/const')
 
 // typedefs
 // =
@@ -69,28 +62,29 @@ exports.setup = async function () {
   logger.info('Loading root archive', {url: browsingProfile.url})
   try {
     // ensure common dirs
-    await ensureDir(TRASH_PATH)
+    await ensureDir(PATHS.DATA)
+    await ensureDir(PATHS.TRASH)
 
     // ensure all library folders exist
-    await ensureDir(LIBRARY_PATH)
+    await ensureDir(PATHS.LIBRARY)
     for (let cat of libTools.getCategoriesArray(true)) {
-      await ensureDir(LIBRARY_SAVED_DAT_PATH(cat))
+      await ensureDir(PATHS.LIBRARY_SAVED_DAT(cat))
     }
 
     // ensure all user mounts are set
-    await ensureDir(USERS_PATH)
+    await ensureDir(PATHS.USERS)
     for (let user of userList) {
-      if (user.isDefault) await ensureMount(DEFAULT_USER_PATH, user.url)
+      if (user.isDefault) await ensureMount(PATHS.DEFAULT_USER, user.url)
       if (!user.isTemporary) {
-        await ensureMount(USER_PATH(user.label), user.url)
+        await ensureMount(PATHS.USER(user.label), user.url)
       }
     }
 
     // clear out any old user mounts
-    let usersFilenames = await rootArchive.pda.readdir('/users', {stat: true})
+    let usersFilenames = await rootArchive.pda.readdir(PATHS.USERS)
     for (let filename of usersFilenames) {
       if (!userList.find(u => u.label === filename)) {
-        let path = USER_PATH(filename)
+        let path = PATHS.USER(filename)
         let st = await stat(path)
         if (st && st.mount) {
           logger.info('Removing old /users mount', {path})
@@ -114,8 +108,8 @@ exports.setup = async function () {
  * @returns {Promise<void>}
  */
 exports.addUser = async function (user) {
-  await ensureMount(USER_PATH(user.label), user.url)
-  if (user.isDefault) await ensureMount(DEFAULT_USER_PATH, user.url)
+  await ensureMount(PATHS.USER(user.label), user.url)
+  if (user.isDefault) await ensureMount(PATHS.DEFAULT_USER, user.url)
 }
 
 /**
@@ -123,7 +117,7 @@ exports.addUser = async function (user) {
  * @returns {Promise<void>}
  */
 exports.removeUser = async function (user) {
-  await ensureUnmount(USER_PATH(user.label))
+  await ensureUnmount(PATHS.USER(user.label))
 }
 
 // internal methods

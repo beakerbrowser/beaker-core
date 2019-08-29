@@ -3,13 +3,12 @@ const joinPath = require('path').join
 const archivesDb = require('../dbs/archives')
 const datArchives = require('../dat/archives')
 const filesystem = require('./index')
-const {DAT_CACHE_TIME} = require('../lib/const')
 const {
-  TRASH_PATH,
+  PATHS,
   TRASH_FIRST_COLLECT_WAIT,
   TRASH_REGULAR_COLLECT_WAIT,
   TRASH_EXPIRATION_AGE
-} = require('./const')
+} = require('../lib/const')
 const logger = require('../logger').child({category: 'filesystem', subcategory: 'trash-collector'})
 
 // typedefs
@@ -45,9 +44,9 @@ exports.setup = function () {
  */
 exports.query = async function (query = {}) {
   var items = /** @type TrashItem[] */([])
-  var names = await filesystem.get().pda.readdir(TRASH_PATH)
+  var names = await filesystem.get().pda.readdir(PATHS.TRASH)
   for (let name of names) {
-    let st = await filesystem.get().pda.stat(joinPath(TRASH_PATH, name))
+    let st = await filesystem.get().pda.stat(joinPath(PATHS.TRASH, name))
     if (query.mounts && !st.mount) {
       continue
     }
@@ -87,7 +86,7 @@ const collect = exports.collect = async function ({olderThan} = {}) {
     logger.silly('Items:', {urls: trashItems.map(a => a.name)})
   }
   for (let item of trashItems) {
-    let path = joinPath(TRASH_PATH, item.name)
+    let path = joinPath(PATHS.TRASH, item.name)
     if (item.stat.mount) {
       await filesystem.get().pda.unmount(path)
     } else if (item.stat.isDirectory()) {

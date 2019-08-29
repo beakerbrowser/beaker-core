@@ -10,12 +10,7 @@ const slugify = require('slugify')
 const Ajv = require('ajv')
 const libTools = require('@beaker/library-tools')
 const libraryJsonSchema = require('@beaker/library-tools/library.json')
-const {
-  LIBRARY_JSON_PATH,
-  LIBRARY_SAVED_DAT_PATH,
-  TRASH_PATH,
-  USER_PUBLISHED_DAT_PATH
-} = require('./const')
+const {PATHS} = require('../lib/const')
 
 // typedefs
 // =
@@ -51,7 +46,7 @@ exports.setup = async function () {
   // read library.json
   var libraryJsonStr
   try {
-    libraryJsonStr = await filesystem.get().pda.readFile(LIBRARY_JSON_PATH)
+    libraryJsonStr = await filesystem.get().pda.readFile(PATHS.LIBRARY_JSON)
   } catch (e) {
     // dne
   }
@@ -65,9 +60,9 @@ exports.setup = async function () {
       if (!valid) throw ajv.errorsText(validateLibraryJson.errors)
       dats = libraryJsonObj.dats
     } catch (e) {
-      logger.error('Invalid /library/.library.json file', {error: e})
+      logger.error(`Invalid ${PATHS.LIBRARY_JSON} file`, {error: e})
       logger.error('A new .library.json will be created and the previous file will be saved as /library/.library.json.backup')
-      await filesystem.get().pda.rename(LIBRARY_JSON_PATH, LIBRARY_JSON_PATH + '.backup')
+      await filesystem.get().pda.rename(PATHS.LIBRARY_JSON, PATHS.LIBRARY_JSON + '.backup')
     }
   }
 
@@ -99,15 +94,15 @@ exports.setup = async function () {
       }
       if (changes.type || changes.title) {
         let archive = await datArchives.getOrLoadArchive(key)
-        await ensureUnmounted(filesystem.get(), LIBRARY_SAVED_DAT_PATH(oldCat), archive)
-        await ensureMounted(filesystem.get(), LIBRARY_SAVED_DAT_PATH(newCat), archive, details.title)
+        await ensureUnmounted(filesystem.get(), PATHS.LIBRARY_SAVED_DAT(oldCat), archive)
+        await ensureMounted(filesystem.get(), PATHS.LIBRARY_SAVED_DAT(newCat), archive, details.title)
       }
-      if (changes.author || changes.title) {
+      if (dat.visibility === 'public' && (changes.author || changes.title)) {
         let oldUser = oldMeta.author ? await users.get(oldMeta.author) : null
         let newUser = details.author ? await users.get(details.author) : null
         let archive = await datArchives.getOrLoadArchive(key)
-        if (oldUser) await ensureUnmounted(oldUser.archive, USER_PUBLISHED_DAT_PATH, archive)
-        if (newUser) await ensureMounted(newUser.archive, USER_PUBLISHED_DAT_PATH, archive, details.title)
+        if (oldUser) await ensureUnmounted(oldUser.archive, PATHS.REFS_AUTHORED_DATS, archive)
+        if (newUser) await ensureMounted(newUser.archive, PATHS.REFS_AUTHORED_DATS, archive, details.title)
       }
     } catch (e) {
       logger.error('Failed to update archive in filesystem after change', {error: e, key, details, oldMeta})
@@ -271,7 +266,7 @@ exports.configureArchive = async function (archive, settings) {
  * @returns {Promise<void>}
  */
 async function saveLibraryJson () {
-  await filesystem.get().pda.writeFile(LIBRARY_JSON_PATH, JSON.stringify({
+  await filesystem.get().pda.writeFile(PATHS.LIBRARY_JSON, JSON.stringify({
     type: 'beakerbrowser.com/library',
     dats: libraryDats.map(dat => ({
       key: dat.key,
@@ -290,12 +285,12 @@ async function saveLibraryJson () {
  */
 async function updateSaved (archive, manifest, isSaved) {
   var category = libTools.typeToCategory(manifest.type, true)
-  var containingPath = LIBRARY_SAVED_DAT_PATH(category)
+  var containingPath = PATHS.LIBRARY_SAVED_DAT(category)
   if (isSaved) {
     await ensureMounted(filesystem.get(), containingPath, archive, manifest.title)
-    await ensureUnmounted(filesystem.get(), TRASH_PATH, archive)
+    await ensureUnmounted(filesystem.get(), PATHS.TRASH, archive)
   } else {
-    await ensureMounted(filesystem.get(), TRASH_PATH, archive, manifest.title)
+    await ensureMounted(filesystem.get(), PATHS.TRASH, archive, manifest.title)
     await ensureUnmounted(filesystem.get(), containingPath, archive)
   }
 }
@@ -326,9 +321,9 @@ async function updateVisibility (archive, manifest, visibility) {
     return
   }
   if (visibility === 'public') {
-    await ensureMounted(user.archive, USER_PUBLISHED_DAT_PATH, archive, manifest.title)
+    await ensureMounted(user.archive, PATHS.REFS_AUTHORED_DATS, archive, manifest.title)
   } else {
-    await ensureUnmounted(user.archive, USER_PUBLISHED_DAT_PATH, archive)
+    await ensureUnmounted(user.archive, PATHS.REFS_AUTHORED_DATS, archive)
   }
 }
 
