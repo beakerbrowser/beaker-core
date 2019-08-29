@@ -7,10 +7,9 @@ const lock = require('../lib/lock')
 const users = require('./users')
 const joinPath = require('path').join
 const slugify = require('slugify')
-const Ajv = require('ajv')
 const libTools = require('@beaker/library-tools')
 const libraryJsonSchema = require('@beaker/library-tools/library.json')
-const {PATHS} = require('../lib/const')
+const {PATHS, DAT_HASH_REGEX} = require('../lib/const')
 
 // typedefs
 // =
@@ -33,8 +32,6 @@ const {PATHS} = require('../lib/const')
 // =
 
 var libraryDats = /** @type LibraryDat[] */([])
-const ajv = (new Ajv())
-const validateLibraryJson = ajv.compile(libraryJsonSchema)
 
 // exported api
 // =
@@ -56,12 +53,10 @@ exports.setup = async function () {
   if (libraryJsonStr) {
     try {
       let libraryJsonObj = JSON.parse(libraryJsonStr)
-      let valid = validateLibraryJson(libraryJsonObj)
-      if (!valid) throw ajv.errorsText(validateLibraryJson.errors)
-      dats = libraryJsonObj.dats
+      dats = (libraryJsonObj.dats || []).filter(dat => typeof dat.key === 'string' && DAT_HASH_REGEX.test(dat.key))
     } catch (e) {
       logger.error(`Invalid ${PATHS.LIBRARY_JSON} file`, {error: e})
-      logger.error('A new .library.json will be created and the previous file will be saved as /library/.library.json.backup')
+      logger.error(`A new ${PATHS.LIBRARY_JSON} will be created and the previous file will be saved as ${PATHS.LIBRARY_JSON}.backup`)
       await filesystem.get().pda.rename(PATHS.LIBRARY_JSON, PATHS.LIBRARY_JSON + '.backup')
     }
   }
