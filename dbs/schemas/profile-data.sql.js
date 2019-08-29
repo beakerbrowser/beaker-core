@@ -471,5 +471,5 @@ CREATE TABLE workspaces (
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
 
-PRAGMA user_version = 36;
+PRAGMA user_version = 37;
 `
