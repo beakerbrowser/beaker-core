@@ -3,7 +3,7 @@ const pump = require('pump')
 const concat = require('concat-stream')
 const db = require('../dbs/profile-data-db')
 const knex = require('../lib/knex')
-const dat = require('../dat')
+const joinPath = require('path').join
 
 const READ_TIMEOUT = 30e3
 
@@ -205,8 +205,12 @@ exports.normalizeSchemaUrl = function (url) {
  * @returns {Promise}
  */
 exports.ensureDirectory = async function (archive, pathname) {
-  try { await archive.pda.mkdir(pathname) }
-  catch (e) { /* ignore */ }
+  var acc = ''
+  var parts = pathname.split('/').filter(Boolean)
+  for (let p of parts) {
+    acc = joinPath(acc, p)
+    await archive.pda.mkdir(acc).catch(err => null)
+  }
 }
 
 /**

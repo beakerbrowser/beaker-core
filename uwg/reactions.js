@@ -291,8 +291,6 @@ exports.add = async function (archive, topic, emoji) {
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
   var filepath = `/.data/unwalled.garden/reactions/${slugifyUrl(topic)}.json`
-  await ensureDirectory(archive, '/.data')
-  await ensureDirectory(archive, '/.data/unwalled.garden')
   await ensureDirectory(archive, '/.data/unwalled.garden/reactions')
   await updateReactionFile(archive, filepath, topic, emoji, false)
   await uwg.crawlSite(archive)

@@ -351,8 +351,6 @@ exports.set = async function (archive, topic, vote) {
     var valid = validateVote(voteObject)
     if (!valid) throw ajv.errorsText(validateVote.errors)
 
-    await ensureDirectory(archive, '/.data')
-    await ensureDirectory(archive, '/.data/unwalled.garden')
     await ensureDirectory(archive, '/.data/unwalled.garden/votes')
     await archive.pda.writeFile(filepath, JSON.stringify(voteObject, null, 2))
   }

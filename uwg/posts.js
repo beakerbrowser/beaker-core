@@ -257,8 +257,6 @@ exports.add = async function (archive, post) {
 
   var filename = generateTimeFilename()
   var filepath = `/.data/unwalled.garden/posts/${filename}.json`
-  await ensureDirectory(archive, '/.data')
-  await ensureDirectory(archive, '/.data/unwalled.garden')
   await ensureDirectory(archive, '/.data/unwalled.garden/posts')
   await archive.pda.writeFile(filepath, JSON.stringify(postObject, null, 2))
   await uwg.crawlSite(archive)

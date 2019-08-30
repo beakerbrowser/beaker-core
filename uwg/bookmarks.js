@@ -345,8 +345,6 @@ exports.addBookmark = async function (archive, bookmark) {
 
   var filename = slugifyUrl(bookmarkObject.href)
   var filepath = `/.data/unwalled.garden/bookmarks/${filename}.json`
-  await ensureDirectory(archive, '/.data')
-  await ensureDirectory(archive, '/.data/unwalled.garden')
   await ensureDirectory(archive, '/.data/unwalled.garden/bookmarks')
   await archive.pda.writeFile(filepath, JSON.stringify(bookmarkObject, null, 2))
   await uwg.crawlSite(archive)

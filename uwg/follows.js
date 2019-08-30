@@ -12,6 +12,10 @@ const datArchives = require('../dat/archives')
 const archivesDb = require('../dbs/archives')
 const {doCrawl, doCheckpoint, emitProgressEvent} = require('./util')
 const followsSchema = require('./json-schemas/follows')
+const {PATHS} = require('../lib/const')
+const {ensureDirectory} = require('./util')
+const joinPath = require('path').join
+const _differenceBy = require('lodash.differenceby')
 
 // constants
 // =
@@ -258,12 +262,13 @@ exports.add = async function (archive, topic, opts) {
   topic = await datArchives.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
-  // write new follows.json
-  await updateFollowsFile(archive, followsJson => {
+  // persist
+  var followUrls = await updateFollowsFile(archive, followsJson => {
     if (!followsJson.urls.find(v => v === topic)) {
       followsJson.urls.push(topic)
     }
   })
+  await updateFollowsMounts(archive, followUrls)
 }
 
 /**
@@ -283,12 +288,13 @@ exports.edit = async function (archive, topic, opts) {
   topic = await datArchives.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Follow() must be given a valid URL')
 
-  // write new follows.json
-  await updateFollowsFile(archive, followsJson => {
+  // persist
+  var followUrls = await updateFollowsFile(archive, followsJson => {
     if (!followsJson.urls.find(v => v === topic)) {
       followsJson.urls.push(topic)
     }
   })
+  await updateFollowsMounts(archive, followUrls)
 }
 
 /**
@@ -306,13 +312,14 @@ exports.remove = async function (archive, topic) {
   topic = await datArchives.getPrimaryUrl(topic)
   assert(typeof topic === 'string', 'Unfollow() must be given a valid URL')
 
-  // write new follows.json
-  await updateFollowsFile(archive, followsJson => {
+  // persist
+  var followUrls = await updateFollowsFile(archive, followsJson => {
     var i = followsJson.urls.findIndex(v => v === topic)
     if (i !== -1) {
       followsJson.urls.splice(i, 1)
     }
   })
+  await updateFollowsMounts(archive, followUrls)
 }
 
 // internal methods
@@ -351,9 +358,11 @@ async function readFollowsFile (archive) {
 /**
  * @param {DaemonDatArchive} archive
  * @param {function(Object): void} updateFn
- * @returns {Promise<void>}
+ * @returns {Promise<string[]>}
  */
 async function updateFollowsFile (archive, updateFn) {
+  var origFollowsUrls
+  var followUrls
   var release = await lock('crawler:follows:' + archive.url)
   try {
     // read the follows file
@@ -373,16 +382,58 @@ async function updateFollowsFile (archive, updateFn) {
     }
 
     // apply update
+    origFollowsUrls = followsJson.urls
     updateFn(followsJson)
+    followUrls = followsJson.urls
 
     // write the follows file
-    await archive.pda.mkdir('/.data').catch(err => undefined)
-    await archive.pda.mkdir('/.data/unwalled.garden').catch(err => undefined)
+    await ensureDirectory(archive, '/.data/unwalled.garden')
     await archive.pda.writeFile(JSON_PATH, JSON.stringify(followsJson, null, 2), 'utf8')
 
     // trigger crawl now
     await uwg.crawlSite(archive)
+  } catch (e) {
+    followUrls = origFollowsUrls // fallback to original, update failed
+    throw e
   } finally {
     release()
+  }
+  return followUrls
+}
+
+/**
+ * @param {DaemonDatArchive} archive
+ * @param {string[]} followUrls
+ */
+async function updateFollowsMounts (archive, followUrls) {
+  // resolve all followUrls to keys
+  var followKeys = []
+  for (let url of followUrls) {
+    try {
+      followKeys.push(await datArchives.fromURLToKey(url, true))
+    } catch (e) {
+      // skip, which will cause it to unmount for now
+    }
+  }
+
+  // get current list of followed URLs
+  await ensureDirectory(archive, PATHS.REFS_FOLLOWED_DATS)
+  var mountNames = await archive.pda.readdir(PATHS.REFS_FOLLOWED_DATS)
+  var mounts = []
+  for (let name of mountNames) {
+    let st = await archive.pda.stat(joinPath(PATHS.REFS_FOLLOWED_DATS, name)).catch(err => null)
+    if (st && st.mount) {
+      mounts.push({name, key: st.mount.key.toString('hex')})
+    }
+  }
+
+  // add/remove as needed
+  var adds = _differenceBy(followKeys, mounts, v => v.key ? v.key : v)
+  for (let add of adds) {
+    await archive.pda.mount(joinPath(PATHS.REFS_FOLLOWED_DATS, add), add)
+  }
+  var removes = _differenceBy(mounts, followKeys, v => v.key ? v.key : v)
+  for (let remove of removes) {
+    await archive.pda.unmount(joinPath(PATHS.REFS_FOLLOWED_DATS, remove.name))
   }
 }

@@ -400,8 +400,6 @@ exports.add = async function (archive, topic, comment) {
 
   var filename = generateTimeFilename()
   var filepath = `/.data/unwalled.garden/comments/${filename}.json`
-  await ensureDirectory(archive, '/.data')
-  await ensureDirectory(archive, '/.data/unwalled.garden/')
   await ensureDirectory(archive, '/.data/unwalled.garden/comments')
   await archive.pda.writeFile(filepath, JSON.stringify(commentObject, null, 2))
   await uwg.crawlSite(archive)
