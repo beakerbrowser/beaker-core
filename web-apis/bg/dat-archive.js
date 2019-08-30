@@ -38,19 +38,19 @@ const to = (opts) =>
     : DEFAULT_DAT_API_TIMEOUT
 
 module.exports = {
-  async createArchive ({title, description, type, visibility, links, template, prompt} = {}) {
+  async createArchive ({title, description, type, author, visibility, links, template, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow visibility and template to be set by beaker, for now
+    // only allow these vars to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      visibility = template = undefined
+      author = visibility = template = undefined
     }
 
     if (prompt !== false) {
       // run the creation modal
       let res
       try {
-        res = await globals.uiAPI.showModal(this.sender, 'create-archive', {title, description, type, visibility, links})
+        res = await globals.uiAPI.showModal(this.sender, 'create-archive', {title, description, type, author, visibility, links})
       } catch (e) {
         if (e.name !== 'Error') {
           throw e // only rethrow if a specific error
@@ -63,7 +63,6 @@ module.exports = {
       await assertCreateArchivePermission(this.sender)
 
       // create
-      let author = await getAuthor()
       var newArchive = await datArchives.createNewArchive(
         Object.assign({title, description, type, author, links}, generateManifest(type))
       )
@@ -93,12 +92,12 @@ module.exports = {
     return newArchiveUrl
   },
 
-  async forkArchive (url, {title, description, type, visibility, links, prompt} = {}) {
+  async forkArchive (url, {title, description, type, author, visibility, links, prompt} = {}) {
     var newArchiveUrl
 
-    // only allow visibility to be set by beaker, for now
+    // only allow these vars to be set by beaker, for now
     if (!this.sender.getURL().startsWith('beaker:')) {
-      visibility = undefined
+      author = visibility = undefined
     }
 
     if (prompt !== false) {
@@ -108,7 +107,7 @@ module.exports = {
       let isSelfFork = key1 === key2
       let res
       try {
-        res = await globals.uiAPI.showModal(this.sender, 'fork-archive', {url, title, description, type, visibility, links, isSelfFork})
+        res = await globals.uiAPI.showModal(this.sender, 'fork-archive', {url, title, description, type, author, visibility, links, isSelfFork})
       } catch (e) {
         if (e.name !== 'Error') {
           throw e // only rethrow if a specific error
@@ -122,7 +121,6 @@ module.exports = {
 
       // create
       let key = await lookupUrlDatKey(url)
-      let author = await getAuthor()
       let newArchive = await datArchives.forkArchive(key, {title, description, type, author, links})
       await datLibrary.configureArchive(newArchive, {
         isSaved: true,
@@ -198,6 +196,11 @@ module.exports = {
       // also, only allow beaker to set 'visibility' for now
       if (('visibility' in settings) && this.sender.getURL().startsWith('beaker:')) {
         await datLibrary.configureArchive(archive, {visibility: settings.visibility})
+      }
+
+      // only allow beaker to set these manifest updates for now
+      if (!this.sender.getURL().startsWith('beaker:')) {
+        delete settings.author
       }
 
       // manifest updates
@@ -708,18 +711,6 @@ function generateManifest (type) {
 //     throw new UserDeniedError('Application must be focused to spawn a prompt')
 //   }
 // }
-
-async function getAuthor () {
-  return undefined
-  // TODO(profiles) disabled -prf
-  // var profileRecord = await getProfileRecord(0)
-  // if (!profileRecord || !profileRecord.url) return undefined
-  // var profile = await getProfilesAPI().getProfile(profileRecord.url)
-  // return {
-  //   url: profileRecord.url,
-  //   name: profile && profile.name ? profile.name : undefined
-  // }
-}
 
 async function parseUrlParts (url) {
   var archiveKey, filepath, version

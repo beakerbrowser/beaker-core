@@ -17,7 +17,7 @@ CREATE TABLE archives_meta (
   key TEXT PRIMARY KEY,
   title TEXT,
   description TEXT,
-  forkOf TEXT, -- deprecated
+  forkOf TEXT,
   createdByUrl TEXT, -- deprecated
   createdByTitle TEXT, -- deprecated
   mtime INTEGER,

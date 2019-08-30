@@ -30,6 +30,7 @@ CREATE TABLE archives_meta (
   description TEXT,
   mtime INTEGER,
   size INTEGER,
+  author TEXT,
   forkOf TEXT,
   isOwner INTEGER,
   lastAccessTime INTEGER DEFAULT 0,
@@ -479,5 +480,5 @@ CREATE TABLE crawl_discussions_tags (
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
 
-PRAGMA user_version = 37;
+PRAGMA user_version = 38;
 `

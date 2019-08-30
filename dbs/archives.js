@@ -23,6 +23,7 @@ const {DAT_HASH_REGEX} = require('../lib/const')
  * @prop {string | Array<string>} type
  * @prop {number} mtime
  * @prop {number} size
+ * @prop {string} author
  * @prop {string} forkOf
  * @prop {boolean} isOwner
  * @prop {number} lastAccessTime
@@ -216,12 +217,13 @@ exports.setMeta = async function (key, value) {
   }
 
   // extract the desired values
-  var {title, description, type, size, forkOf, mtime, isOwner} = value
+  var {title, description, type, size, author, forkOf, mtime, isOwner} = value
   title = typeof title === 'string' ? title : ''
   description = typeof description === 'string' ? description : ''
   if (typeof type === 'string') type = type.split(' ')
   else if (Array.isArray(type)) type = type.filter(v => v && typeof v === 'string')
   var isOwnerFlag = flag(isOwner)
+  if (typeof author === 'string') author = normalizeDatUrl(author)
   if (typeof forkOf === 'string') forkOf = normalizeDatUrl(forkOf)
 
   // write
@@ -230,9 +232,9 @@ exports.setMeta = async function (key, value) {
   try {
     await db.run(`
       INSERT OR REPLACE INTO
-        archives_meta (key, title, description, mtime, size, forkOf, isOwner, lastAccessTime, lastLibraryAccessTime)
-        VALUES        (?,   ?,     ?,           ?,     ?,    ?,      ?,       ?,              ?)
-    `, [keyStr, title, description, mtime, size, forkOf, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
+        archives_meta (key, title, description, mtime, size, author, forkOf, isOwner, lastAccessTime, lastLibraryAccessTime)
+        VALUES        (?,   ?,     ?,           ?,     ?,    ?,      ?,      ?,       ?,              ?)
+    `, [keyStr, title, description, mtime, size, author, forkOf, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
     await db.run(`DELETE FROM archives_meta_type WHERE key=?`, keyStr)
     if (type) {
       await Promise.all(type.map(t => (
@@ -260,6 +262,7 @@ function defaultMeta (key, name) {
     title: null,
     description: null,
     type: [],
+    author: null,
     forkOf: null,
     mtime: 0,
     isOwner: false,

@@ -19,6 +19,7 @@ const {PermissionsError} = require('beaker-error-constants')
  * @prop {string | Array<string>} type
  * @prop {number} mtime
  * @prop {number} size
+ * @prop {string} author
  * @prop {string} forkOf
  * @prop {boolean} isOwner
  * @prop {number} lastAccessTime
@@ -126,6 +127,7 @@ async function massageRecord (record) {
     type: record.meta.type,
     mtime: record.meta.mtime,
     size: record.meta.size,
+    author: record.meta.author,
     forkOf: record.meta.forkOf,
     isOwner: record.meta.isOwner,
     lastAccessTime: record.meta.lastAccessTime,

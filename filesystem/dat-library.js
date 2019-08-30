@@ -100,7 +100,7 @@ exports.setup = async function () {
         if (newUser) await ensureMounted(newUser.archive, PATHS.REFS_AUTHORED_DATS, archive, details.title)
       }
     } catch (e) {
-      logger.error('Failed to update archive in filesystem after change', {error: e, key, details, oldMeta})
+      logger.error('Failed to update archive in filesystem after change', {error: e.toString(), key, details, oldMeta})
     } finally {
       release()
     }
@@ -110,6 +110,7 @@ exports.setup = async function () {
 /**
  * @param {Object} query
  * @param {string} [query.type]
+ * @param {string} [query.author]
  * @param {string} [query.forkOf]
  * @param {boolean} [query.isSaved]
  * @param {boolean} [query.isHosting]
@@ -128,6 +129,11 @@ exports.query = function (query = {}) {
           isMatch = false
           break
         }
+      }
+    }
+    if ('author' in query) {
+      if (dat.meta.author !== query.author) {
+        isMatch = false
       }
     }
     if ('forkOf' in query) {

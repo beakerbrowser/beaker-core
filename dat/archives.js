@@ -144,12 +144,12 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
       archivesDb.getMeta(key),
       archive.pda.readSize('/')
     ])
-    var {title, description, type, forkOf} = (manifest || {})
+    var {title, description, type, author, forkOf} = (manifest || {})
     var isOwner = archive.writable
     var mtime = updateMTime ? Date.now() : oldMeta.mtime
 
     // write the record
-    var details = {title, description, type, mtime, size, forkOf, isOwner}
+    var details = {title, description, type, mtime, size, author, forkOf, isOwner}
     await archivesDb.setMeta(key, details)
 
     // emit the updated event
