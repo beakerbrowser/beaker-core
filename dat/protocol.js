@@ -191,24 +191,6 @@ exports.electronHandler = async function (request, respond) {
   var headers = {}
   var entry = await datServeResolvePath(checkoutFS.pda, manifest, urlp, request.headers.Accept)
 
-  // use theme template if it exists
-  var themeSettings = {
-    active: false,
-    js: false,
-    css: false
-  }
-  if (!urlp.query.disable_theme) {
-    if (entry && mime.acceptHeaderWantsHTML(request.headers.Accept) && ['.html', '.htm', '.md'].includes(extname(entry.path))) {
-      let exists = async (path) => await checkoutFS.pda.stat(path).then(() => true, () => false)
-      let [js, css] = await Promise.all([exists('/theme/index.js'), exists('/theme/index.css')])
-      if (js || css) {
-        themeSettings.active = true
-        themeSettings.css = css
-        themeSettings.js = js
-      }
-    }
-  }
-
   // handle folder
   if (entry && entry.isDirectory()) {
     cleanup()
@@ -286,23 +268,7 @@ exports.electronHandler = async function (request, respond) {
       headers: Object.assign(headers, {
         'Content-Type': 'text/html'
       }),
-      data: intoStream(markdown.render(content, themeSettings))
-    })
-  }
-
-  // theme wrapping
-  if (themeSettings.active) {
-    let html = await checkoutFS.pda.readFile(entry.path, 'utf8')
-    html = `
-${themeSettings.js ? `<script type="module" src="/theme/index.js"></script>` : ''}
-${themeSettings.css ? `<link rel="stylesheet" href="/theme/index.css">` : ''}
-${html}`
-    return respond({
-      statusCode: 200,
-      headers: Object.assign(headers, {
-        'Content-Type': 'text/html'
-      }),
-      data: intoStream(html)
+      data: intoStream(markdown.render(content))
     })
   }
 
