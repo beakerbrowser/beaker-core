@@ -35,13 +35,13 @@ const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/reactions\/([^/]+)\.json$/
  *
  * @typedef {Object} Reaction
  * @prop {string} topic
- * @prop {string[]} emojis
+ * @prop {string[]} phrases
  * @prop {string} author
  * @prop {string} recordUrl
  * @prop {number} crawledAt
  *
  * @typedef {Object} TopicReaction
- * @prop {string} emoji
+ * @prop {string} phrase
  * @prop {string[]} authors
  */
 
@@ -128,9 +128,9 @@ exports.crawlSite = async function (archive, crawlSource) {
 
         // upsert
         await db.run(`
-          INSERT OR REPLACE INTO crawl_reactions (crawlSourceId, pathname, crawledAt, topic, emojis)
+          INSERT OR REPLACE INTO crawl_reactions (crawlSourceId, pathname, crawledAt, topic, phrases)
             VALUES (?, ?, ?, ?, ?)
-        `, [crawlSource.id, changedReaction.name, Date.now(), reaction.topic, reaction.emojis.join(',')])
+        `, [crawlSource.id, changedReaction.name, Date.now(), reaction.topic, reaction.phrases.join(',')])
         events.emit('reaction-updated', archive.url)
       }
 
@@ -208,7 +208,7 @@ exports.list = async function (opts) {
 
   // massage results
   rows.forEach(row => {
-    row.emojis = row.emojis.split(',')
+    row.phrases = row.phrases.split(',')
     row.recordUrl = row.author + row.pathname
   })
   return rows
@@ -261,11 +261,11 @@ exports.tabulate = async function (topic, opts) {
   // construct reactions list
   var reactions = {}
   rows.forEach(row => {
-    row.emojis.split(',').forEach(emoji => {
-      if (!reactions[emoji]) {
-        reactions[emoji] = {emoji, authors: [row.crawlSourceUrl]}
+    row.phrases.split(',').forEach(phrase => {
+      if (!reactions[phrase]) {
+        reactions[phrase] = {phrase, authors: [row.crawlSourceUrl]}
       } else {
-        reactions[emoji].authors.push(row.crawlSourceUrl)
+        reactions[phrase].authors.push(row.crawlSourceUrl)
       }
     })
   })
@@ -279,20 +279,20 @@ exports.tabulate = async function (topic, opts) {
  *
  * @param {DaemonDatArchive} archive - where to write the reaction to.
  * @param {string} topic
- * @param {string} emoji
+ * @param {string} phrase
  * @returns {Promise<void>}
  */
-exports.add = async function (archive, topic, emoji) {
+exports.add = async function (archive, topic, phrase) {
   // TODO handle visibility
 
   topic = normalizeTopicUrl(topic)
-  emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
-  var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
+  phrase = phrase.toLowerCase()
+  var valid = validateReaction({type: JSON_TYPE, topic, phrases: [phrase]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
   var filepath = `/.data/unwalled.garden/reactions/${slugifyUrl(topic)}.json`
   await ensureDirectory(archive, '/.data/unwalled.garden/reactions')
-  await updateReactionFile(archive, filepath, topic, emoji, false)
+  await updateReactionFile(archive, filepath, topic, phrase, false)
   await uwg.crawlSite(archive)
 }
 
@@ -302,19 +302,19 @@ exports.add = async function (archive, topic, emoji) {
  *
  * @param {DaemonDatArchive} archive - where to write the reaction to.
  * @param {string} topic
- * @param {string} emoji
+ * @param {string} phrase
  * @returns {Promise<void>}
  */
-exports.remove = async function (archive, topic, emoji) {
+exports.remove = async function (archive, topic, phrase) {
   // TODO handle visibility
 
   topic = normalizeTopicUrl(topic)
-  emoji = emoji.replace('\uFE0F', '').replace('\uFE0E', '') // strip the emoji-enforcement token
-  var valid = validateReaction({type: JSON_TYPE, topic, emojis: [emoji]})
+  phrase = phrase.toLowerCase()
+  var valid = validateReaction({type: JSON_TYPE, topic, phrases: [phrase]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
   var filepath = `/.data/unwalled.garden/reactions/${slugifyUrl(topic)}.json`
-  await updateReactionFile(archive, filepath, topic, false, emoji)
+  await updateReactionFile(archive, filepath, topic, false, phrase)
   await uwg.crawlSite(archive)
 }
 
@@ -338,7 +338,7 @@ async function readReactionFile (archive, pathname) {
     return {
       type: JSON_TYPE,
       topic: '',
-      emojis: []
+      phrases: []
     }
   }
 }
@@ -347,11 +347,11 @@ async function readReactionFile (archive, pathname) {
  * @param {DaemonDatArchive} archive
  * @param {string} pathname
  * @param {string} topic
- * @param {string|boolean} addEmoji
- * @param {string|boolean} removeEmoji
+ * @param {string|boolean} addPhrase
+ * @param {string|boolean} removePhrase
  * @returns {Promise<void>}
  */
-async function updateReactionFile (archive, pathname, topic, addEmoji = false, removeEmoji = false) {
+async function updateReactionFile (archive, pathname, topic, addPhrase = false, removePhrase = false) {
   var release = await lock('crawler:reactions:' + archive.url)
   try {
     // read the reaction file
@@ -359,11 +359,11 @@ async function updateReactionFile (archive, pathname, topic, addEmoji = false, r
 
     // apply update
     reactionJson.topic = topic
-    if (addEmoji) reactionJson.emojis = Array.from(new Set(reactionJson.emojis.concat([addEmoji])))
-    if (removeEmoji) reactionJson.emojis = reactionJson.emojis.filter(v => v !== removeEmoji)
+    if (addPhrase) reactionJson.phrases = Array.from(new Set(reactionJson.phrases.concat([addPhrase])))
+    if (removePhrase) reactionJson.phrases = reactionJson.phrases.filter(v => v !== removePhrase)
 
     // write or delete the reaction file
-    if (reactionJson.emojis.length) {
+    if (reactionJson.phrases.length) {
       await archive.pda.writeFile(pathname, JSON.stringify(reactionJson, null, 2), 'utf8')
     } else {
       await archive.pda.unlink(pathname)

@@ -189,7 +189,7 @@ CREATE TABLE crawl_reactions (
   crawledAt INTEGER,
   
   topic TEXT NOT NULL,
-  emojis TEXT NOT NULL,
+  phrases TEXT NOT NULL,
 
   PRIMARY KEY (crawlSourceId, pathname),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
@@ -480,5 +480,5 @@ CREATE TABLE crawl_discussions_tags (
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
 
-PRAGMA user_version = 39;
+PRAGMA user_version = 40;
 `

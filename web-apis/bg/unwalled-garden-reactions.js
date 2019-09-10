@@ -21,13 +21,13 @@ const sessionPerms = require('../../lib/session-perms')
  *
  * @typedef {Object} TopicReactionsPublicAPIRecord
  * @prop {string} topic
- * @prop {string} emoji
+ * @prop {string} phrase
  * @prop {ReactionAuthorPublicAPIRecord[]} authors
  *
  * @typedef {Object} ReactionPublicAPIRecord
  * @prop {string} url
  * @prop {string} topic
- * @prop {string[]} emojis
+ * @prop {string[]} phrases
  * @prop {ReactionAuthorPublicAPIRecord} author
  * @prop {string} visibility
  */
@@ -106,7 +106,7 @@ module.exports = {
     var reactions = await reactionsAPI.tabulate(topic, opts)
     return Promise.all(reactions.map(async (reaction) => ({
       topic,
-      emoji: reaction.emoji,
+      phrase: reaction.phrase,
       authors: await Promise.all(reaction.authors.map(async (url) => {
         var desc = await archivesDb.getMeta(url)
         return {
@@ -122,37 +122,43 @@ module.exports = {
 
   /**
    * @param {string} topic
-   * @param {string} emoji
+   * @param {string} phrase
    * @returns {Promise<void>}
    */
-  async add (topic, emoji) {
+  async add (topic, phrase) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
+    assert(isValidPhrase(phrase), 'The `phrase` parameter must be a lowercase string that matches /^[a-z]+$/ and is less than 20 characters long.')
 
-    await reactionsAPI.add(userArchive, topic, emoji)
+    await reactionsAPI.add(userArchive, topic, phrase)
   },
 
   /**
    * @param {string} topic
-   * @param {string} emoji
+   * @param {string} phrase
    * @returns {Promise<void>}
    */
-  async remove (topic, emoji) {
+  async remove (topic, phrase) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
+    assert(isValidPhrase(phrase), 'The `phrase` parameter must be a lowercase string that matches /^[a-z]+$/ and is less than 20 characters long.')
 
-    await reactionsAPI.remove(userArchive, topic, emoji)
+    await reactionsAPI.remove(userArchive, topic, phrase)
   }
 }
 
 // internal methods
 // =
+
+function isValidPhrase (v) {
+  return v && typeof v === 'string' && v.length <= 20 && /^[a-z ]+$/.test(v)
+}
 
 function normalizeTopicUrl (url) {
   try {
@@ -171,7 +177,7 @@ async function massageReactionRecord (reaction) {
   return {
     url: reaction.recordUrl,
     topic: reaction.topic,
-    emojis: reaction.emojis,
+    phrases: reaction.phrases,
     author: {
       url: desc.url,
       title: desc.title,

@@ -139,7 +139,7 @@ module.exports = {
 
   /**
    * @param {string} topic
-   * @param {string} emoji
+   * @param {number} vote
    * @returns {Promise<VotePublicAPIRecord>}
    */
   async set (topic, vote) {
