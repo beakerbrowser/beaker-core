@@ -49,7 +49,7 @@ module.exports = {
     // put the perms in a user-friendly ordering
     var permsOrder = [
       'unwalled.garden/api/follows',
-      'unwalled.garden/api/posts',
+      'unwalled.garden/api/statuses',
       'unwalled.garden/api/bookmarks',
       'unwalled.garden/api/comments',
       'unwalled.garden/api/reactions',

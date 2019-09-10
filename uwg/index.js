@@ -13,7 +13,7 @@ const metadata = require('./metadata')
 const bookmarks = require('./bookmarks')
 const comments = require('./comments')
 const follows = require('./follows')
-const posts = require('./posts')
+const statuses = require('./statuses')
 const reactions = require('./reactions')
 const votes = require('./votes')
 
@@ -28,7 +28,7 @@ var watches = {}
 exports.bookmarks = bookmarks
 exports.comments = comments
 exports.follows = follows
-exports.posts = posts
+exports.statuses = statuses
 exports.reactions = reactions
 exports.votes = votes
 const createEventsStream = exports.createEventsStream = () => emitStream(uwgEvents)
@@ -117,7 +117,7 @@ exports.crawlSite = async function (archive) {
       bookmarks.crawlSite(archive, crawlSource),
       comments.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
-      posts.crawlSite(archive, crawlSource),
+      statuses.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       votes.crawlSite(archive, crawlSource)
     ])

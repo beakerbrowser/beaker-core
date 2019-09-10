@@ -2,26 +2,26 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const postsAPI = require('../../uwg/posts')
+const statusesAPI = require('../../uwg/statuses')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {Object} PostAuthorPublicAPIRecord
+ * @typedef {Object} StatusAuthorPublicAPIRecord
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
  * @prop {string[]} type
  * @prop {boolean} isOwner
  *
- * @typedef {Object} PostPublicAPIRecord
+ * @typedef {Object} StatusPublicAPIRecord
  * @prop {string} url
  * @prop {string} body
  * @prop {string} createdAt
  * @prop {string} updatedAt
- * @prop {PostAuthorPublicAPIRecord} author
+ * @prop {StatusAuthorPublicAPIRecord} author
  * @prop {string} visibility
  */
 
@@ -38,10 +38,10 @@ module.exports = {
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
    * @param {boolean} [opts.reverse]
-   * @returns {Promise<PostPublicAPIRecord[]>}
+   * @returns {Promise<StatusPublicAPIRecord[]>}
    */
   async list (opts) {
-    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'read')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/statuses', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
     if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
@@ -59,71 +59,71 @@ module.exports = {
         assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
       }
     }
-    var posts = await postsAPI.list(opts)
-    return Promise.all(posts.map(massagePostRecord))
+    var statuses = await statusesAPI.list(opts)
+    return Promise.all(statuses.map(massageStatusRecord))
   },
 
   /**
    * @param {string} url
-   * @returns {Promise<PostPublicAPIRecord>}
+   * @returns {Promise<StatusPublicAPIRecord>}
    */
   async get (url) {
-    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'read')
-    return massagePostRecord(await postsAPI.get(url))
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/statuses', 'read')
+    return massageStatusRecord(await statusesAPI.get(url))
   },
 
   /**
-   * @param {Object|string} post
-   * @param {string} post.body
-   * @param {string} [post.visibility]
-   * @returns {Promise<PostPublicAPIRecord>}
+   * @param {Object|string} status
+   * @param {string} status.body
+   * @param {string} [status.visibility]
+   * @returns {Promise<StatusPublicAPIRecord>}
    */
-  async add (post) {
-    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'write')
+  async add (status) {
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/statuses', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     // string usage
-    if (typeof post === 'string') {
-      post = {body: post}
+    if (typeof status === 'string') {
+      status = {body: status}
     }
 
-    assert(post && typeof post === 'object', 'The `post` parameter must be a string or object')
-    assert(post.body && typeof post.body === 'string', 'The `post.body` parameter must be a non-empty string')
-    if ('visibility' in post) assert(typeof post.visibility === 'string', 'The `post.visibility` parameter must be "public" or "private"')
+    assert(status && typeof status === 'object', 'The `status` parameter must be a string or object')
+    assert(status.body && typeof status.body === 'string', 'The `status.body` parameter must be a non-empty string')
+    if ('visibility' in status) assert(typeof status.visibility === 'string', 'The `status.visibility` parameter must be "public" or "private"')
 
     // default values
-    if (!post.visibility) {
-      post.visibility = 'public'
+    if (!status.visibility) {
+      status.visibility = 'public'
     }
 
-    var url = await postsAPI.add(userArchive, post)
-    return massagePostRecord(await postsAPI.get(url))
+    var url = await statusesAPI.add(userArchive, status)
+    return massageStatusRecord(await statusesAPI.get(url))
   },
 
   /**
    * @param {string} url
-   * @param {Object|string} post
-   * @param {string} post.body
-   * @param {string} [post.visibility]
-   * @returns {Promise<PostPublicAPIRecord>}
+   * @param {Object|string} status
+   * @param {string} status.body
+   * @param {string} [status.visibility]
+   * @returns {Promise<StatusPublicAPIRecord>}
    */
-  async edit (url, post) {
-    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'write')
+  async edit (url, status) {
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/statuses', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     // string usage
-    if (typeof post === 'string') {
-      post = {body: post}
+    if (typeof status === 'string') {
+      status = {body: status}
     }
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
-    assert(post && typeof post === 'object', 'The `post` parameter must be a string or object')
-    if ('body' in post) assert(typeof post.body === 'string', 'The `post.body` parameter must be a non-empty string')
-    if ('visibility' in post) assert(typeof post.visibility === 'string', 'The `post.visibility` parameter must be "public" or "private"')
+    assert(status && typeof status === 'object', 'The `status` parameter must be a string or object')
+    if ('body' in status) assert(typeof status.body === 'string', 'The `status.body` parameter must be a non-empty string')
+    if ('visibility' in status) assert(typeof status.visibility === 'string', 'The `status.visibility` parameter must be "public" or "private"')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await postsAPI.edit(userArchive, filepath, post)
-    return massagePostRecord(await postsAPI.get(userArchive.url + filepath))
+    await statusesAPI.edit(userArchive, filepath, status)
+    return massageStatusRecord(await statusesAPI.get(userArchive.url + filepath))
   },
 
   /**
@@ -131,13 +131,13 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async remove (url) {
-    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/posts', 'write')
+    await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/statuses', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await postsAPI.remove(userArchive, filepath)
+    await statusesAPI.remove(userArchive, filepath)
   }
 }
 
@@ -165,30 +165,30 @@ async function urlToFilepath (url, origin) {
   var key = await dat.dns.resolveName(urlp.hostname)
   var urlp2 = new URL(origin)
   if (key !== urlp2.hostname) {
-    throw new Error('Unable to edit posts on other sites than your own')
+    throw new Error('Unable to edit statuses on other sites than your own')
   }
 
   return filepath
 }
 
 /**
- * @param {Object} post
- * @returns {PostPublicAPIRecord}
+ * @param {Object} status
+ * @returns {StatusPublicAPIRecord}
  */
-function massagePostRecord (post) {
-  if (!post) return null
-  var url =  post.author.url + post.pathname
+function massageStatusRecord (status) {
+  if (!status) return null
+  var url =  status.author.url + status.pathname
   return {
     url,
-    body: post.body,
-    createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
+    body: status.body,
+    createdAt: status.createdAt,
+    updatedAt: status.updatedAt,
     author: {
-      url: post.author.url,
-      title: post.author.title,
-      description: post.author.description,
-      type: post.author.type
+      url: status.author.url,
+      title: status.author.title,
+      description: status.author.description,
+      type: status.author.type
     },
-    visibility: post.visibility
+    visibility: status.visibility
   }
 }

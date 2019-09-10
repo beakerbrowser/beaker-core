@@ -46,7 +46,7 @@ module.exports = {
    * @param {Object} opts
    * @param {string} [opts.query] - The search query.
    * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/post'.
+   * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/status'.
    * @param {number} [opts.filters.since] - Filter results to items created since the given timestamp.
    * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included? Valid values: 1, 2.
    * @param {number} [opts.offset]

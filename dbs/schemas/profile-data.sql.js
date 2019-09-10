@@ -127,8 +127,8 @@ CREATE TABLE crawl_tags (
   tag TEXT UNIQUE
 );
 
--- crawled posts
-CREATE TABLE crawl_posts (
+-- crawled statuses
+CREATE TABLE crawl_statuses (
   crawlSourceId INTEGER NOT NULL,
   pathname TEXT NOT NULL,
   crawledAt INTEGER,
@@ -139,18 +139,18 @@ CREATE TABLE crawl_posts (
 
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
-CREATE VIRTUAL TABLE crawl_posts_fts_index USING fts5(body, content='crawl_posts');
+CREATE VIRTUAL TABLE crawl_statuses_fts_index USING fts5(body, content='crawl_statuses');
 
--- triggers to keep crawl_posts_fts_index updated
-CREATE TRIGGER crawl_posts_ai AFTER INSERT ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(rowid, body) VALUES (new.rowid, new.body);
+-- triggers to keep crawl_statuses_fts_index updated
+CREATE TRIGGER crawl_statuses_ai AFTER INSERT ON crawl_statuses BEGIN
+  INSERT INTO crawl_statuses_fts_index(rowid, body) VALUES (new.rowid, new.body);
 END;
-CREATE TRIGGER crawl_posts_ad AFTER DELETE ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
+CREATE TRIGGER crawl_statuses_ad AFTER DELETE ON crawl_statuses BEGIN
+  INSERT INTO crawl_statuses_fts_index(crawl_statuses_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
 END;
-CREATE TRIGGER crawl_posts_au AFTER UPDATE ON crawl_posts BEGIN
-  INSERT INTO crawl_posts_fts_index(crawl_posts_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
-  INSERT INTO crawl_posts_fts_index(rowid, body) VALUES (new.rowid, new.body);
+CREATE TRIGGER crawl_statuses_au AFTER UPDATE ON crawl_statuses BEGIN
+  INSERT INTO crawl_statuses_fts_index(crawl_statuses_fts_index, rowid, body) VALUES('delete', old.rowid, old.body);
+  INSERT INTO crawl_statuses_fts_index(rowid, body) VALUES (new.rowid, new.body);
 END;
 
 -- crawled comments
@@ -480,5 +480,5 @@ CREATE TABLE crawl_discussions_tags (
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
 
-PRAGMA user_version = 38;
+PRAGMA user_version = 39;
 `
