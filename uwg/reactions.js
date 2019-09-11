@@ -24,7 +24,7 @@ const reactionSchema = require('./json-schemas/reaction')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/reaction'
-const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/reactions\/([^/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/\.data\/reactions\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -290,8 +290,8 @@ exports.add = async function (archive, topic, phrase) {
   var valid = validateReaction({type: JSON_TYPE, topic, phrases: [phrase]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
-  var filepath = `/.data/unwalled.garden/reactions/${slugifyUrl(topic)}.json`
-  await ensureDirectory(archive, '/.data/unwalled.garden/reactions')
+  var filepath = `/.data/reactions/${slugifyUrl(topic)}.json`
+  await ensureDirectory(archive, '/.data/reactions')
   await updateReactionFile(archive, filepath, topic, phrase, false)
   await uwg.crawlSite(archive)
 }
@@ -313,7 +313,7 @@ exports.remove = async function (archive, topic, phrase) {
   var valid = validateReaction({type: JSON_TYPE, topic, phrases: [phrase]})
   if (!valid) throw ajv.errorsText(validateReaction.errors)
 
-  var filepath = `/.data/unwalled.garden/reactions/${slugifyUrl(topic)}.json`
+  var filepath = `/.data/reactions/${slugifyUrl(topic)}.json`
   await updateReactionFile(archive, filepath, topic, false, phrase)
   await uwg.crawlSite(archive)
 }

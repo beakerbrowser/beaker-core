@@ -24,7 +24,7 @@ const voteSchema = require('./json-schemas/vote')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/vote'
-const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/votes\/([^/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/\.data\/votes\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -330,7 +330,7 @@ exports.set = async function (archive, topic, vote) {
   // get the existing vote if it exists
   let existingVote = await get(archive.url, topic)
   var filename = existingVote ? existingVote.createdAt : generateTimeFilename()
-  var filepath = `/.data/unwalled.garden/votes/${filename}.json`
+  var filepath = `/.data/votes/${filename}.json`
 
   if (vote === 0) {
     // delete vote
@@ -351,7 +351,7 @@ exports.set = async function (archive, topic, vote) {
     var valid = validateVote(voteObject)
     if (!valid) throw ajv.errorsText(validateVote.errors)
 
-    await ensureDirectory(archive, '/.data/unwalled.garden/votes')
+    await ensureDirectory(archive, '/.data/votes')
     await archive.pda.writeFile(filepath, JSON.stringify(voteObject, null, 2))
   }
   await uwg.crawlSite(archive)

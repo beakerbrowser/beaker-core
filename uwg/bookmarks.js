@@ -24,7 +24,7 @@ const bookmarkSchema = require('./json-schemas/bookmark')
 
 const TABLE_VERSION = 3
 const JSON_TYPE = 'unwalled.garden/bookmark'
-const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/bookmarks\/([^/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/\.data\/bookmarks\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -344,8 +344,8 @@ exports.addBookmark = async function (archive, bookmark) {
   if (!valid) throw ajv.errorsText(validateBookmark.errors)
 
   var filename = slugifyUrl(bookmarkObject.href)
-  var filepath = `/.data/unwalled.garden/bookmarks/${filename}.json`
-  await ensureDirectory(archive, '/.data/unwalled.garden/bookmarks')
+  var filepath = `/.data/bookmarks/${filename}.json`
+  await ensureDirectory(archive, '/.data/bookmarks')
   await archive.pda.writeFile(filepath, JSON.stringify(bookmarkObject, null, 2))
   await uwg.crawlSite(archive)
   return archive.url + filepath

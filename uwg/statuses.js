@@ -24,7 +24,7 @@ const statusSchema = require('./json-schemas/status')
 
 const TABLE_VERSION = 2
 const JSON_TYPE = 'unwalled.garden/status'
-const JSON_PATH_REGEX = /^\/\.data\/unwalled\.garden\/statuses\/([^/]+)\.json$/i
+const JSON_PATH_REGEX = /^\/\.data\/statuses\/([^/]+)\.json$/i
 
 // typedefs
 // =
@@ -256,8 +256,8 @@ exports.add = async function (archive, status) {
   if (!valid) throw ajv.errorsText(validateStatus.errors)
 
   var filename = generateTimeFilename()
-  var filepath = `/.data/unwalled.garden/statuses/${filename}.json`
-  await ensureDirectory(archive, '/.data/unwalled.garden/statuses')
+  var filepath = `/.data/statuses/${filename}.json`
+  await ensureDirectory(archive, '/.data/statuses')
   await archive.pda.writeFile(filepath, JSON.stringify(statusObject, null, 2))
   await uwg.crawlSite(archive)
   return archive.url + filepath

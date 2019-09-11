@@ -22,7 +22,7 @@ const _differenceBy = require('lodash.differenceby')
 
 const TABLE_VERSION = 1
 const JSON_TYPE = 'unwalled.garden/follows'
-const JSON_PATH = '/.data/unwalled.garden/follows.json'
+const JSON_PATH = '/.data/follows.json'
 
 // typedefs
 // =
@@ -387,7 +387,7 @@ async function updateFollowsFile (archive, updateFn) {
     followUrls = followsJson.urls
 
     // write the follows file
-    await ensureDirectory(archive, '/.data/unwalled.garden')
+    await ensureDirectory(archive, '/.data')
     await archive.pda.writeFile(JSON_PATH, JSON.stringify(followsJson, null, 2), 'utf8')
 
     // trigger crawl now
