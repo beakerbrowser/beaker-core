@@ -31,9 +31,8 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.authors]
+   * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
@@ -43,21 +42,19 @@ module.exports = {
   async list (opts) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/statuses', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-    if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
+    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if ('authors' in opts) {
+      if (Array.isArray(opts.authors)) {
+        assert(opts.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.authors === 'string', 'Authors filter must be a string or array of strings')
       }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
-      }
+    }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
     }
     var statuses = await statusesAPI.list(opts)
     return Promise.all(statuses.map(massageStatusRecord))

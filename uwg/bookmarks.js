@@ -164,10 +164,9 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled bookmarks.
  *
   * @param {Object} [opts]
-  * @param {Object} [opts.filters]
-  * @param {string|string[]} [opts.filters.authors]
-  * @param {string|string[]} [opts.filters.tags]
-  * @param {string} [opts.filters.visibility]
+  * @param {string|string[]} [opts.authors]
+  * @param {string|string[]} [opts.tags]
+  * @param {string} [opts.visibility]
   * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
   * @param {number} [opts.limit]
@@ -177,31 +176,16 @@ exports.crawlSite = async function (archive, crawlSource) {
 exports.list = async function (opts) {
   // TODO tags filter
 
-  // validate & parse params
-  if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'number', 'SortBy must be a string')
-  if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-  if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-  if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-  if (opts && opts.filters) {
-    if ('authors' in opts.filters) {
-      if (Array.isArray(opts.filters.authors)) {
-        assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-      } else {
-        assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        opts.filters.authors = [opts.filters.authors]
-      }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
+  // massage params
+  if ('authors' in opts) {
+    if (!Array.isArray(opts.authors)) {
+      opts.authors = [opts.authors]
     }
-    if ('tags' in opts.filters) {
-      if (Array.isArray(opts.filters.tags)) {
-        assert(opts.filters.tags.every(v => typeof v === 'string'), 'Tags filter must be a string or array of strings')
-      } else {
-        assert(typeof opts.filters.tags === 'string', 'Tags filter must be a string or array of strings')
-        opts.filters.tags = [opts.filters.tags]
-      }
-    }
-    if ('visibility' in opts.filters) {
-      assert(opts.filters.visibility === 'private' || opts.filters.visibility === 'public', 'Visibility filter must be "private" or "public"')
+    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+  }
+  if ('tags' in opts) {
+    if (!Array.isArray(opts.tags)) {
+      opts.tags = [opts.tags]
     }
   }
 
@@ -216,11 +200,11 @@ exports.list = async function (opts) {
     .leftJoin('crawl_tags', 'crawl_bookmarks_tags.crawlTagId', '=', 'crawl_tags.id')
     .groupBy('crawl_bookmarks.id')
     .orderBy('crawl_bookmarks.createdAt', opts.reverse ? 'DESC' : 'ASC')
-  if (opts && opts.filters && opts.filters.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  if (opts && opts.authors) {
+    sql = sql.whereIn('crawl_sources.url', opts.authors)
   }
-  if (opts && opts.filters && opts.filters.visibility) {
-    sql.where('crawl_sources.isPrivate', (opts.filters.visibility === 'private') ? 1 : 0)
+  if (opts && opts.visibility) {
+    sql.where('crawl_sources.isPrivate', (opts.visibility === 'private') ? 1 : 0)
   }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)
@@ -230,8 +214,8 @@ exports.list = async function (opts) {
   var bookmarks = await Promise.all(rows.map(massageBookmarkRow))
 
   // apply tags filter
-  if (opts && opts.filters && opts.filters.tags) {
-    const someFn = t => opts.filters.tags.includes(t)
+  if (opts && opts.tags) {
+    const someFn = t => opts.tags.includes(t)
     bookmarks = bookmarks.filter(bookmark => bookmark.tags.some(someFn))
   }
 

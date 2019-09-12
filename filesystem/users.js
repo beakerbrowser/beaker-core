@@ -369,11 +369,11 @@ async function selectNextCrawlTargets (user) {
   var rows = [user.url]
 
   // get followed sites
-  var followedUrls = (await follows.list({filters: {authors: user.url}})).map(({topic}) => topic.url)
+  var followedUrls = (await follows.list({authors: user.url})).map(({topic}) => topic.url)
   rows = rows.concat(followedUrls)
 
   // get sites followed by followed sites
-  var foafUrls = (await follows.list({filters: {authors: followedUrls}})).map(({topic}) => topic.url)
+  var foafUrls = (await follows.list({authors: followedUrls})).map(({topic}) => topic.url)
   rows = rows.concat(foafUrls)
 
   // eleminate duplicates

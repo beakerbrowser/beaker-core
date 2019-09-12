@@ -147,10 +147,9 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled reactions.
  *
  * @param {Object} [opts]
- * @param {Object} [opts.filters]
- * @param {string|string[]} [opts.filters.authors]
- * @param {string|string[]} [opts.filters.topics]
- * @param {string} [opts.filters.visibility]
+ * @param {string|string[]} [opts.authors]
+ * @param {string|string[]} [opts.topics]
+ * @param {string} [opts.visibility]
  * @param {string} [opts.sortBy]
  * @param {number} [opts.offset=0]
  * @param {number} [opts.limit]
@@ -161,33 +160,18 @@ exports.list = async function (opts) {
   // TODO: handle visibility
   // TODO: sortBy options
 
-  // validate & parse params
-  if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-  if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-  if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-  if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-  if (opts && opts.filters) {
-    if ('authors' in opts.filters) {
-      if (Array.isArray(opts.filters.authors)) {
-        assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-      } else {
-        assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        opts.filters.authors = [opts.filters.authors]
-      }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
+  // massage params
+  if ('authors' in opts) {
+    if (!Array.isArray(opts.authors)) {
+      opts.authors = [opts.authors]
     }
-    if ('topics' in opts.filters) {
-      if (Array.isArray(opts.filters.topics)) {
-        assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
-      } else {
-        assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
-        opts.filters.topics = [opts.filters.topics]
-      }
-      opts.filters.topics = opts.filters.topics.map(normalizeTopicUrl)
+    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+  }
+  if ('topics' in opts) {
+    if (!Array.isArray(opts.topics)) {
+      opts.topics = [opts.topics]
     }
-    if ('visibility' in opts.filters) {
-      assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
-    }
+    opts.topics = opts.topics.map(normalizeTopicUrl)
   }
 
   // execute query
@@ -198,11 +182,11 @@ exports.list = async function (opts) {
     .orderBy('crawl_reactions.topic', opts.reverse ? 'DESC' : 'ASC')
   if (opts.limit) sql = sql.limit(opts.limit)
   if (opts.offset) sql = sql.offset(opts.offset)
-  if (opts && opts.filters && opts.filters.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  if (opts.authors) {
+    sql = sql.whereIn('crawl_sources.url', opts.authors)
   }
-  if (opts && opts.filters && opts.filters.topics) {
-    sql = sql.whereIn('crawl_reactions.topic', opts.filters.topics)
+  if (opts.topics) {
+    sql = sql.whereIn('crawl_reactions.topic', opts.topics)
   }
   var rows = await db.all(sql)
 
@@ -220,31 +204,20 @@ exports.list = async function (opts) {
  *
  * @param {string} topic - The URL of the topic
  * @param {Object} [opts]
- * @param {Object} [opts.filters]
- * @param {string|string[]} [opts.filters.authors]
- * @param {string} [opts.filters.visibility]
+ * @param {string|string[]} [opts.authors]
+ * @param {string} [opts.visibility]
  * @returns {Promise<TopicReaction[]>}
  */
 exports.tabulate = async function (topic, opts) {
   // TODO handle visibility
 
-  // validate params
-  try { new URL(topic) }
-  catch (e) { throw new Error('Invalid URL: ' + topic) }
+  // massage params
   topic = normalizeTopicUrl(topic)
-  if (opts && opts.filters) {
-    if ('authors' in opts.filters) {
-      if (Array.isArray(opts.filters.authors)) {
-        assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-      } else {
-        assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        opts.filters.authors = [opts.filters.authors]
-      }
-      opts.filters.authors = await Promise.all(opts.filters.authors.map(datArchives.getPrimaryUrl))
+  if ('authors' in opts) {
+    if (!Array.isArray(opts.authors)) {
+      opts.authors = [opts.authors]
     }
-    if ('visibility' in opts.filters) {
-      assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
-    }
+    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
   }
 
   // execute query
@@ -253,8 +226,8 @@ exports.tabulate = async function (topic, opts) {
     .select('crawl_sources.url AS crawlSourceUrl')
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_reactions.crawlSourceId')
     .where('crawl_reactions.topic', topic)
-  if (opts && opts.filters && opts.filters.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.filters.authors)
+  if (opts.authors) {
+    sql = sql.whereIn('crawl_sources.url', opts.authors)
   }
   var rows = await db.all(sql)
 
