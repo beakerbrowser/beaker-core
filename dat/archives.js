@@ -4,7 +4,6 @@ const datEncoding = require('dat-encoding')
 const parseDatURL = require('parse-dat-url')
 const _debounce = require('lodash.debounce')
 const pda = require('pauls-dat-api2')
-const scopedFSes = require('../lib/scoped-fses')
 const baseLogger = require('../logger').get()
 const logger = baseLogger.child({category: 'dat', subcategory: 'archives'})
 
@@ -147,9 +146,14 @@ const pullLatestArchiveMeta = exports.pullLatestArchiveMeta = async function pul
     var {title, description, type, author, forkOf} = (manifest || {})
     var isOwner = archive.writable
     var mtime = updateMTime ? Date.now() : oldMeta.mtime
+    var details = {title, description, type, mtime, size, author, forkOf, isOwner}
+
+    // check for changes
+    if (!hasMetaChanged(details, oldMeta)) {
+      return
+    }
 
     // write the record
-    var details = {title, description, type, mtime, size, author, forkOf, isOwner}
     await archivesDb.setMeta(key, details)
 
     // emit the updated event
@@ -536,4 +540,13 @@ const fromKeyToURL = exports.fromKeyToURL = function fromKeyToURL (key) {
     return `dat://${key}/`
   }
   return key
+}
+
+function hasMetaChanged (m1, m2) {
+  for (let k of ['title', 'description', 'type', 'size', 'author', 'forkOf']) {
+    if (!m1[k] !== !m2[k] && m1[k] !== m2[k]) {
+      return true
+    }
+  }
+  return false
 }
