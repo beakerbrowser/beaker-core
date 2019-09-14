@@ -13,7 +13,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
  * @prop {boolean} isOwner
  *
  * @typedef {Object} BookmarkPublicAPIRecord
@@ -44,30 +44,30 @@ module.exports = {
   async list (opts) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/bookmarks', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-    if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if ('authors' in opts) {
+    if (typeof opts.sortBy !== 'undefined') assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if (typeof opts.offset !== 'undefined') assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if (typeof opts.limit !== 'undefined') assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if (typeof opts.reverse !== 'undefined') assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if (typeof opts.authors !== 'undefined') {
       if (Array.isArray(opts.authors)) {
         assert(opts.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
       } else {
         assert(typeof opts.authors === 'string', 'Authors filter must be a string or array of strings')
       }
     }
-    if ('tags' in opts) {
+    if (typeof opts.tags !== 'undefined') {
       if (Array.isArray(opts.tags)) {
         assert(opts.tags.every(v => typeof v === 'string'), 'Tags filter must be a string or array of strings')
       } else {
         assert(typeof opts.tags === 'string', 'Tags filter must be a string or array of strings')
       }
     }
-    if ('visibility' in opts) {
+    if (typeof opts.visibility !== 'undefined') {
       assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
     }
 
-    var comments = await bookmarksAPI.list(opts)
-    return Promise.all(comments.map(massageBookmarkRecord))
+    var bookmarks = await bookmarksAPI.list(opts)
+    return Promise.all(bookmarks.map(massageBookmarkRecord))
   },
 
   /**

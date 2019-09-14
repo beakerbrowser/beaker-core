@@ -3,7 +3,7 @@ module.exports = {
   '$id': 'dat://unwalled.garden/follows.json',
   'type': 'object',
   'title': 'Follows',
-  'description': ' A list of data subscriptions.',
+  'description': 'A list of data subscriptions.',
   'required': [
     'type',
     'urls'
@@ -19,12 +19,8 @@ module.exports = {
       'description': 'The followed URLs',
       'items': {
         'type': 'string',
-        'format': 'uri',
-        'examples': [
-          'dat://beakerbrowser.com'
-        ]
+        'format': 'uri'
       }
     }
-  },
-  'additionalProperties': false
+  }
 }

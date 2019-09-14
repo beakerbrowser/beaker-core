@@ -14,7 +14,7 @@ const search = require('../../uwg/search')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string} type
  *
  * @typedef {Object} SearchPublicAPIResultRecord
  * @prop {string} type
@@ -27,7 +27,7 @@ const search = require('../../uwg/search')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string} type
  *
  * @typedef {Object} SearchPublicAPIPostResult
  * @prop {SearchPublicAPIResultRecord} record

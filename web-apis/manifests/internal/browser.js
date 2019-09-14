@@ -31,6 +31,7 @@ module.exports = {
 
   openSidebar: 'promise',
   toggleSidebar: 'promise',
+  toggleSiteInfo: 'promise',
   toggleLiveReloading: 'promise',
   setWindowDimensions: 'promise',
   setWindowDragModeEnabled: 'promise',

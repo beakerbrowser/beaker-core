@@ -13,18 +13,18 @@ module.exports = {
     },
     'body': {
       'type': 'string',
-      'description': "The status' text body",
+      'description': "The status's text body",
       'maxLength': 1000000
     },
     'createdAt': {
       'type': 'string',
       'format': 'date-time',
-      'description': "The time of this status' creation"
+      'description': "The time of this status's creation"
     },
     'updatedAt': {
       'type': 'string',
       'format': 'date-time',
-      'description': "The time of this status' last edit"
+      'description': "The time of this status's last edit"
     }
   }
 }

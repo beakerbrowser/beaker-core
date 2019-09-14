@@ -63,10 +63,13 @@ module.exports = {
       await assertCreateArchivePermission(this.sender)
 
       // create
-      var newArchive = await datArchives.createNewArchive(
-        Object.assign({title, description, type, author, links}, generateManifest(type))
-      )
-      await datLibrary.configureArchive(newArchive, {isSaved: true, isHosting: true, visibility})
+      try {
+        var newArchive = await datArchives.createNewArchive({title, description, type, author, links})
+        await datLibrary.configureArchive(newArchive, {isSaved: true, isHosting: true, visibility})
+      } catch (e) {
+        console.log(e)
+        throw e
+      }
       newArchiveUrl = newArchive.url
     }
     let newArchiveKey = await lookupUrlDatKey(newArchiveUrl)
@@ -698,12 +701,6 @@ function assertValidPath (fileOrFolderPath) {
   if (!DAT_VALID_PATH_REGEX.test(fileOrFolderPath)) {
     throw new InvalidPathError('Path contains invalid characters')
   }
-}
-
-function generateManifest (type) {
-  type = Array.isArray(type) ? type : [type]
-  // TODO
-  return {}
 }
 
 // async function assertSenderIsFocused (sender) {

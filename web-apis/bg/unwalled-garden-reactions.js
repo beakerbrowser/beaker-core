@@ -16,7 +16,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
  * @prop {boolean} isOwner
  *
  * @typedef {Object} TopicReactionsPublicAPIRecord
@@ -108,7 +108,7 @@ module.exports = {
           url: desc.url,
           title: desc.title,
           description: desc.description,
-          type: /** @type string[] */(desc.type),
+          type: desc.type,
           isOwner: desc.isOwner
         }
       }))
@@ -177,7 +177,7 @@ async function massageReactionRecord (reaction) {
       url: desc.url,
       title: desc.title,
       description: desc.description,
-      type: /** @type string[] */(desc.type),
+      type: desc.type,
       isOwner: desc.isOwner
     },
     visibility: reaction.visibility

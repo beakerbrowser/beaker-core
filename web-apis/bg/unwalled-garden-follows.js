@@ -1,7 +1,5 @@
-const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
-const dat = require('../../dat')
 const followsAPI = require('../../uwg/follows')
 const sessionPerms = require('../../lib/session-perms')
 
@@ -13,7 +11,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
  * @prop {boolean} isOwner
  *
  * @typedef {Object} FollowsPublicAPIRecord
@@ -160,7 +158,8 @@ function massageSiteRecord (site) {
     url: site.url,
     title: site.title,
     description: site.description,
-    type: site.type
+    type: site.type,
+    isOwner: site.isOwner
   }
 }
 

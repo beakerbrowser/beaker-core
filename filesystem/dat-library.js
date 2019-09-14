@@ -8,7 +8,7 @@ const users = require('./users')
 const joinPath = require('path').join
 const slugify = require('slugify')
 const libTools = require('@beaker/library-tools')
-const libraryJsonSchema = require('@beaker/library-tools/library.json')
+const uwg = require('../uwg')
 const {PATHS, DAT_HASH_REGEX} = require('../lib/const')
 
 // typedefs
@@ -26,6 +26,7 @@ const {PATHS, DAT_HASH_REGEX} = require('../lib/const')
  * @prop {string} visibility
  * @prop {Date} savedAt
  * @prop {LibraryArchiveMeta} meta
+ * @prop {LibraryArchiveMeta} author
  */
 
 // globals
@@ -80,11 +81,12 @@ exports.setup = async function () {
       dat.meta = await archivesDb.getMeta(key)
 
       // handle state changes
-      var oldCat = libTools.typeToCategory(oldMeta.type, true)
-      var newCat = libTools.typeToCategory(details.type, true)
+      var oldCat = libTools.typeToCategory(oldMeta.type, true) || 'other'
+      var newCat = libTools.typeToCategory(details.type, true) || 'other'
       var changes = {
-        type: newCat !== oldCat,
+        type: details.type !== oldMeta.type,
         title: details.title !== oldMeta.title,
+        description: details.description !== oldMeta.description,
         author: details.author !== oldMeta.author
       }
       if (changes.type || changes.title) {
@@ -92,12 +94,30 @@ exports.setup = async function () {
         await ensureUnmounted(filesystem.get(), PATHS.LIBRARY_SAVED_DAT(oldCat), archive)
         await ensureMounted(filesystem.get(), PATHS.LIBRARY_SAVED_DAT(newCat), archive, details.title)
       }
-      if (dat.visibility === 'public' && (changes.author || changes.title)) {
-        let oldUser = oldMeta.author ? await users.get(oldMeta.author) : null
-        let newUser = details.author ? await users.get(details.author) : null
-        let archive = await datArchives.getOrLoadArchive(key)
-        if (oldUser) await ensureUnmounted(oldUser.archive, PATHS.REFS_AUTHORED_DATS, archive)
-        if (newUser) await ensureMounted(newUser.archive, PATHS.REFS_AUTHORED_DATS, archive, details.title)
+      if (dat.visibility === 'public') {
+        if (changes.author) {
+          let oldUser = oldMeta.author ? await users.get(oldMeta.author) : null
+          let newUser = details.author ? await users.get(details.author) : null
+          if (oldUser) {
+            await uwg.dats.unpublish(oldUser.archive, key)
+          }
+          if (newUser) {
+            await uwg.dats.publish(newUser.archive, key, {
+              title: details.title,
+              description: details.description,
+              type: details.type
+            })
+          }
+        } else if (changes.title || changes.description || changes.type) {
+          let user = details.author ? await users.get(details.author) : null
+          if (user) {
+            await uwg.dats.publish(user.archive, key, {
+              title: details.title,
+              description: details.description,
+              type: details.type
+            })
+          }
+        }
       }
     } catch (e) {
       logger.error('Failed to update archive in filesystem after change', {error: e.toString(), key, details, oldMeta})
@@ -108,77 +128,83 @@ exports.setup = async function () {
 }
 
 /**
- * @param {Object} query
- * @param {string} [query.type]
- * @param {string} [query.author]
- * @param {string} [query.forkOf]
- * @param {boolean} [query.isSaved]
- * @param {boolean} [query.isHosting]
- * @param {boolean} [query.isOwner]
- * @returns {LibraryDat[]}
+ * @param {Object} [opts]
+ * @param {string} [opts.types]
+ * @param {string} [opts.authors]
+ * @param {string} [opts.keys]
+ * @param {string} [opts.visibility]
+ * @param {string} [opts.forkOf]
+ * @param {boolean} [opts.isSaved]
+ * @param {boolean} [opts.isHosting]
+ * @param {boolean} [opts.isOwner]
+ * @param {string} [opts.sortBy]
+ * @param {number} [opts.offset=0]
+ * @param {number} [opts.limit]
+ * @param {boolean} [opts.reverse]
+ * @returns {Promise<LibraryDat[]>}
  */
-exports.query = function (query = {}) {
-  // TODO handle query.isSaved === false
-  var results = []
-  for (let dat of libraryDats) {
-    let isMatch = true
-    if ('type' in query) {
-      let types = Array.isArray(query.type) ? query.type : [query.type]
-      for (let type of types) {
-        if (dat.meta.type.indexOf(type) === -1) {
-          isMatch = false
-          break
-        }
-      }
-    }
-    if ('author' in query) {
-      if (dat.meta.author !== query.author) {
-        isMatch = false
-      }
-    }
-    if ('forkOf' in query) {
-      if (dat.meta.forkOf !== query.forkOf) {
-        isMatch = false
-      }
-    }
-    if ('isHosting' in query) {
-      if (dat.isHosting !== query.isHosting) {
-        isMatch = false
-      }
-    }
-    if ('isOwner' in query) {
-      if (dat.meta.isOwner !== query.isOwner) {
-        isMatch = false
-      }
-    }
-    if (isMatch) {
-      let result = /** @type LibraryDat */({
-        key: dat.key,
-        meta: Object.assign({}, dat.meta),
-        isSaved: true,
-        isHosting: dat.isHosting,
-        visibility: dat.visibility,
-        savedAt: new Date(dat.savedAt)
-      })
-      results.push(result)
-    }
+exports.list = async function (opts = {}) {
+  opts = (opts && typeof opts === 'object') ? opts : {}
+
+  // run initial query on public or private indexes
+  var results
+  if (opts.visibility === 'public' && !opts.isSaved && !opts.isHosting && !opts.isOwner) {
+    results = await uwg.dats.list(opts)
+  } else {
+    results = localQuery(opts)
   }
-  return results
+
+  // run second-pass on results
+  // (this pass uses data which does not exist on the public index)
+  var results2 = []
+  for (let result of results) {
+    let libraryDat = libraryDats.find(d => d.key === result.key)
+    if (typeof opts.forkOf !== 'undefined' && result.meta.forkOf !== opts.forkOf) continue
+    if (typeof opts.isHosting !== 'undefined' && libraryDat.isHosting !== opts.isHosting) continue
+    if (typeof opts.isOwner !== 'undefined' && result.meta.isOwner !== opts.isOwner) continue
+    if (typeof opts.isSaved !== 'undefined' && Boolean(libraryDat) !== opts.isSaved) continue
+    results2.push(/** @type LibraryDat */({
+      key: result.key,
+      author: ('author' in result) ? result.author : await archivesDb.getMeta(result.meta.author),
+      meta: Object.assign({}, result.meta),
+      isSaved: !!libraryDat,
+      isHosting: libraryDat ? libraryDat.isHosting : false,
+      visibility: libraryDat ? libraryDat.visibility : 'public',
+      savedAt: libraryDat ? new Date(libraryDat.savedAt) : undefined
+    }))
+  }
+
+  if (opts.sortBy === 'mtime') {
+    results2.sort((a, b) => a.meta.mtime - b.meta.mtime)
+  } else if (opts.sortBy === 'title') {
+    results2.sort((a, b) => a.meta.title.localeCompare(b.meta.title))
+  }
+  if (opts.reverse) results2.reverse()
+
+  if (opts.offset || opts.limit) {
+    results2 = results2.slice(opts.offset, opts.limit)
+  }
+
+  return results2
 }
 
 /**
  * @returns {Promise<LibraryDat[]>}
  */
-exports.listTrashed = async function () {
+exports.listTrash = async function () {
   var items = await trash.query({mounts: true})
-  return Promise.all(items.map(async (item) => ({
-    key: item.stat.mount.key,
-    meta: await archivesDb.getMeta(item.stat.mount.key),
-    isSaved: false,
-    isHosting: false,
-    visibility: undefined,
-    savedAt: item.stat.mtime
-  })))
+  return Promise.all(items.map(async (item) => {
+    var meta = await archivesDb.getMeta(item.stat.mount.key)
+    return {
+      key: item.stat.mount.key,
+      author: await archivesDb.getMeta(meta.author),
+      meta,
+      isSaved: false,
+      isHosting: false,
+      visibility: undefined,
+      savedAt: item.stat.mtime
+    }
+  }))
 }
 
 /**
@@ -279,6 +305,43 @@ async function saveLibraryJson () {
 }
 
 /**
+ * @param {Object} opts
+ * @param {string} [opts.types]
+ * @param {string} [opts.authors]
+ * @param {string} [opts.keys]
+ * @param {string} [opts.visibility]
+ * @returns {LibraryDat[]}
+ */
+function localQuery (opts) {
+  var results = []
+  for (let dat of libraryDats) {
+    if (typeof opts.types !== 'undefined') {
+      let types = Array.isArray(opts.types) ? opts.types : [opts.types]
+      if (!types.includes(dat.meta.type)) {
+        continue
+      }
+    }
+    if (typeof opts.authors !== 'undefined') {
+      let authors = Array.isArray(opts.authors) ? opts.authors : [opts.authors]
+      if (!authors.includes(dat.meta.author)) {
+        continue
+      }
+    }
+    if (typeof opts.keys !== 'undefined') {
+      let keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys]
+      if (!keys.includes(dat.meta.url)) {
+        continue
+      }
+    }
+    if (typeof opts.visibility !== 'undefined') {
+      if (dat.visibility !== opts.visibility) continue
+    }
+    results.push(dat)
+  }
+  return results
+}
+
+/**
  * @param {DaemonDatArchive} archive
  * @param {Object} manifest
  * @param {boolean} isSaved
@@ -322,9 +385,13 @@ async function updateVisibility (archive, manifest, visibility) {
     return
   }
   if (visibility === 'public') {
-    await ensureMounted(user.archive, PATHS.REFS_AUTHORED_DATS, archive, manifest.title)
+    await uwg.dats.publish(user.archive, archive.key.toString('hex'), {
+      title: manifest.title,
+      description: manifest.description,
+      type: manifest.type
+    })
   } else {
-    await ensureUnmounted(user.archive, PATHS.REFS_AUTHORED_DATS, archive)
+    await uwg.dats.unpublish(user.archive, archive.key.toString('hex'))
   }
 }
 

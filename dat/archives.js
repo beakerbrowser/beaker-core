@@ -91,7 +91,7 @@ exports.setup = async function setup ({rpcAPI, disallowedSavePaths}) {
  */
 exports.loadSavedArchives = async function () {
   // load all saved archives
-  var archives = require('../filesystem/dat-library').query({isHosting: true})
+  var archives = await require('../filesystem/dat-library').list({isHosting: true})
   // HACK
   // load the archives one at a time and give 5 seconds between each
   // why: the purpose of loading saved archives is to seed them

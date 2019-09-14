@@ -70,6 +70,7 @@ exports.setup = async function () {
     for (let cat of libTools.getCategoriesArray(true)) {
       await ensureDir(PATHS.LIBRARY_SAVED_DAT(cat))
     }
+    await ensureDir(PATHS.LIBRARY_SAVED_DAT('other'))
 
     // ensure all user mounts are set
     await ensureDir(PATHS.USERS)

@@ -14,7 +14,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
  * @prop {boolean} isOwner
  */
 
@@ -33,7 +33,7 @@ async function get (url) {
     url: meta.url,
     title: meta.title,
     description: meta.description,
-    type: /** @type string[] */(meta.type),
+    type: meta.type,
     isOwner: meta.isOwner
   }
 }

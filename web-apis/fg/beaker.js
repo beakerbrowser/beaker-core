@@ -35,12 +35,11 @@ exports.setup = function (rpc) {
     // beaker.archives
     beaker.archives = new EventTarget()
     beaker.archives.status = archivesRPC.status
-    beaker.archives.list = archivesRPC.list
-    beaker.archives.configure = archivesRPC.configure
+    beaker.archives.listTrash = archivesRPC.listTrash
+    beaker.archives.collectTrash = archivesRPC.collectTrash
     beaker.archives.delete = archivesRPC.delete
     beaker.archives.touch = archivesRPC.touch
     beaker.archives.clearFileCache = archivesRPC.clearFileCache
-    beaker.archives.clearGarbage = archivesRPC.clearGarbage
     beaker.archives.clearDnsCache = archivesRPC.clearDnsCache
     beaker.archives.getDebugLog = archivesRPC.getDebugLog
     beaker.archives.createDebugStream = () => fromEventStream(archivesRPC.createDebugStream())

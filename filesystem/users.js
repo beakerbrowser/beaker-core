@@ -31,6 +31,7 @@ const LABEL_REGEX = /[a-z0-9-]/i
  * @prop {boolean} isTemporary
  * @prop {string} title
  * @prop {string} description
+ * @prop {string} type
  * @prop {Date} createdAt
  */
 
@@ -411,6 +412,7 @@ async function fetchUserInfo (user) {
     isTemporary: user.isTemporary,
     title: meta.title,
     description: meta.description,
+    type: meta.type,
     createdAt: new Date(user.createdAt)
   }
 }

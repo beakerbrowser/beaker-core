@@ -37,7 +37,7 @@ const SITE_TYPES = Object.values(libTools.getCategoriesMap()).filter(Boolean)
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string} type
  *
  * @typedef {Object} SearchResultRecord
  * @prop {string} type
@@ -50,7 +50,7 @@ const SITE_TYPES = Object.values(libTools.getCategoriesMap()).filter(Boolean)
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string} type
  *
  * @typedef {Object} PostSearchResult
  * @prop {SearchResultRecord} record

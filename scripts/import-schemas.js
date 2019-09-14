@@ -8,7 +8,9 @@ const SCHEMAS = [
   'follows',
   'status',
   'bookmark',
-  'reaction'
+  'reaction',
+  'dats',
+  'vote'
 ]
 
 console.log('')

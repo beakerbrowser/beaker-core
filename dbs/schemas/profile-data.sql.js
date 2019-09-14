@@ -28,6 +28,7 @@ CREATE TABLE archives_meta (
   key TEXT PRIMARY KEY,
   title TEXT,
   description TEXT,
+  type TEXT,
   mtime INTEGER,
   size INTEGER,
   author TEXT,
@@ -40,11 +41,6 @@ CREATE TABLE archives_meta (
   createdByTitle TEXT, -- deprecated
   metaSize INTEGER, -- deprecated
   stagingSize INTEGER -- deprecated
-);
-
-CREATE TABLE archives_meta_type (
-  key TEXT,
-  type TEXT
 );
 
 CREATE TABLE dat_dns (
@@ -258,6 +254,20 @@ CREATE TABLE crawl_follows (
   destUrl TEXT NOT NULL,
 
   PRIMARY KEY (crawlSourceId, destUrl),
+  FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
+);
+
+-- crawled dats
+CREATE TABLE crawl_dats (
+  crawlSourceId INTEGER NOT NULL,
+  crawledAt INTEGER,
+  
+  key TEXT NOT NULL,
+  title TEXT,
+  description TEXT,
+  type TEXT,
+
+  PRIMARY KEY (crawlSourceId, key),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
 
@@ -480,5 +490,5 @@ CREATE TABLE crawl_discussions_tags (
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
 
-PRAGMA user_version = 40;
+PRAGMA user_version = 41;
 `

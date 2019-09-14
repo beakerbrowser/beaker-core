@@ -6,39 +6,10 @@ const trash = require('../../filesystem/trash')
 const users = require('../../filesystem/users')
 const {PermissionsError} = require('beaker-error-constants')
 
-// typedefs
-// =
-
-/**
- * @typedef {import('../../filesystem/dat-library').LibraryDat} LibraryDat
- *
- * @typedef {Object} ArchivePublicAPIRecord
- * @prop {string} url
- * @prop {string} title
- * @prop {string} description
- * @prop {string | Array<string>} type
- * @prop {number} mtime
- * @prop {number} size
- * @prop {string} author
- * @prop {string} forkOf
- * @prop {boolean} isOwner
- * @prop {number} lastAccessTime
- * @prop {number} lastLibraryAccessTime
- * @prop {Object} userSettings
- * @prop {boolean} userSettings.isSaved
- * @prop {boolean} userSettings.isHosting
- * @prop {string} userSettings.visibility
- * @prop {Date} userSettings.savedAt
- */
-
 // exported api
 // =
 
 module.exports = {
-
-  // system state
-  // =
-
   async status () {
     var status = {archives: 0, peers: 0}
     var archives = datArchives.getActiveArchives()
@@ -49,30 +20,24 @@ module.exports = {
     return status
   },
 
-  // local cache management and querying
-  // =
-
-  async list (query = {}) {
-    var dats = datLibrary.query(query)
-    return Promise.all(dats.map(massageRecord))
+  async listTrash() {
+    var records = await datLibrary.listTrash()
+    return records.map(massageRecord)
   },
 
-  async configure (url, opts) {
-    var archive = await datArchives.getOrLoadArchive(url)
-    return datLibrary.configureArchive(archive, opts)
+  async collectTrash () {
+    return trash.collect({olderThan: 0})
   },
 
   async delete (url) {
-    var archive = await datArchives.getOrLoadArchive(url)
-    assertArchiveDeletable(archive.key)
-    await datLibrary.configureArchive(archive, {isSaved: false})
-    await datArchives.unloadArchive(archive.key)
-    var bytes = await archivesDb.deleteArchive(archive.key)
-    return {bytes}
+    // TODO
+    // var archive = await datArchives.getOrLoadArchive(url)
+    // assertArchiveDeletable(archive.key)
+    // await datLibrary.configureArchive(archive, {isSaved: false})
+    // await datArchives.unloadArchive(archive.key)
+    // var bytes = await archivesDb.deleteArchive(archive.key)
+    // return {bytes}
   },
-
-  // internal management
-  // =
 
   async touch (key, timeVar, value) {
     return archivesDb.touch(key, timeVar, value)
@@ -82,16 +47,9 @@ module.exports = {
     return datArchives.clearFileCache(await datArchives.fromURLToKey(url, true))
   },
 
-  async clearGarbage () {
-    return trash.collect()
-  },
-
   clearDnsCache () {
     datDns.flushCache()
   },
-
-  // events
-  // =
 
   createEventStream () {
     return datArchives.createEventStream()
@@ -115,28 +73,30 @@ function assertArchiveDeletable (key) {
   }
 }
 
-/**
- * @param {LibraryDat} record
- * @returns {Promise<ArchivePublicAPIRecord>}
- */
-async function massageRecord (record) {
+function massageRecord (record) {
   return {
-    url: await datArchives.getPrimaryUrl(record.meta.key),
-    title: record.meta.title,
-    description: record.meta.description,
-    type: record.meta.type,
-    mtime: record.meta.mtime,
-    size: record.meta.size,
-    author: record.meta.author,
-    forkOf: record.meta.forkOf,
-    isOwner: record.meta.isOwner,
-    lastAccessTime: record.meta.lastAccessTime,
-    lastLibraryAccessTime: record.meta.lastLibraryAccessTime,
-    userSettings: {
-      isSaved: record.isSaved,
-      isHosting: record.isHosting,
-      visibility: record.visibility,
-      savedAt: record.savedAt
-    }
+    key: record.key,
+    url: `dat://${record.key}`,
+    author: record.author ? {
+      url: record.author.url,
+      title: record.author.title,
+      description: record.author.description,
+      type: record.author.type,
+      isOwner: record.author.isOwner
+    } : undefined,
+    meta: {
+      title: record.meta.title,
+      description: record.meta.description,
+      type: record.meta.type,
+      mtime: record.meta.mtime,
+      size: record.meta.size,
+      author: record.meta.author,
+      forkOf: record.meta.forkOf,
+      isOwner: record.meta.isOwner
+    },
+    isSaved: record.isSaved,
+    isHosting: record.isHosting,
+    visibility: record.visibility,
+    savedAt: Number(record.savedAt)
   }
 }

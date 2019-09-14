@@ -6,13 +6,13 @@ const knex = require('../lib/knex')
 const db = require('../dbs/profile-data-db')
 const archivesDb = require('../dbs/archives')
 const dat = require('../dat')
-const users = require('../filesystem/users')
 
 const {uwgEvents, toHostname} = require('./util')
 const metadata = require('./metadata')
 const bookmarks = require('./bookmarks')
 const comments = require('./comments')
 const follows = require('./follows')
+const dats = require('./dats')
 const statuses = require('./statuses')
 const reactions = require('./reactions')
 const votes = require('./votes')
@@ -28,6 +28,7 @@ var watches = {}
 exports.bookmarks = bookmarks
 exports.comments = comments
 exports.follows = follows
+exports.dats = dats
 exports.statuses = statuses
 exports.reactions = reactions
 exports.votes = votes
@@ -117,6 +118,7 @@ exports.crawlSite = async function (archive) {
       bookmarks.crawlSite(archive, crawlSource),
       comments.crawlSite(archive, crawlSource),
       follows.crawlSite(archive, crawlSource),
+      dats.crawlSite(archive, crawlSource),
       statuses.crawlSite(archive, crawlSource),
       reactions.crawlSite(archive, crawlSource),
       votes.crawlSite(archive, crawlSource)

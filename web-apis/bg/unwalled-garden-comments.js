@@ -13,7 +13,7 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
  * @prop {boolean} isOwner
  *
  * @typedef {Object} CommentPublicAPIRecord

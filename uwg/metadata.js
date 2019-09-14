@@ -42,7 +42,6 @@ exports.crawlSite = async function (archive, crawlSource) {
 
   // list all mounted sites we might want to capture the metadata for
   var targets = [{path: '/dat.json', url: archive.url}]
-    .concat(await listMounts(archive, PATHS.REFS_AUTHORED_DATS))
     .concat(await listMounts(archive, PATHS.REFS_FOLLOWED_DATS))
 
   for (let target of targets) {

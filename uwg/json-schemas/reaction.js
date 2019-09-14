@@ -18,10 +18,7 @@ module.exports = {
     'topic': {
       'type': 'string',
       'description': 'What this reaction is about',
-      'format': 'uri',
-      'examples': [
-        'dat://beakerbrowser.com'
-      ]
+      'format': 'uri'
     },
     'phrases': {
       'type': 'array',
@@ -32,6 +29,5 @@ module.exports = {
         'maxLength': 20
       }
     }
-  },
-  'additionalProperties': false
+  }
 }

@@ -174,8 +174,6 @@ exports.crawlSite = async function (archive, crawlSource) {
  * @returns {Promise<Array<Bookmark>>}
  */
 exports.list = async function (opts) {
-  // TODO tags filter
-
   // massage params
   if ('authors' in opts) {
     if (!Array.isArray(opts.authors)) {
@@ -199,7 +197,6 @@ exports.list = async function (opts) {
     .leftJoin('crawl_bookmarks_tags', 'crawl_bookmarks_tags.crawlBookmarkId', '=', 'crawl_bookmarks.id')
     .leftJoin('crawl_tags', 'crawl_bookmarks_tags.crawlTagId', '=', 'crawl_tags.id')
     .groupBy('crawl_bookmarks.id')
-    .orderBy('crawl_bookmarks.createdAt', opts.reverse ? 'DESC' : 'ASC')
   if (opts && opts.authors) {
     sql = sql.whereIn('crawl_sources.url', opts.authors)
   }
@@ -208,6 +205,8 @@ exports.list = async function (opts) {
   }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)
+  if (opts.sortBy === 'title') sql = sql.orderBy(knex.raw('LOWER(crawl_bookmarks.title)'), opts.reverse ? 'DESC' : 'ASC')
+  else sql = sql.orderBy('crawl_bookmarks.createdAt', opts.reverse ? 'DESC' : 'ASC')
 
   // execute query
   var rows = await db.all(sql)
@@ -265,6 +264,8 @@ const getBookmark = exports.getBookmark = async function (url) {
  * @returns {Promise<Bookmark>}
  */
 exports.getBookmarkByHref = async function (author, href) {
+  href = normalizeTopicUrl(href)
+
   // build query
   var sql = knex('crawl_bookmarks')
     .select('crawl_bookmarks.*')

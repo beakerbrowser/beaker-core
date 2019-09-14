@@ -20,7 +20,7 @@ const {DAT_HASH_REGEX} = require('../lib/const')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string | Array<string>} type
+ * @prop {string} type
  * @prop {number} mtime
  * @prop {number} size
  * @prop {string} author
@@ -88,7 +88,6 @@ exports.deleteArchive = async function (key) {
   await Promise.all([
     db.run(`DELETE FROM archives WHERE key=?`, key),
     db.run(`DELETE FROM archives_meta WHERE key=?`, key),
-    db.run(`DELETE FROM archives_meta_type WHERE key=?`, key),
     jetpack.removeAsync(path)
   ])
   return info ? info.size : 0
@@ -150,9 +149,11 @@ exports.hasMeta = async function (key) {
  * Get a single archive's metadata.
  * Returns an empty object on not-found.
  * @param {string | Buffer} key
+ * @param {Object} [opts]
+ * @param {boolean} [opts.noDefault]
  * @returns {Promise<LibraryArchiveMeta>}
  */
-const getMeta = exports.getMeta = async function (key) {
+const getMeta = exports.getMeta = async function (key, {noDefault} = {noDefault: false}) {
   // massage inputs
   var keyStr = typeof key !== 'string' ? datEncoding.toStr(key) : key
   var origKeyStr = keyStr
@@ -162,7 +163,7 @@ const getMeta = exports.getMeta = async function (key) {
     try {
       keyStr = await require('../dat/dns').resolveName(keyStr)
     } catch (e) {
-      return defaultMeta(keyStr, origKeyStr)
+      return noDefault ? undefined : defaultMeta(keyStr, origKeyStr)
     }
   }
 
@@ -170,22 +171,19 @@ const getMeta = exports.getMeta = async function (key) {
   var meta = await db.get(`
     SELECT
         archives_meta.*,
-        GROUP_CONCAT(archives_meta_type.type) AS type,
         dat_dns.name as dnsName
       FROM archives_meta
-      LEFT JOIN archives_meta_type ON archives_meta_type.key = archives_meta.key
       LEFT JOIN dat_dns ON dat_dns.key = archives_meta.key AND dat_dns.isCurrent = 1
       WHERE archives_meta.key = ?
       GROUP BY archives_meta.key
   `, [keyStr])
   if (!meta) {
-    return defaultMeta(keyStr, origKeyStr)
+    return noDefault ? undefined : defaultMeta(keyStr, origKeyStr)
   }
 
   // massage some values
   meta.url = `dat://${meta.dnsName || meta.key}`
   meta.isOwner = !!meta.isOwner
-  meta.type = meta.type ? meta.type.split(',') : []
   delete meta.dnsName
 
   // remove old attrs
@@ -220,8 +218,7 @@ exports.setMeta = async function (key, value) {
   var {title, description, type, size, author, forkOf, mtime, isOwner} = value
   title = typeof title === 'string' ? title : ''
   description = typeof description === 'string' ? description : ''
-  if (typeof type === 'string') type = type.split(' ')
-  else if (Array.isArray(type)) type = type.filter(v => v && typeof v === 'string')
+  type = typeof type === 'string' ? type : ''
   var isOwnerFlag = flag(isOwner)
   if (typeof author === 'string') author = normalizeDatUrl(author)
   if (typeof forkOf === 'string') forkOf = normalizeDatUrl(forkOf)
@@ -232,15 +229,9 @@ exports.setMeta = async function (key, value) {
   try {
     await db.run(`
       INSERT OR REPLACE INTO
-        archives_meta (key, title, description, mtime, size, author, forkOf, isOwner, lastAccessTime, lastLibraryAccessTime)
-        VALUES        (?,   ?,     ?,           ?,     ?,    ?,      ?,      ?,       ?,              ?)
-    `, [keyStr, title, description, mtime, size, author, forkOf, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
-    await db.run(`DELETE FROM archives_meta_type WHERE key=?`, keyStr)
-    if (type) {
-      await Promise.all(type.map(t => (
-        db.run(`INSERT INTO archives_meta_type (key, type) VALUES (?, ?)`, [keyStr, t])
-      )))
-    }
+        archives_meta (key, title, description, type, mtime, size, author, forkOf, isOwner, lastAccessTime, lastLibraryAccessTime)
+        VALUES        (?,   ?,     ?,           ?,    ?,     ?,    ?,      ?,      ?,       ?,              ?)
+    `, [keyStr, title, description, type, mtime, size, author, forkOf, isOwnerFlag, lastAccessTime, lastLibraryAccessTime])
   } finally {
     release()
   }
@@ -259,11 +250,11 @@ function defaultMeta (key, name) {
   return {
     key,
     url: `dat://${name}`,
-    title: null,
-    description: null,
-    type: [],
-    author: null,
-    forkOf: null,
+    title: undefined,
+    description: undefined,
+    type: undefined,
+    author: undefined,
+    forkOf: undefined,
     mtime: 0,
     isOwner: false,
     lastAccessTime: 0,
