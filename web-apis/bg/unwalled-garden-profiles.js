@@ -3,6 +3,7 @@ const datArchives = require('../../dat/archives')
 const archivesDb = require('../../dbs/archives')
 const uwg = require('../../uwg')
 const sessionPerms = require('../../lib/session-perms')
+const users = require('../../filesystem/users')
 
 // typedefs
 // =
@@ -66,6 +67,22 @@ module.exports = {
     await sessionPerms.getSessionOrThrow(this.sender)
     await uwg.crawlSite(url)
     return get(url)
+  },
+
+  /**
+   * @param {string} [url]
+   * @returns {Promise<ProfilesPublicAPIRecord>}
+   */
+  async editProfileDialog (url) {
+    var sess = await sessionPerms.getSessionOrThrow(this.sender)
+    
+    var user
+    if (url) user = await users.get(url)
+    else if (sess) user = await users.get(sess.url)
+    else user = await users.getDefault()
+
+    await globals.uiAPI.showModal(this.sender, 'user', user)
+    return get(user.url)
   }
 }
 
