@@ -42,6 +42,7 @@ module.exports = {
   showModal: 'promise',
   openUrl: 'promise',
   gotoUrl: 'promise',
+  refreshPage: 'promise',
   openFolder: 'promise',
   doWebcontentsCmd: 'promise',
   doTest: 'promise',
