@@ -7,6 +7,7 @@ const intoStream = require('into-stream')
 const {toZipStream} = require('../lib/zip')
 const slugify = require('slugify')
 const markdown = require('../lib/markdown')
+const libTools = require('@beaker/library-tools')
 
 const datDns = require('./dns')
 const datArchives = require('./archives')
@@ -144,6 +145,26 @@ exports.electronHandler = async function (request, respond) {
   var manifest
   try { manifest = await checkoutFS.pda.readManifest() } catch (e) { manifest = null }
 
+  // read type and configure
+  var category = libTools.typeToCategory(manifest ? manifest.type : '', false)
+  const hasViewerApp = category && category !== 'website'
+  const canExecuteHTML = !hasViewerApp
+
+  // render root-page applications by type
+  if (hasViewerApp && urlp.pathname === '/') {
+    return respond({
+      statusCode: 200,
+      headers: {
+        // TODO CSP
+        'Content-Type': 'text/html'
+      },
+      data: intoStream(`
+<link rel="stylesheet" href="beaker://${category}-viewer/index.css">
+<script type="module" src="beaker://${category}-viewer/index.js"></script>
+`)
+    })
+  }
+
   // read manifest CSP
   if (manifest && manifest.content_security_policy && typeof manifest.content_security_policy === 'string') {
     cspHeader = manifest.content_security_policy
@@ -263,12 +284,14 @@ exports.electronHandler = async function (request, respond) {
   // markdown rendering
   if (!range && entry.path.endsWith('.md') && mime.acceptHeaderWantsHTML(request.headers.Accept)) {
     let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
+    let contentType = canExecuteHTML ? 'text/html' : 'text/plain'
+    content = canExecuteHTML ? markdown.render(content) : content
     return respond({
       statusCode: 200,
       headers: Object.assign(headers, {
-        'Content-Type': 'text/html'
+        'Content-Type': contentType
       }),
-      data: intoStream(markdown.render(content))
+      data: intoStream(content)
     })
   }
 
@@ -278,6 +301,11 @@ exports.electronHandler = async function (request, respond) {
     .pipe(mime.identifyStream(entry.path, mimeType => {
       // cleanup the timeout now, as bytes have begun to stream
       cleanup()
+
+      // disable html as needed
+      if (!canExecuteHTML && mimeType.includes('html')) {
+        mimeType = 'text/plain'
+      }
 
       // send headers, now that we can identify the data
       headersSent = true
