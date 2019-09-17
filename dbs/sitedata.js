@@ -32,12 +32,14 @@ exports.setup = function (opts) {
  * @param {number | string} value
  * @param {Object} [opts]
  * @param {boolean} [opts.dontExtractOrigin]
+ * @param {boolean} [opts.normalizeUrl]
  * @returns {Promise<void>}
  */
 const set = exports.set = async function (url, key, value, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
   if (!origin) return null
+  if (opts && opts.normalizeUrl) origin = normalizeUrl(origin)
   return cbPromise(cb => {
     db.run(`
       INSERT OR REPLACE
@@ -68,12 +70,14 @@ const clear = exports.clear = async function (url, key) {
  * @param {string} key
  * @param {Object} [opts]
  * @param {boolean} [opts.dontExtractOrigin]
+ * @param {boolean} [opts.normalizeUrl]
  * @returns {Promise<string>}
  */
 const get = exports.get = async function (url, key, opts) {
   await setupPromise
   var origin = opts && opts.dontExtractOrigin ? url : await extractOrigin(url)
   if (!origin) return null
+  if (opts && opts.normalizeUrl) origin = normalizeUrl(origin)
   return cbPromise(cb => {
     db.get(`SELECT value FROM sitedata WHERE origin = ? AND key = ?`, [origin, key], (err, res) => {
       if (err) return cb(err)
@@ -191,6 +195,18 @@ async function extractOrigin (originURL) {
   var urlp = parseDatUrl(originURL)
   if (!urlp || !urlp.host || !urlp.protocol) return
   return (urlp.protocol + urlp.host)
+}
+
+/**
+ * @param {string} originURL
+ * @returns {string}
+ */
+function normalizeUrl (originURL) {
+  try {
+    var urlp = new URL(originURL)
+    return (urlp.protocol + '//' + urlp.hostname + urlp.pathname).replace(/([/]$)/g, '')
+  } catch (e) {}
+  return originURL
 }
 
 migrations = [
