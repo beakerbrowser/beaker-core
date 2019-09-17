@@ -106,7 +106,7 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
 
   // bookmarks
   var bookmarkResults = await bookmarks.list({
-    filters: {authors: [filesystem.get().url, user]}
+    author: [filesystem.get().url, user]
   })
   bookmarkResults = bookmarkResults.filter(filterFn)
   bookmarkResults.sort(sortFn)
@@ -114,13 +114,13 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   suggestions.bookmarks = bookmarkResults.map(b => ({title: b.title, url: b.href}))
 
   // modules
-  suggestions.modules = datLibrary.query({type: 'unwalled.garden/module'}).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+  suggestions.modules = (await datLibrary.list({type: 'unwalled.garden/module'})).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
   suggestions.modules = suggestions.modules.filter(filterFn)
   suggestions.modules.sort(sortFn)
 
   // people
-  suggestions.people = (await follows.list({filters: {authors: user}})).map(({topic}) => topic)
-  suggestions.people = datLibrary.query({type: 'unwalled.garden/person'})
+  suggestions.people = (await follows.list({author: user})).map(({topic}) => topic)
+  suggestions.people = (await datLibrary.list({type: 'unwalled.garden/person'}))
     .map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
     .concat(suggestions.people)
   suggestions.people = dedup(suggestions.people)
@@ -128,19 +128,19 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
   suggestions.people.sort(sortFn)
 
   // templates
-  suggestions.templates = datLibrary.query({type: 'unwalled.garden/template'}).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+  suggestions.templates = (await datLibrary.list({type: 'unwalled.garden/template'})).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
   suggestions.templates = suggestions.templates.filter(filterFn)
   suggestions.templates.sort(sortFn)
-  suggestions.people = suggestions.people.map(site => ({title: site.meta.title, url: site.meta.url}))
+  suggestions.templates = suggestions.templates.map(site => ({title: site.meta.title, url: site.meta.url}))
 
   // themes
-  suggestions.themes = datLibrary.query({type: 'unwalled.garden/theme'}).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
+  suggestions.themes = (await datLibrary.list({type: 'unwalled.garden/theme'})).map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
   suggestions.themes = suggestions.themes.filter(filterFn)
   suggestions.themes.sort(sortFn)
 
   // websites
-  suggestions.websites = datLibrary.query()
-    .filter(w => (!w.meta.type || !w.meta.type.find(t => SITE_TYPES.includes(t)))) // filter out other site types
+  suggestions.websites = (await datLibrary.list())
+    .filter(w => (!w.meta.type || !SITE_TYPES.includes(w.meta.type))) // filter out other site types
     .map(site => ({title: site.meta.title, url: `dat://${site.key}`}))
   suggestions.websites = suggestions.websites.filter(filterFn)
   suggestions.websites.sort(sortFn)

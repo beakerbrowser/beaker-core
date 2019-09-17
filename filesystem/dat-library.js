@@ -129,9 +129,9 @@ exports.setup = async function () {
 
 /**
  * @param {Object} [opts]
- * @param {string} [opts.types]
- * @param {string} [opts.authors]
- * @param {string} [opts.keys]
+ * @param {string} [opts.type]
+ * @param {string} [opts.author]
+ * @param {string} [opts.key]
  * @param {string} [opts.visibility]
  * @param {string} [opts.forkOf]
  * @param {boolean} [opts.isSaved]
@@ -306,30 +306,30 @@ async function saveLibraryJson () {
 
 /**
  * @param {Object} opts
- * @param {string} [opts.types]
- * @param {string} [opts.authors]
- * @param {string} [opts.keys]
+ * @param {string} [opts.type]
+ * @param {string} [opts.author]
+ * @param {string} [opts.key]
  * @param {string} [opts.visibility]
  * @returns {LibraryDat[]}
  */
 function localQuery (opts) {
   var results = []
   for (let dat of libraryDats) {
-    if (typeof opts.types !== 'undefined') {
-      let types = Array.isArray(opts.types) ? opts.types : [opts.types]
-      if (!types.includes(dat.meta.type)) {
+    if (typeof opts.type !== 'undefined') {
+      let type = Array.isArray(opts.type) ? opts.type : [opts.type]
+      if (!type.includes(dat.meta.type)) {
         continue
       }
     }
-    if (typeof opts.authors !== 'undefined') {
-      let authors = Array.isArray(opts.authors) ? opts.authors : [opts.authors]
-      if (!authors.includes(dat.meta.author)) {
+    if (typeof opts.author !== 'undefined') {
+      let author = Array.isArray(opts.author) ? opts.author : [opts.author]
+      if (!author.includes(dat.meta.author)) {
         continue
       }
     }
-    if (typeof opts.keys !== 'undefined') {
-      let keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys]
-      if (!keys.includes(dat.meta.url)) {
+    if (typeof opts.key !== 'undefined') {
+      let key = Array.isArray(opts.key) ? opts.key : [opts.key]
+      if (!key.includes(dat.meta.url)) {
         continue
       }
     }

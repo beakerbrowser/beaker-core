@@ -157,7 +157,7 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled statuses.
  *
   * @param {Object} [opts]
-  * @param {string|string[]} [opts.authors]
+  * @param {string|string[]} [opts.author]
   * @param {string} [opts.visibility]
   * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
@@ -170,11 +170,11 @@ exports.list = async function (opts) {
   // TODO: sortBy options
 
   // massage params
-  if ('authors' in opts) {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if ('author' in opts) {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
 
   // build query
@@ -183,8 +183,8 @@ exports.list = async function (opts) {
     .select('crawl_sources.url AS crawlSourceUrl')
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_statuses.crawlSourceId')
     .orderBy('crawl_statuses.createdAt', opts.reverse ? 'DESC' : 'ASC')
-  if (opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)

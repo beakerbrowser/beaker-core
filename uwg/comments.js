@@ -174,8 +174,8 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled comments.
  *
   * @param {Object} [opts]
-  * @param {string|string[]} [opts.authors]
-  * @param {string|string[]} [opts.topics]
+  * @param {string|string[]} [opts.author]
+  * @param {string|string[]} [opts.topic]
   * @param {string} [opts.visibility]
   * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
@@ -188,17 +188,17 @@ exports.list = async function (opts) {
   // TODO: sortBy options
 
   // massage params
-  if ('authors' in opts) {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if ('author' in opts) {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
-  if ('topics' in opts) {
-    if (!Array.isArray(opts.topics)) {
-      opts.topics = [opts.topics]
+  if ('topic' in opts) {
+    if (!Array.isArray(opts.topic)) {
+      opts.topic = [opts.topic]
     }
-    opts.topics = opts.topics.map(normalizeTopicUrl)
+    opts.topic = opts.topic.map(normalizeTopicUrl)
   }
 
   // build query
@@ -207,11 +207,11 @@ exports.list = async function (opts) {
     .select('crawl_sources.url AS crawlSourceUrl')
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_comments.crawlSourceId')
     .orderBy('crawl_comments.createdAt', opts.reverse ? 'DESC' : 'ASC')
-  if (opts && opts && opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts && opts && opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
-  if (opts && opts && opts.topics) {
-    sql = sql.whereIn('crawl_comments.topic', opts.topics)
+  if (opts && opts && opts.topic) {
+    sql = sql.whereIn('crawl_comments.topic', opts.topic)
   }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)
@@ -226,7 +226,7 @@ exports.list = async function (opts) {
  * List crawled comments.
  * @param {string} topic
  * @param {Object} [opts]
- * @param {string|string[]} [opts.authors]
+ * @param {string|string[]} [opts.author]
  * @param {string} [opts.visibility]
  * @param {string} [opts.parent]
  * @param {number} [opts.depth]
@@ -243,11 +243,11 @@ exports.thread = async function (topic, opts) {
   if (opts && 'parent' in opts) {
     opts.parent = normalizeTopicUrl(opts.parent)
   }
-  if ('authors' in opts) {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if ('author' in opts) {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
 
   // build query
@@ -257,8 +257,8 @@ exports.thread = async function (topic, opts) {
     .where('crawl_comments.topic', topic)
     .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_comments.crawlSourceId')
     .orderBy('crawl_comments.createdAt', opts.reverse ? 'DESC' : 'ASC')
-  if (opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
 
   // execute query

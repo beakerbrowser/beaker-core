@@ -39,9 +39,9 @@ const datLibrary = require('../../filesystem/dat-library')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {string} [opts.types]
-   * @param {string} [opts.authors]
-   * @param {string} [opts.keys]
+   * @param {string} [opts.type]
+   * @param {string} [opts.author]
+   * @param {string} [opts.key]
    * @param {string} [opts.visibility]
    * @param {string} [opts.forkOf]
    * @param {boolean} [opts.isSaved]
@@ -65,25 +65,25 @@ module.exports = {
     if (typeof opts.isSaved !== 'undefined') assert(typeof opts.isSaved === 'boolean', 'isSaved filter must be a boolean')
     if (typeof opts.isHosting !== 'undefined') assert(typeof opts.isHosting === 'boolean', 'isHosting filter must be a boolean')
     if (typeof opts.isOwner !== 'undefined') assert(typeof opts.isOwner === 'boolean', 'isOwner filter must be a boolean')
-    if (typeof opts.types !== 'undefined') {
-      if (Array.isArray(opts.types)) {
-        assert(opts.types.every(v => typeof v === 'string'), 'Types filter must be a string or array of strings')
+    if (typeof opts.type !== 'undefined') {
+      if (Array.isArray(opts.type)) {
+        assert(opts.type.every(v => typeof v === 'string'), 'Type filter must be a string or array of strings')
       } else {
-        assert(typeof opts.types === 'string', 'Types filter must be a string or array of strings')
+        assert(typeof opts.type === 'string', 'Type filter must be a string or array of strings')
       }
     }
-    if (typeof opts.authors !== 'undefined') {
-      if (Array.isArray(opts.authors)) {
-        assert(opts.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+    if (typeof opts.author !== 'undefined') {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
       } else {
-        assert(typeof opts.authors === 'string', 'Authors filter must be a string or array of strings')
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
-    if (typeof opts.keys !== 'undefined') {
-      if (Array.isArray(opts.keys)) {
-        assert(opts.keys.every(v => typeof v === 'string'), 'Keys filter must be a string or array of strings')
+    if (typeof opts.key !== 'undefined') {
+      if (Array.isArray(opts.key)) {
+        assert(opts.key.every(v => typeof v === 'string'), 'Key filter must be a string or array of strings')
       } else {
-        assert(typeof opts.keys === 'string', 'Keys filter must be a string or array of strings')
+        assert(typeof opts.key === 'string', 'Key filter must be a string or array of strings')
       }
     }
     var records = await datLibrary.list(opts)

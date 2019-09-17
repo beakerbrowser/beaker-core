@@ -147,8 +147,8 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled follows.
  *
  * @param {Object} [opts]
- * @param {string|string[]} [opts.authors]
- * @param {string|string[]} [opts.topics]
+ * @param {string|string[]} [opts.author]
+ * @param {string|string[]} [opts.topic]
  * @param {string} [opts.visibility]
  * @param {string} [opts.sortBy]
  * @param {number} [opts.offset=0]
@@ -161,17 +161,17 @@ const list = exports.list = async function (opts) {
   // TODO: sortBy options
 
   // massage params
-  if ('authors' in opts) {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if ('author' in opts) {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
-  if ('topics' in opts) {
-    if (!Array.isArray(opts.topics)) {
-      opts.topics = [opts.topics]
+  if ('topic' in opts) {
+    if (!Array.isArray(opts.topic)) {
+      opts.topic = [opts.topic]
     }
-    opts.topics = await Promise.all(opts.topics.map(datArchives.getPrimaryUrl))
+    opts.topic = await Promise.all(opts.topic.map(datArchives.getPrimaryUrl))
   }
 
   // execute query
@@ -182,11 +182,11 @@ const list = exports.list = async function (opts) {
     .orderBy('crawl_follows.destUrl', opts.reverse ? 'DESC' : 'ASC')
   if (opts.limit) sql = sql.limit(opts.limit)
   if (opts.offset) sql = sql.offset(opts.offset)
-  if (opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
-  if (opts.topics) {
-    sql = sql.whereIn('crawl_follows.destUrl', opts.topics)
+  if (opts.topic) {
+    sql = sql.whereIn('crawl_follows.destUrl', opts.topic)
   }
   var rows = await db.all(sql)
 

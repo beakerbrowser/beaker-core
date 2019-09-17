@@ -31,7 +31,7 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {string|string[]} [opts.authors]
+   * @param {string|string[]} [opts.author]
    * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
@@ -46,11 +46,11 @@ module.exports = {
     if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
     if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
     if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if ('authors' in opts) {
-      if (Array.isArray(opts.authors)) {
-        assert(opts.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
       } else {
-        assert(typeof opts.authors === 'string', 'Authors filter must be a string or array of strings')
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
     if ('visibility' in opts) {

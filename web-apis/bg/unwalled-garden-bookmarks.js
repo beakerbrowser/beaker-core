@@ -32,8 +32,8 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {string|string[]} [opts.authors]
-   * @param {string|string[]} [opts.tags]
+   * @param {string|string[]} [opts.author]
+   * @param {string|string[]} [opts.tag]
    * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy] - 'title' or 'createdAt' (default 'title')
    * @param {number} [opts.offset] - default 0
@@ -48,18 +48,18 @@ module.exports = {
     if (typeof opts.offset !== 'undefined') assert(typeof opts.offset === 'number', 'Offset must be a number')
     if (typeof opts.limit !== 'undefined') assert(typeof opts.limit === 'number', 'Limit must be a number')
     if (typeof opts.reverse !== 'undefined') assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (typeof opts.authors !== 'undefined') {
-      if (Array.isArray(opts.authors)) {
-        assert(opts.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
+    if (typeof opts.author !== 'undefined') {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
       } else {
-        assert(typeof opts.authors === 'string', 'Authors filter must be a string or array of strings')
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
-    if (typeof opts.tags !== 'undefined') {
-      if (Array.isArray(opts.tags)) {
-        assert(opts.tags.every(v => typeof v === 'string'), 'Tags filter must be a string or array of strings')
+    if (typeof opts.tag !== 'undefined') {
+      if (Array.isArray(opts.tag)) {
+        assert(opts.tag.every(v => typeof v === 'string'), 'Tag filter must be a string or array of strings')
       } else {
-        assert(typeof opts.tags === 'string', 'Tags filter must be a string or array of strings')
+        assert(typeof opts.tag === 'string', 'Tag filter must be a string or array of strings')
       }
     }
     if (typeof opts.visibility !== 'undefined') {

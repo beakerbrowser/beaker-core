@@ -25,7 +25,7 @@ const {normalizeSchemaUrl} = require('./util')
  * List bookmark tags.
  *
  * @param {Object} [opts]
- * @param {string|string[]} [opts.authors]
+ * @param {string|string[]} [opts.author]
  * @param {string} [opts.visibility]
  * @param {string} [opts.sortBy]
  * @param {number} [opts.offset=0]
@@ -38,11 +38,11 @@ exports.listBookmarkTags = async function (opts) {
   // TODO: sortBy options
 
   // massage params
-  if ('authors' in opts) {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if ('author' in opts) {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
 
   // build query
@@ -54,8 +54,8 @@ exports.listBookmarkTags = async function (opts) {
     .leftJoin('crawl_sources', 'crawl_bookmarks.crawlSourceId', '=', 'crawl_sources.id')
     .orderBy('crawl_tags.tag', opts.reverse ? 'DESC' : 'ASC')
     .groupBy('crawl_tags.tag')
-  if (opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
   if (opts && opts.limit) sql = sql.limit(opts.limit)
   if (opts && opts.offset) sql = sql.offset(opts.offset)

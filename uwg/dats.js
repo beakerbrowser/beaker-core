@@ -115,9 +115,9 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled dats.
  *
  * @param {Object} [opts]
- * @param {string|string[]} [opts.authors]
- * @param {string|string[]} [opts.types]
- * @param {string|string[]} [opts.keys]
+ * @param {string|string[]} [opts.author]
+ * @param {string|string[]} [opts.type]
+ * @param {string|string[]} [opts.key]
  * @param {string} [opts.sortBy]
  * @param {number} [opts.offset=0]
  * @param {number} [opts.limit]
@@ -128,20 +128,20 @@ exports.list = async function (opts) {
   // TODO: sortBy options
 
   // massage params
-  if (typeof opts.authors !== 'undefined') {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if (typeof opts.author !== 'undefined') {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
-  if (typeof opts.keys !== 'undefined') {
-    if (!Array.isArray(opts.keys)) {
-      opts.keys = [opts.keys]
+  if (typeof opts.key !== 'undefined') {
+    if (!Array.isArray(opts.key)) {
+      opts.key = [opts.key]
     }
   }
-  if (typeof opts.types !== 'undefined') {
-    if (!Array.isArray(opts.types)) {
-      opts.types = [opts.types]
+  if (typeof opts.type !== 'undefined') {
+    if (!Array.isArray(opts.type)) {
+      opts.type = [opts.type]
     }
   }
 
@@ -153,14 +153,14 @@ exports.list = async function (opts) {
     .orderBy('crawl_dats.key', opts.reverse ? 'DESC' : 'ASC')
   if (opts.limit) sql = sql.limit(opts.limit)
   if (opts.offset) sql = sql.offset(opts.offset)
-  if (opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
-  if (opts.keys) {
-    sql = sql.whereIn('crawl_dats.key', opts.keys)
+  if (opts.key) {
+    sql = sql.whereIn('crawl_dats.key', opts.key)
   }
-  if (opts.types) {
-    sql = sql.whereIn('crawl_dats.type', opts.types)
+  if (opts.type) {
+    sql = sql.whereIn('crawl_dats.type', opts.type)
   }
   var rows = await db.all(sql)
 

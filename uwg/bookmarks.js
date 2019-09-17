@@ -164,8 +164,8 @@ exports.crawlSite = async function (archive, crawlSource) {
  * List crawled bookmarks.
  *
   * @param {Object} [opts]
-  * @param {string|string[]} [opts.authors]
-  * @param {string|string[]} [opts.tags]
+  * @param {string|string[]} [opts.author]
+  * @param {string|string[]} [opts.tag]
   * @param {string} [opts.visibility]
   * @param {string} [opts.sortBy]
   * @param {number} [opts.offset=0]
@@ -175,15 +175,15 @@ exports.crawlSite = async function (archive, crawlSource) {
  */
 exports.list = async function (opts) {
   // massage params
-  if ('authors' in opts) {
-    if (!Array.isArray(opts.authors)) {
-      opts.authors = [opts.authors]
+  if ('author' in opts) {
+    if (!Array.isArray(opts.author)) {
+      opts.author = [opts.author]
     }
-    opts.authors = await Promise.all(opts.authors.map(datArchives.getPrimaryUrl))
+    opts.author = await Promise.all(opts.author.map(datArchives.getPrimaryUrl))
   }
-  if ('tags' in opts) {
-    if (!Array.isArray(opts.tags)) {
-      opts.tags = [opts.tags]
+  if ('tag' in opts) {
+    if (!Array.isArray(opts.tag)) {
+      opts.tag = [opts.tag]
     }
   }
 
@@ -197,8 +197,8 @@ exports.list = async function (opts) {
     .leftJoin('crawl_bookmarks_tags', 'crawl_bookmarks_tags.crawlBookmarkId', '=', 'crawl_bookmarks.id')
     .leftJoin('crawl_tags', 'crawl_bookmarks_tags.crawlTagId', '=', 'crawl_tags.id')
     .groupBy('crawl_bookmarks.id')
-  if (opts && opts.authors) {
-    sql = sql.whereIn('crawl_sources.url', opts.authors)
+  if (opts && opts.author) {
+    sql = sql.whereIn('crawl_sources.url', opts.author)
   }
   if (opts && opts.visibility) {
     sql.where('crawl_sources.isPrivate', (opts.visibility === 'private') ? 1 : 0)
@@ -213,8 +213,8 @@ exports.list = async function (opts) {
   var bookmarks = await Promise.all(rows.map(massageBookmarkRow))
 
   // apply tags filter
-  if (opts && opts.tags) {
-    const someFn = t => opts.tags.includes(t)
+  if (opts && opts.tag) {
+    const someFn = t => opts.tag.includes(t)
     bookmarks = bookmarks.filter(bookmark => bookmark.tags.some(someFn))
   }
 
