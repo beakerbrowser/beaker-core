@@ -159,8 +159,8 @@ exports.electronHandler = async function (request, respond) {
         'Content-Type': 'text/html'
       },
       data: intoStream(`
-<link rel="stylesheet" href="beaker://${category}-viewer/index.css">
-<script type="module" src="beaker://${category}-viewer/index.js"></script>
+<link rel="stylesheet" href="beaker://viewers/${category}/index.css">
+<script type="module" src="beaker://viewers/${category}/index.js"></script>
 `)
     })
   }
