@@ -29,6 +29,7 @@
     "@beaker/dat-serve-resolve-path": "^1.0.0",
     "@beaker/dat-session-data-ext-msg": "^1.1.0",
     "@beaker/datignore": "^1.0.0",
+    "@beaker/library-tools": "^1.0.0",
     "ajv": "^6.10.2",
     "anymatch": "^2.0.0",
     "await-lock": "^1.1.3",
