@@ -165,7 +165,7 @@ exports.list = async function (opts = {}) {
     if (typeof opts.isSaved !== 'undefined' && Boolean(libraryDat) !== opts.isSaved) continue
     results2.push(/** @type LibraryDat */({
       key: result.key,
-      author: ('author' in result) ? result.author : await archivesDb.getMeta(result.meta.author),
+      author: ('author' in result) ? result.author : (result.meta.author ? await archivesDb.getMeta(result.meta.author) : undefined),
       meta: Object.assign({}, result.meta),
       isSaved: !!libraryDat,
       isHosting: libraryDat ? libraryDat.isHosting : false,
@@ -329,7 +329,7 @@ function localQuery (opts) {
     }
     if (typeof opts.key !== 'undefined') {
       let key = Array.isArray(opts.key) ? opts.key : [opts.key]
-      if (!key.includes(dat.meta.url)) {
+      if (!key.includes(dat.meta.key)) {
         continue
       }
     }

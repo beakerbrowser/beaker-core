@@ -20,7 +20,7 @@ module.exports = {
     return status
   },
 
-  async listTrash() {
+  async listTrash () {
     var records = await datLibrary.listTrash()
     return records.map(massageRecord)
   },
