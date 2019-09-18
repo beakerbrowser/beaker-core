@@ -337,13 +337,13 @@ async function loadArchiveInner (key, settingsOverride) {
   datAssets.update(archive)
 
   // wire up events
-  archive.pullLatestArchiveMeta = _debounce(opts => pullLatestArchiveMeta(archive, opts), 1e3)
+  archive.pullLatestArchiveMeta = opts => pullLatestArchiveMeta(archive, opts)
   archive.fileActStream = archive.pda.watch('/')
-  archive.fileActStream.on('data', ([event, {path}]) => {
+  archive.fileActStream.on('data',  _debounce(([event, {path}]) => {
     if (event !== 'changed') return
     archive.pullLatestArchiveMeta({updateMTime: true})
-    datAssets.update(archive, [path])
-  })
+    datAssets.update(archive)
+  }), 1e3)
 
   // now store in main archives listing, as loaded
   archives[keyStr] = archive
@@ -544,7 +544,9 @@ const fromKeyToURL = exports.fromKeyToURL = function fromKeyToURL (key) {
 
 function hasMetaChanged (m1, m2) {
   for (let k of ['title', 'description', 'type', 'size', 'author', 'forkOf']) {
-    if (!m1[k] !== !m2[k] && m1[k] !== m2[k]) {
+    if (!m1[k]) m1[k] = undefined
+    if (!m2[k]) m2[k] = undefined
+    if (m1[k] !== m2[k]) {
       return true
     }
   }
