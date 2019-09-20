@@ -70,6 +70,10 @@ exports.setup = async function () {
       console.log('Failed to connect to daemon, retrying', e)
     }
   }
+
+  // attach to the process for debugging
+  process.hyperdriveDaemon = daemon
+  process.hyperdriveDaemonClient = client
 }
 
 /**
