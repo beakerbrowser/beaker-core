@@ -390,6 +390,7 @@ async function updateFollowsFile (archive, updateFn) {
  * @param {string[]} followUrls
  */
 async function updateFollowsMounts (archive, followUrls) {
+  return // DEBUG temporarily disabled
   // resolve all followUrls to keys
   var followKeys = []
   for (let url of followUrls) {
