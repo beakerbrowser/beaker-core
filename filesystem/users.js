@@ -155,7 +155,7 @@ async function tick () {
     await Promise.all(activeCrawls)
   } catch (e) {
     console.error(e)
-    logger.error('Crawler tick errored', {details: e})
+    logger.error('Crawler tick errored', {details: {error: e.toString()}})
   }
 
   // queue next tick
