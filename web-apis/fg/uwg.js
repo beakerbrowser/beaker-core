@@ -38,11 +38,11 @@ const APIs = {
 }
 
 exports.setup = function (rpc) {
-  const UwG = {}
+  const uwg = {}
   for (let name in APIs) {
-    UwG[name] = APIs[name].create(name, rpc)
+    uwg[name] = APIs[name].create(name, rpc)
   }
-  return UwG
+  return uwg
 }
 
 function makeCreateFn (channel) {

@@ -14,6 +14,6 @@ exports.setup = function ({rpcAPI}) {
   if (['beaker:', 'dat:'].includes(window.location.protocol)) {
     window.beaker = beaker.setup(rpcAPI)
     window.experimental = experimental.setup(rpcAPI)
-    window.UwG = uwg.setup(rpcAPI)
+    window.uwg = uwg.setup(rpcAPI)
   }
 }
