@@ -75,7 +75,7 @@ module.exports = {
    */
   async editProfileDialog (url) {
     var sess = await sessionPerms.getSessionOrThrow(this.sender)
-    
+
     var user
     if (url) user = await users.get(url)
     else if (sess) user = await users.get(sess.url)

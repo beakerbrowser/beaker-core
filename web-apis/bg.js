@@ -12,6 +12,7 @@ const sitedataManifest = require('./manifests/internal/sitedata')
 const watchlistManifest = require('./manifests/internal/watchlist')
 const crawlerManifest = require('./manifests/internal/crawler')
 const usersManifest = require('./manifests/internal/users')
+const searchManifest = require('./manifests/internal/search')
 
 // internal apis
 const loggerAPI = require('../logger').WEBAPI
@@ -21,6 +22,7 @@ const sitedataAPI = require('../dbs/sitedata').WEBAPI
 const watchlistAPI = require('./bg/watchlist')
 const crawlerAPI = require('../uwg').WEBAPI
 const usersAPI = require('./bg/users')
+const searchAPI = require('./bg/search')
 
 // external manifests
 const navigatorManifest = require('./manifests/external/navigator')
@@ -29,7 +31,6 @@ const navigatorFilesystemManifest = require('./manifests/external/navigator-file
 const datArchiveManifest = require('./manifests/external/dat-archive')
 const spellCheckerManifest = require('./manifests/external/spell-checker')
 const bookmarksManifest = require('./manifests/external/unwalled-garden-bookmarks')
-const searchManifest = require('./manifests/external/search')
 const commentsManifest = require('./manifests/external/unwalled-garden-comments')
 const followsManifest = require('./manifests/external/unwalled-garden-follows')
 const libraryManifest = require('./manifests/external/unwalled-garden-library')
@@ -46,7 +47,6 @@ const navigatorFilesystemAPI = require('./bg/navigator-filesystem')
 const datArchiveAPI = require('./bg/dat-archive')
 const spellCheckerAPI = require('./bg/spell-checker')
 const bookmarksAPI = require('./bg/unwalled-garden-bookmarks')
-const searchAPI = require('./bg/search')
 const commentsAPI = require('./bg/unwalled-garden-comments')
 const followsAPI = require('./bg/unwalled-garden-follows')
 const libraryAPI = require('./bg/unwalled-garden-library')
@@ -80,6 +80,7 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('watchlist', watchlistManifest, watchlistAPI, internalOnly)
   globals.rpcAPI.exportAPI('crawler', crawlerManifest, crawlerAPI, internalOnly)
   globals.rpcAPI.exportAPI('users', usersManifest, usersAPI, internalOnly)
+  globals.rpcAPI.exportAPI('search', searchManifest, searchAPI, internalOnly)
 
   // external apis
   globals.rpcAPI.exportAPI('navigator', navigatorManifest, navigatorAPI, secureOnly)
@@ -88,7 +89,6 @@ exports.setup = function () {
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
   globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
   globals.rpcAPI.exportAPI('unwalled-garden-bookmarks', bookmarksManifest, bookmarksAPI, secureOnly)
-  globals.rpcAPI.exportAPI('search', searchManifest, searchAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-comments', commentsManifest, commentsAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-follows', followsManifest, followsAPI, secureOnly)
   globals.rpcAPI.exportAPI('unwalled-garden-library', libraryManifest, libraryAPI, secureOnly)

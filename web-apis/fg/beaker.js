@@ -10,6 +10,7 @@ const sitedataManifest = require('../manifests/internal/sitedata')
 const watchlistManifest = require('../manifests/internal/watchlist')
 const crawlerManifest = require('../manifests/internal/crawler')
 const usersManifest = require('../manifests/internal/users')
+const searchManifest = require('../manifests/internal/search')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -26,6 +27,10 @@ exports.setup = function (rpc) {
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
     const usersRPC = rpc.importAPI('users', usersManifest, opts)
+    const searchRPC = rpc.importAPI('search', searchManifest, opts)
+
+    // beaker.search
+    beaker.search = searchRPC
 
     // beaker.logger
     beaker.logger = {}

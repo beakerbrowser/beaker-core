@@ -42,6 +42,19 @@ CREATE TABLE archives_meta (
   metaSize INTEGER, -- deprecated
   stagingSize INTEGER -- deprecated
 );
+CREATE VIRTUAL TABLE archives_meta_fts_index USING fts5(title, description, content='archives_meta');
+
+-- triggers to keep archives_meta_fts_index updated
+CREATE TRIGGER archives_meta_ai AFTER INSERT ON archives_meta BEGIN
+  INSERT INTO archives_meta_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER archives_meta_ad AFTER DELETE ON archives_meta BEGIN
+  INSERT INTO archives_meta_fts_index(archives_meta_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER archives_meta_au AFTER UPDATE ON archives_meta BEGIN
+  INSERT INTO archives_meta_fts_index(archives_meta_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO archives_meta_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
 
 CREATE TABLE dat_dns (
   id INTEGER PRIMARY KEY,
@@ -270,6 +283,19 @@ CREATE TABLE crawl_dats (
   PRIMARY KEY (crawlSourceId, key),
   FOREIGN KEY (crawlSourceId) REFERENCES crawl_sources (id) ON DELETE CASCADE
 );
+CREATE VIRTUAL TABLE crawl_dats_fts_index USING fts5(title, description, content='crawl_dats');
+
+-- triggers to keep crawl_dats_fts_index updated
+CREATE TRIGGER crawl_dats_ai AFTER INSERT ON crawl_dats BEGIN
+  INSERT INTO crawl_dats_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
+CREATE TRIGGER crawl_dats_ad AFTER DELETE ON crawl_dats BEGIN
+  INSERT INTO crawl_dats_fts_index(crawl_dats_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+END;
+CREATE TRIGGER crawl_dats_au AFTER UPDATE ON crawl_dats BEGIN
+  INSERT INTO crawl_dats_fts_index(crawl_dats_fts_index, rowid, title, description) VALUES('delete', old.rowid, old.title, old.description);
+  INSERT INTO crawl_dats_fts_index(rowid, title, description) VALUES (new.rowid, new.title, new.description);
+END;
 
 -- deprecated
 CREATE TABLE bookmarks (
@@ -490,5 +516,5 @@ CREATE TABLE crawl_discussions_tags (
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
 
-PRAGMA user_version = 41;
+PRAGMA user_version = 42;
 `

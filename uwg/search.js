@@ -2,6 +2,7 @@ const _groupBy = require('lodash.groupby')
 const _uniqWith = require('lodash.uniqwith')
 const db = require('../dbs/profile-data-db')
 const historyDb = require('../dbs/history')
+const archivesDb = require('../dbs/archives')
 const datArchives = require('../dat/archives')
 const filesystem = require('../filesystem')
 const datLibrary = require('../filesystem/dat-library')
@@ -17,6 +18,7 @@ const SITE_TYPES = Object.values(libTools.getCategoriesMap()).filter(Boolean)
 
 /**
  * @typedef {import("../filesystem/dat-library").LibraryDat} LibraryDat
+ * @typedef {import('../dbs/archives').LibraryArchiveMeta} LibraryArchiveMeta
  *
  * @typedef {Object} SuggestionResults
  * @prop {Array<Object>} bookmarks
@@ -31,44 +33,13 @@ const SITE_TYPES = Object.values(libTools.getCategoriesMap()).filter(Boolean)
  *
  * @typedef {Object} SearchResults
  * @prop {number} highlightNonce - A number used to create perimeters around text that should be highlighted.
- * @prop {Array<SiteSearchResult|PostSearchResult>} results
+ * @prop {Array<SearchResult>} results
  *
- * @typedef {Object} SearchResultAuthor
- * @prop {string} url
- * @prop {string} title
- * @prop {string} description
- * @prop {string} type
- *
- * @typedef {Object} SearchResultRecord
- * @prop {string} type
- * @prop {string} url
- * @prop {number} crawledAt
- * @prop {SearchResultAuthor} author
- *
- * @typedef {Object} SiteSearchResult
- * @prop {SearchResultRecord} record
- * @prop {string} url
- * @prop {string} title
- * @prop {string} description
- * @prop {string} type
- *
- * @typedef {Object} PostSearchResult
- * @prop {SearchResultRecord} record
- * @prop {string} url
- * @prop {Object} content
- * @prop {string} content.body
- * @prop {number} createdAt
- * @prop {number} updatedAt
- *
- * @typedef {Object} BookmarkSearchResult
- * @prop {SearchResultRecord} record
- * @prop {string} url
- * @prop {Object} content
- * @prop {string} content.href
- * @prop {string} content.title
- * @prop {string} content.description
- * @prop {number} createdAt
- * @prop {number} updatedAt
+ * @typedef {Object} SearchResult
+ ^ @prop {string} resultType
+ * @prop {LibraryArchiveMeta} author
+ * @prop {string} href
+ * @prop {Object} record
  */
 
 // exported api
@@ -162,15 +133,15 @@ exports.listSuggestions = async function (user, query = '', opts = {}) {
  * @param {string} user - The current user's URL.
  * @param {Object} opts
  * @param {string} [opts.query] - The search query.
- * @param {Object} [opts.filters]
- * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/post', 'unwalled.garden/bookmark'.
- * @param {number} [opts.filters.since] - Filter results to items created since the given timestamp.
+ * @param {string|string[]} [opts.datasets] - Filter results to the given datasets. Defaults to undefined. Valid values: undefined, 'dats', 'people', 'statuses', 'bookmarks'.
+ * @param {number} [opts.since] - Filter results to items created since the given timestamp.
  * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included? Valid values: 1, 2.
  * @param {number} [opts.offset]
  * @param {number} [opts.limit = 20]
  * @returns {Promise<SearchResults>}
  */
 exports.query = async function (user, opts) {
+  try {
   const highlightNonce =  (Math.random() * 1e3)|0
   const startHighlight = `{${highlightNonce}}`
   const endHighlight = `{/${highlightNonce}}`
@@ -179,21 +150,16 @@ exports.query = async function (user, opts) {
     highlightNonce,
     results: []
   }
-  var {query, hops, filters, offset, limit} = Object.assign({}, {
+  var {query, hops, datasets, since, offset, limit} = Object.assign({}, {
     query: undefined,
-    hops: 1,
-    filters: {},
+    hops: 2,
+    datasets: undefined,
+    since: 0,
     offset: 0,
     limit: 20
   }, opts)
-  var {datasets, since} = Object.assign({}, {
-    datasets: 'all',
-    since: 0
-  }, filters)
   hops = Math.min(Math.max(Math.floor(hops), 1), 2) // clamp to [1, 2] for now
-  var datasetValues = (typeof datasets === 'undefined')
-    ? ['all']
-    : Array.isArray(datasets) ? datasets : [datasets]
+  const shouldInclude = v => typeof datasets === 'undefined' || (Array.isArray(datasets) ? (datasets.includes(v)) : datasets === v)
 
   // prep search terms
   if (query && typeof query === 'string') {
@@ -203,11 +169,14 @@ exports.query = async function (user, opts) {
     query += '*' // match prefixes
   }
 
-  // get user's crawl_source id
-  var userCrawlSourceId
+  // get user's crawl_source ids (public and private)
+  var userCrawlSourceIds
   {
-    let res = await db.get(`SELECT id FROM crawl_sources WHERE url = ?`, [user])
-    userCrawlSourceId = res.id
+    let [privateRes, publicRes] = await Promise.all([
+      db.get(`SELECT crawl_sources.id FROM crawl_sources LEFT JOIN profiles ON profiles.id = 0 WHERE crawl_sources.url = profiles.url`),
+      db.get(`SELECT id FROM crawl_sources WHERE url = ?`, [user])
+    ])
+    userCrawlSourceIds = [privateRes.id, publicRes.id]
   }
 
   // construct set of crawl sources to query
@@ -217,21 +186,33 @@ exports.query = async function (user, opts) {
     let res = await db.all(`
       SELECT id FROM crawl_sources src
         INNER JOIN crawl_follows follows ON follows.destUrl = src.url AND follows.crawlSourceId = ?
-    `, [userCrawlSourceId])
-    crawlSourceIds = [userCrawlSourceId].concat(res.map(({id}) => id))
+    `, [userCrawlSourceIds[1]])
+    crawlSourceIds = userCrawlSourceIds.concat(res.map(({id}) => id))
   } else if (hops === 1) {
-    // just the user
-    crawlSourceIds = [userCrawlSourceId]
+    // just the user's dats
+    crawlSourceIds = userCrawlSourceIds
   }
 
   // run queries
-  if (datasetValues.includes('all') || datasetValues.includes('sites')) {
+  if (shouldInclude('dats')) {
     // SITES
-    let rows = await db.all(buildSitesSearchQuery({
+    let rows = await db.all(buildDatsQuery({
       query,
       crawlSourceIds,
-      user,
-      userCrawlSourceId,
+      since,
+      limit,
+      offset,
+      startHighlight,
+      endHighlight
+    }))
+    rows = await Promise.all(rows.map(massageDatSearchResult))
+    searchResults.results = searchResults.results.concat(rows)
+  }
+  if (shouldInclude('people')) {
+    // PEOPLE
+    let rows = await db.all(buildPeopleQuery({
+      query,
+      crawlSourceIds,
       since,
       limit,
       offset,
@@ -239,30 +220,28 @@ exports.query = async function (user, opts) {
       endHighlight
     }))
     rows = _uniqWith(rows, (a, b) => a.url === b.url) // remove duplicates
-    rows = await Promise.all(rows.map(massageSiteSearchResult))
+    rows = await Promise.all(rows.map(massagePersonSearchResult))
     searchResults.results = searchResults.results.concat(rows)
   }
-  if (datasetValues.includes('all') || datasets.includes('unwalled.garden/post')) {
+  if (shouldInclude('statuses')) {
     // POSTS
-    let rows = await db.all(buildPostsSearchQuery({
+    let rows = await db.all(buildStatusesQuery({
       query,
       crawlSourceIds,
-      userCrawlSourceId,
       since,
       limit,
       offset,
       startHighlight,
       endHighlight
     }))
-    rows = await Promise.all(rows.map(massagePostSearchResult))
+    rows = await Promise.all(rows.map(massageStatusSearchResult))
     searchResults.results = searchResults.results.concat(rows)
   }
-  if (datasetValues.includes('all') || datasets.includes('unwalled.garden/bookmark')) {
+  if (shouldInclude('bookmarks')) {
     // BOOKMARKS
-    let rows = await db.all(buildBookmarksSearchQuery({
+    let rows = await db.all(buildBookmarksQuery({
       query,
       crawlSourceIds,
-      userCrawlSourceId,
       since,
       limit,
       offset,
@@ -278,87 +257,105 @@ exports.query = async function (user, opts) {
   searchResults.results = searchResults.results.slice(0, limit)
 
   return searchResults
+} catch (e) {
+  console.log(e)
+  throw e
+}
 }
 
 // internal methods
 // =
 
-function buildSitesSearchQuery ({query, crawlSourceIds, user, userCrawlSourceId, since, limit, offset, startHighlight, endHighlight}) {
-  let sql = knex(query ? 'crawl_site_descriptions_fts_index' : 'crawl_site_descriptions')
-    .select('crawl_site_descriptions.url AS url')
+function buildDatsQuery ({query, crawlSourceIds, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_dats_fts_index' : 'crawl_dats')
+    .select('crawl_dats.key AS key')
+    .select('crawl_dats.type AS type')
     .select('crawl_sources.url AS authorUrl')
-    .select('crawl_site_descriptions.crawledAt')
-    .where(builder => builder
-      .whereIn('crawl_follows.crawlSourceId', crawlSourceIds) // description by a followed user
-      .orWhere(builder => builder
-        .where('crawl_site_descriptions.url', user) // about me and...
-        .andWhere('crawl_site_descriptions.crawlSourceId', userCrawlSourceId) // by me
-      )
-    )
-    .where('crawl_site_descriptions.crawledAt', '>=', since)
-    .orderBy('crawl_site_descriptions.crawledAt')
+    .select('crawl_dats.crawledAt')
+    .whereIn('crawl_dats.crawlSourceId', crawlSourceIds)
+    .where('crawl_dats.crawledAt', '>=', since)
+    .orderBy('crawl_dats.crawledAt')
     .limit(limit)
     .offset(offset)
   if (query) {
     sql = sql
-      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
-      .select(knex.raw(`SNIPPET(crawl_site_descriptions_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
-      .innerJoin('crawl_site_descriptions', 'crawl_site_descriptions.rowid', '=', 'crawl_site_descriptions_fts_index.rowid')
-      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_site_descriptions.url')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
-      .whereRaw('crawl_site_descriptions_fts_index MATCH ?', [query])
+      .select(knex.raw(`SNIPPET(crawl_dats_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
+      .select(knex.raw(`SNIPPET(crawl_dats_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
+      .innerJoin('crawl_dats', 'crawl_dats.rowid', '=', 'crawl_dats_fts_index.rowid')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_dats.crawlSourceId')
+      .whereRaw('crawl_dats_fts_index MATCH ?', [query])
   } else {
     sql = sql
-      .select('crawl_site_descriptions.title')
-      .select('crawl_site_descriptions.description')
-      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_site_descriptions.url')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_site_descriptions.crawlSourceId')
+      .select('crawl_dats.title')
+      .select('crawl_dats.description')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_dats.crawlSourceId')
   }
   return sql
 }
 
-function buildPostsSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since, limit, offset, startHighlight, endHighlight}) {
-  let sql = knex(query ? 'crawl_posts_fts_index' : 'crawl_posts')
-    .select('crawl_posts.pathname')
-    .select('crawl_posts.crawledAt')
-    .select('crawl_posts.createdAt')
-    .select('crawl_posts.updatedAt')
+function buildPeopleQuery ({query, crawlSourceIds, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'archives_meta_fts_index' : 'archives_meta')
+    .select('crawl_follows.destUrl as url')
+    .select('archives_meta.type')
     .select('crawl_sources.url AS authorUrl')
-    .where(builder => builder
-      .whereIn('crawl_follows.crawlSourceId', crawlSourceIds) // published by someone I follow
-      .orWhere('crawl_posts.crawlSourceId', userCrawlSourceId) // or by me
-    )
-    .andWhere('crawl_posts.crawledAt', '>=', since)
-    .orderBy('crawl_posts.crawledAt')
+    .select('crawl_follows.crawledAt')
+    .whereIn('crawl_follows.crawlSourceId', crawlSourceIds)
+    .where('crawl_follows.crawledAt', '>=', since)
+    .orderBy('crawl_follows.crawledAt')
     .limit(limit)
     .offset(offset)
   if (query) {
     sql = sql
-      .select(knex.raw(`SNIPPET(crawl_posts_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS body`))
-      .innerJoin('crawl_posts', 'crawl_posts.rowid', '=', 'crawl_posts_fts_index.rowid')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
-      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
-      .whereRaw('crawl_posts_fts_index MATCH ?', [query])
+      .select(knex.raw(`SNIPPET(archives_meta_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS title`))
+      .select(knex.raw(`SNIPPET(archives_meta_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
+      .innerJoin('archives_meta', 'archives_meta.rowid', '=', 'archives_meta_fts_index.rowid')
+      .joinRaw(`INNER JOIN crawl_follows ON ('dat://' || archives_meta.key) = crawl_follows.destUrl`)
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_follows.crawlSourceId')
+      .whereRaw('archives_meta_fts_index MATCH ?', [query])
   } else {
     sql = sql
-      .select('crawl_posts.body')
-      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_posts.crawlSourceId')
-      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
+      .select('archives_meta.title')
+      .select('archives_meta.description')
+      .joinRaw(`INNER JOIN crawl_follows ON ('dat://' || archives_meta.key) = crawl_follows.destUrl`)
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_follows.crawlSourceId')
   }
   return sql
 }
 
-function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, since, limit, offset, startHighlight, endHighlight}) {
+function buildStatusesQuery ({query, crawlSourceIds, since, limit, offset, startHighlight, endHighlight}) {
+  let sql = knex(query ? 'crawl_statuses_fts_index' : 'crawl_statuses')
+    .select('crawl_statuses.pathname')
+    .select('crawl_statuses.crawledAt')
+    .select('crawl_statuses.createdAt')
+    .select('crawl_statuses.updatedAt')
+    .select('crawl_sources.url AS authorUrl')
+    .whereIn('crawl_statuses.crawlSourceId', crawlSourceIds)
+    .andWhere('crawl_statuses.crawledAt', '>=', since)
+    .orderBy('crawl_statuses.crawledAt')
+    .limit(limit)
+    .offset(offset)
+  if (query) {
+    sql = sql
+      .select(knex.raw(`SNIPPET(crawl_statuses_fts_index, 0, '${startHighlight}', '${endHighlight}', '...', 25) AS body`))
+      .innerJoin('crawl_statuses', 'crawl_statuses.rowid', '=', 'crawl_statuses_fts_index.rowid')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_statuses.crawlSourceId')
+      .whereRaw('crawl_statuses_fts_index MATCH ?', [query])
+  } else {
+    sql = sql
+      .select('crawl_statuses.body')
+      .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_statuses.crawlSourceId')
+  }
+  return sql
+}
+
+function buildBookmarksQuery ({query, crawlSourceIds, since, limit, offset, startHighlight, endHighlight}) {
   let sql = knex(query ? 'crawl_bookmarks_fts_index' : 'crawl_bookmarks')
     .select('crawl_bookmarks.pathname')
     .select('crawl_bookmarks.crawledAt')
     .select('crawl_bookmarks.createdAt')
     .select('crawl_bookmarks.updatedAt')
     .select('crawl_sources.url AS authorUrl')
-    .where(builder => builder
-      .whereIn('crawl_follows.crawlSourceId', crawlSourceIds) // published by someone I follow
-      .orWhere('crawl_bookmarks.crawlSourceId', userCrawlSourceId) // or by me
-    )
+    .whereIn('crawl_bookmarks.crawlSourceId', crawlSourceIds)
     .andWhere('crawl_bookmarks.crawledAt', '>=', since)
     .orderBy('crawl_bookmarks.crawledAt')
     .limit(limit)
@@ -370,7 +367,6 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .select(knex.raw(`SNIPPET(crawl_bookmarks_fts_index, 1, '${startHighlight}', '${endHighlight}', '...', 25) AS description`))
       .innerJoin('crawl_bookmarks', 'crawl_bookmarks.rowid', '=', 'crawl_bookmarks_fts_index.rowid')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
-      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
       .whereRaw('crawl_bookmarks_fts_index MATCH ?', [query])
   } else {
     sql = sql
@@ -378,97 +374,80 @@ function buildBookmarksSearchQuery ({query, crawlSourceIds, userCrawlSourceId, s
       .select('crawl_bookmarks.title')
       .select('crawl_bookmarks.description')
       .innerJoin('crawl_sources', 'crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
-      .leftJoin('crawl_follows', 'crawl_follows.destUrl', '=', 'crawl_sources.url')
   }
   return sql
 }
 
 /**
  * @param {Object} row
- * @returns {Promise<SiteSearchResult>}
+ * @returns {Promise<SearchResult>}
  */
-async function massageSiteSearchResult (row) {
-  // fetch additional info
-  var author = await siteDescriptions.getBest({subject: row.authorUrl})
-
-  // massage attrs
+async function massageDatSearchResult (row) {
   return {
+    resultType: 'dat',
+    author: await archivesDb.getMeta(row.authorUrl),
+    href: `dat://${row.key}`,
     record: {
-      type: 'site',
-      url: row.url,
-      author: {
-        url: author.url,
-        title: author.title,
-        description: author.description,
-        type: author.type
-      },
-      crawledAt: row.crawledAt,
-    },
-    url: row.url,
-    title: row.title,
-    description: row.description,
-    type: row.type
+      title: row.title,
+      description: row.description,
+      crawledAt: row.crawledAt
+    }
   }
 }
 
 /**
  * @param {Object} row
- * @returns {Promise<PostSearchResult>}
+ * @returns {Promise<SearchResult>}
  */
-async function massagePostSearchResult (row) {
-  // fetch additional info
-  var author = await siteDescriptions.getBest({subject: row.authorUrl})
-
-  // massage attrs
-  var url = row.authorUrl + row.pathname
+async function massagePersonSearchResult (row) {
   return {
+    resultType: 'person',
+    author: await archivesDb.getMeta(row.authorUrl),
+    href: row.url,
     record: {
-      type: 'unwalled.garden/post',
-      url,
-      author: {
-        url: author.url,
-        title: author.title,
-        description: author.description,
-        type: author.type
-      },
-      crawledAt: row.crawledAt,
-    },
-    url,
-    content: {body: row.body},
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+      title: row.title,
+      description: row.description,
+      type: row.type,
+      crawledAt: row.crawledAt
+    }
   }
 }
 
 /**
  * @param {Object} row
- * @returns {Promise<BookmarkSearchResult>}
+ * @returns {Promise<SearchResult>}
+ */
+async function massageStatusSearchResult (row) {
+  return {
+    resultType: 'status',
+    author: await archivesDb.getMeta(row.authorUrl),
+    href: row.authorUrl + row.pathname,
+    record: {
+      body: row.body,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      crawledAt: row.crawledAt,
+    }
+  }
+}
+
+/**
+ * @param {Object} row
+ * @returns {Promise<SearchResult>}
  */
 async function massageBookmarkSearchResult (row) {
-  // fetch additional info
-  var author = await siteDescriptions.getBest({subject: row.authorUrl})
-
-  // massage attrs
-  var url = row.authorUrl + row.pathname
   return {
+    resultType: 'bookmark',
+    author: await archivesDb.getMeta(row.authorUrl),
+    href: row.authorUrl + row.pathname,
     record: {
-      type: 'unwalled.garden/bookmark',
-      url,
-      author: {
-        url: author.url,
-        title: author.title,
-        description: author.description,
-        type: author.type
-      },
-      crawledAt: row.crawledAt,
-    },
-    url,
-    content: {
       href: row.href,
       title: row.title,
-      description: row.description
-    },
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+      description: row.description,
+      // tags: row.tags,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      crawledAt: row.crawledAt
+    }
   }
 }
