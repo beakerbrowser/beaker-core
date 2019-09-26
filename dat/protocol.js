@@ -151,7 +151,7 @@ exports.electronHandler = async function (request, respond) {
   const canExecuteHTML = !hasViewerApp
 
   // render root-page applications by type
-  if (hasViewerApp && urlp.pathname === '/') {
+  if (hasViewerApp && mime.acceptHeaderWantsHTML(request.headers.Accept)) {
     return respond({
       statusCode: 200,
       headers: {
