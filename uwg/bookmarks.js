@@ -354,6 +354,7 @@ exports.removeBookmarkByHref = async function (archive, href) {
       this.on('crawl_sources.id', '=', 'crawl_bookmarks.crawlSourceId')
         .andOn('crawl_sources.url', '=', knex.raw('?', archive.url))
     })
+    .where('crawl_bookmarks.href', href)
 
   // execute query
   var record = await db.get(sql)
