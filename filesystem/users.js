@@ -170,6 +170,13 @@ exports.list = async function () {
 }
 
 /**
+ * @returns {string[]}
+ */
+exports.listUrls = function () {
+  return users.map(u => u.url)
+}
+
+/**
  * @param {string} url
  * @return {Promise<User>}
  */
