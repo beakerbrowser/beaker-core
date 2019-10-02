@@ -1,3 +1,4 @@
 module.exports = {
-  getRoot: 'promise'
+  get: 'promise',
+  identifyDrive: 'promise'
 }
