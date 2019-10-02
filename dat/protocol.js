@@ -146,8 +146,8 @@ exports.electronHandler = async function (request, respond) {
   try { manifest = await checkoutFS.pda.readManifest() } catch (e) { manifest = null }
 
   // read type and configure
-  var category = libTools.typeToCategory(manifest ? manifest.type : '', false)
-  const hasViewerApp = category && category !== 'website'
+  var category = libTools.typeToCategory(manifest ? manifest.type : '', false) || 'files'
+  const hasViewerApp = category !== 'website'
   const canExecuteHTML = !hasViewerApp
 
   // render root-page applications by type
