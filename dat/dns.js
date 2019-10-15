@@ -1,7 +1,7 @@
 const parseDatURL = require('parse-dat-url')
 const {InvalidDomainName} = require('beaker-error-constants')
 const datDnsDb = require('../dbs/dat-dns')
-const library = require('./library')
+const archives = require('./archives')
 const {DAT_HASH_REGEX} = require('../lib/const')
 const logger = require('../logger').child({category: 'dat', subcategory: 'dns'})
 
@@ -40,5 +40,5 @@ async function read (name, err) {
 }
 async function write (name, key) {
   if (DAT_HASH_REGEX.test(name)) return // dont write for raw urls
-  await library.confirmDomain(key)
+  await archives.confirmDomain(key)
 }

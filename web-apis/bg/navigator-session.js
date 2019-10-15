@@ -1,16 +1,16 @@
 const globals = require('../../globals')
 const assert = require('assert')
 const { UserDeniedError } = require('beaker-error-constants')
-const users = require('../../users')
-const userSiteSessions = require('../../users/site-sessions')
+const users = require('../../filesystem/users')
+const userSiteSessions = require('../../filesystem/site-sessions')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../users/index').User} User
- * @typedef {import('../../users/site-sessions').UserSiteSession} UserSiteSession
+ * @typedef {import('../../filesystem/users').User} User
+ * @typedef {import('../../filesystem/site-sessions').UserSiteSession} UserSiteSession
  *
  * @typedef {Object} NavigatorSessionPublicAPIRecord
  * @prop {Object} profile
@@ -49,7 +49,7 @@ module.exports = {
     // put the perms in a user-friendly ordering
     var permsOrder = [
       'unwalled.garden/api/follows',
-      'unwalled.garden/api/posts',
+      'unwalled.garden/api/statuses',
       'unwalled.garden/api/bookmarks',
       'unwalled.garden/api/comments',
       'unwalled.garden/api/reactions',

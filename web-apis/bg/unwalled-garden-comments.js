@@ -2,7 +2,7 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const commentsCrawler = require('../../crawler/comments')
+const commentsAPI = require('../../uwg/comments')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -13,7 +13,8 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
+ * @prop {boolean} isOwner
  *
  * @typedef {Object} CommentPublicAPIRecord
  * @prop {string} url
@@ -44,10 +45,9 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string|string[]} [opts.filters.topics]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string|string[]} [opts.topic]
+   * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
@@ -57,40 +57,37 @@ module.exports = {
   async list (opts) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-    if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('topics' in opts.filters) {
-        if (Array.isArray(opts.filters.topics)) {
-          assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
+    if ('topic' in opts) {
+      if (Array.isArray(opts.topic)) {
+        assert(opts.topic.every(v => typeof v === 'string'), 'Topic filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.topic === 'string', 'Topic filter must be a string or array of strings')
+      }
+    }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
 
-    var comments = await commentsCrawler.list(opts)
+    var comments = await commentsAPI.list(opts)
     return Promise.all(comments.map(massageCommentRecord))
   },
 
   /**
    * @param {string} topic
    * @param {Object} [opts]
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string} [opts.visibility]
    * @param {string} [opts.parent]
    * @param {number} [opts.depth]
    * @param {string} [opts.sortBy]
@@ -101,24 +98,22 @@ module.exports = {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a URL string')
-    if (opts && 'parent' in opts) assert(typeof opts.parent === 'string', 'Parent must be a string')
-    if (opts && 'depth' in opts) assert(typeof opts.depth === 'number', 'Depth must be a number')
-    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('parent' in opts) assert(typeof opts.parent === 'string', 'Parent must be a string')
+    if ('depth' in opts) assert(typeof opts.depth === 'number', 'Depth must be a number')
+    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
 
-    var comments = await commentsCrawler.thread(topic, opts)
+    var comments = await commentsAPI.thread(topic, opts)
     return Promise.all(comments.map(massageThreadedCommentRecord))
   },
 
@@ -128,7 +123,7 @@ module.exports = {
    */
   async get (url) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/comments', 'read')
-    return massageCommentRecord(await commentsCrawler.get(url))
+    return massageCommentRecord(await commentsAPI.get(url))
   },
 
   /**
@@ -159,8 +154,8 @@ module.exports = {
       comment.visibility = 'public'
     }
 
-    var url = await commentsCrawler.add(userArchive, topic, comment)
-    return massageCommentRecord(await commentsCrawler.get(url))
+    var url = await commentsAPI.add(userArchive, topic, comment)
+    return massageCommentRecord(await commentsAPI.get(url))
   },
 
   /**
@@ -187,8 +182,8 @@ module.exports = {
     if ('visibility' in comment) assert(typeof comment.visibility === 'string', 'The `comment.visibility` parameter must be "public" or "private"')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await commentsCrawler.edit(userArchive, filepath, comment)
-    return massageCommentRecord(await commentsCrawler.get(userArchive.url + filepath))
+    await commentsAPI.edit(userArchive, filepath, comment)
+    return massageCommentRecord(await commentsAPI.get(userArchive.url + filepath))
   },
 
   /**
@@ -202,7 +197,7 @@ module.exports = {
     assert(url && typeof url === 'string', 'The `url` parameter must be a valid URL')
 
     var filepath = await urlToFilepath(url, userArchive.url)
-    await commentsCrawler.remove(userArchive, filepath)
+    await commentsAPI.remove(userArchive, filepath)
   }
 }
 

@@ -2,14 +2,9 @@ const globals = require('../../globals')
 const assert = require('assert')
 const { UserDeniedError } = require('beaker-error-constants')
 const sessionPerms = require('../../lib/session-perms')
-const applications = require('../../applications')
 
 // typedefs
 // =
-
-/**
- * @typedef {import('../../applications').ApplicationState} ApplicationState
- */
 
 // exported api
 // =
@@ -147,16 +142,7 @@ module.exports = {
     }
     if (!res || !res.url) throw new UserDeniedError()
     return res.url
-  },
-
-  /**
-   * @returns {Promise<ApplicationState>}
-   */
-  // DISABLED
-  // async getApplicationState () {
-  //   var userId = await sessionPerms.getSessionUserId(this.sender)
-  //   return applications.getApplicationState({url: this.sender.getURL(), userId})
-  // }
+  }
 }
 
 function isStrArray (v) {

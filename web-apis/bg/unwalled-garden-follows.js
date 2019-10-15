@@ -1,8 +1,6 @@
-const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
-const dat = require('../../dat')
-const followsCrawler = require('../../crawler/follows')
+const followsAPI = require('../../uwg/follows')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
@@ -13,7 +11,8 @@ const sessionPerms = require('../../lib/session-perms')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
+ * @prop {boolean} isOwner
  *
  * @typedef {Object} FollowsPublicAPIRecord
  * @prop {FollowsSitePublicAPIRecord} author
@@ -27,10 +26,9 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string|string[]} [opts.filters.topics]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string|string[]} [opts.topic]
+   * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
@@ -40,30 +38,28 @@ module.exports = {
   async list (opts) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/follows', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-    if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('topics' in opts.filters) {
-        if (Array.isArray(opts.filters.topics)) {
-          assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
-    var links = await followsCrawler.list(opts)
+    if ('topic' in opts) {
+      if (Array.isArray(opts.topic)) {
+        assert(opts.topic.every(v => typeof v === 'string'), 'Topic filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.topic === 'string', 'Topic filter must be a string or array of strings')
+      }
+    }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
+    var links = await followsAPI.list(opts)
     return Promise.all(links.map(massageFollowRecord))
   },
 
@@ -81,7 +77,7 @@ module.exports = {
     assert(author, 'The `author` parameter must be a valid URL')
     assert(topic, 'The `topic` parameter must be a valid URL')
 
-    return followsCrawler.get(author, topic)
+    return followsAPI.get(author, topic)
   },
 
   /**
@@ -100,7 +96,7 @@ module.exports = {
     assert(topic, 'The `topic` parameter must be a valid URL')
     assert(['public', 'private'].includes(opts.visibility), 'The `visibility` parameter must be "public" or "private"')
 
-    await followsCrawler.add(userArchive, topic, opts)
+    await followsAPI.add(userArchive, topic, opts)
   },
 
   /**
@@ -119,7 +115,7 @@ module.exports = {
     assert(topic, 'The `topic` parameter must be a valid URL')
     assert(['public', 'private'].includes(opts.visibility), 'The `visibility` parameter must be "public" or "private"')
 
-    await followsCrawler.edit(userArchive, topic, opts)
+    await followsAPI.edit(userArchive, topic, opts)
   },
 
   /**
@@ -133,7 +129,7 @@ module.exports = {
     topic = normalizeFollowUrl(topic)
     assert(topic, 'The `topic` parameter must be a valid URL')
 
-    await followsCrawler.remove(userArchive, topic)
+    await followsAPI.remove(userArchive, topic)
   }
 }
 
@@ -162,7 +158,8 @@ function massageSiteRecord (site) {
     url: site.url,
     title: site.title,
     description: site.description,
-    type: site.type
+    type: site.type,
+    isOwner: site.isOwner
   }
 }
 

@@ -6,9 +6,11 @@ const rimraf = require('rimraf')
 const SCHEMAS = [
   'comment',
   'follows',
-  'post',
+  'status',
   'bookmark',
-  'reaction'
+  'reaction',
+  'dats',
+  'vote'
 ]
 
 console.log('')
@@ -23,7 +25,7 @@ console.log('')
 for (let name of SCHEMAS) {
   console.log(name)
   var content = fs.readFileSync(path.join(tmpdir, name + '.json'))
-  fs.writeFileSync(path.join(__dirname, '../crawler/json-schemas/', name + '.js'), `module.exports = ${content}`)
+  fs.writeFileSync(path.join(__dirname, '../uwg/json-schemas/', name + '.js'), `module.exports = ${content}`)
 }
 
 console.log('')

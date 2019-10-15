@@ -2,31 +2,32 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const reactionsCrawler = require('../../crawler/reactions')
-const siteDescriptionsCrawler = require('../../crawler/site-descriptions')
+const archivesDb = require('../../dbs/archives')
+const reactionsAPI = require('../../uwg/reactions')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../crawler/reactions').Reaction} Reaction
+ * @typedef {import('../../uwg/reactions').Reaction} Reaction
  *
  * @typedef {Object} ReactionAuthorPublicAPIRecord
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
+ * @prop {boolean} isOwner
  *
  * @typedef {Object} TopicReactionsPublicAPIRecord
  * @prop {string} topic
- * @prop {string} emoji
+ * @prop {string} phrase
  * @prop {ReactionAuthorPublicAPIRecord[]} authors
  *
  * @typedef {Object} ReactionPublicAPIRecord
  * @prop {string} url
  * @prop {string} topic
- * @prop {string[]} emojis
+ * @prop {string[]} phrases
  * @prop {ReactionAuthorPublicAPIRecord} author
  * @prop {string} visibility
  */
@@ -37,10 +38,9 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string|string[]} [opts.filters.topics]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string|string[]} [opts.topic]
+   * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
@@ -50,38 +50,36 @@ module.exports = {
   async list (opts) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-    if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('topics' in opts.filters) {
-        if (Array.isArray(opts.filters.topics)) {
-          assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
-    var reactions = await reactionsCrawler.list(opts)
+    if ('topic' in opts) {
+      if (Array.isArray(opts.topic)) {
+        assert(opts.topic.every(v => typeof v === 'string'), 'Topic filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.topic === 'string', 'Topic filter must be a string or array of strings')
+      }
+    }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
+    var reactions = await reactionsAPI.list(opts)
     return Promise.all(reactions.map(massageReactionRecord))
   },
 
   /**
    * @param {string} topic
    * @param {Object} [opts]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string} [opts.visibility]
    * @returns {Promise<TopicReactionsPublicAPIRecord[]>}
    */
   async tabulate (topic, opts) {
@@ -89,30 +87,29 @@ module.exports = {
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
 
-    var reactions = await reactionsCrawler.tabulate(topic, opts)
+    var reactions = await reactionsAPI.tabulate(topic, opts)
     return Promise.all(reactions.map(async (reaction) => ({
       topic,
-      emoji: reaction.emoji,
+      phrase: reaction.phrase,
       authors: await Promise.all(reaction.authors.map(async (url) => {
-        var desc = await siteDescriptionsCrawler.getBest({subject: url})
+        var desc = await archivesDb.getMeta(url)
         return {
           url: desc.url,
           title: desc.title,
           description: desc.description,
-          type: desc.type
+          type: desc.type,
+          isOwner: desc.isOwner
         }
       }))
     })))
@@ -120,37 +117,43 @@ module.exports = {
 
   /**
    * @param {string} topic
-   * @param {string} emoji
+   * @param {string} phrase
    * @returns {Promise<void>}
    */
-  async add (topic, emoji) {
+  async add (topic, phrase) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
+    assert(isValidPhrase(phrase), 'The `phrase` parameter must be a lowercase string that matches /^[a-z]+$/ and is less than 20 characters long.')
 
-    await reactionsCrawler.add(userArchive, topic, emoji)
+    await reactionsAPI.add(userArchive, topic, phrase)
   },
 
   /**
    * @param {string} topic
-   * @param {string} emoji
+   * @param {string} phrase
    * @returns {Promise<void>}
    */
-  async remove (topic, emoji) {
+  async remove (topic, phrase) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/reactions', 'write')
     var userArchive = await sessionPerms.getSessionUserArchive(this.sender)
 
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
+    assert(isValidPhrase(phrase), 'The `phrase` parameter must be a lowercase string that matches /^[a-z]+$/ and is less than 20 characters long.')
 
-    await reactionsCrawler.remove(userArchive, topic, emoji)
+    await reactionsAPI.remove(userArchive, topic, phrase)
   }
 }
 
 // internal methods
 // =
+
+function isValidPhrase (v) {
+  return v && typeof v === 'string' && v.length <= 20 && /^[a-z ]+$/.test(v)
+}
 
 function normalizeTopicUrl (url) {
   try {
@@ -165,16 +168,17 @@ function normalizeTopicUrl (url) {
  * @returns {Promise<ReactionPublicAPIRecord>}
  */
 async function massageReactionRecord (reaction) {
-  var desc = await siteDescriptionsCrawler.getBest({subject: reaction.author})
+  var desc = await archivesDb.getMeta(reaction.author)
   return {
     url: reaction.recordUrl,
     topic: reaction.topic,
-    emojis: reaction.emojis,
+    phrases: reaction.phrases,
     author: {
       url: desc.url,
       title: desc.title,
       description: desc.description,
-      type: desc.type
+      type: desc.type,
+      isOwner: desc.isOwner
     },
     visibility: reaction.visibility
   }

@@ -1,6 +1,6 @@
 const globals = require('../../globals')
 const {PermissionsError} = require('beaker-error-constants')
-const crawler = require('../../crawler/search')
+const search = require('../../uwg/search')
 
 // typedefs
 // =
@@ -14,7 +14,7 @@ const crawler = require('../../crawler/search')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string} type
  *
  * @typedef {Object} SearchPublicAPIResultRecord
  * @prop {string} type
@@ -27,7 +27,7 @@ const crawler = require('../../crawler/search')
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {Array<string>} type
+ * @prop {string} type
  *
  * @typedef {Object} SearchPublicAPIPostResult
  * @prop {SearchPublicAPIResultRecord} record
@@ -45,26 +45,17 @@ module.exports = {
   /**
    * @param {Object} opts
    * @param {string} [opts.query] - The search query.
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.datasets] - Filter results to the given datasets. Defaults to 'all'. Valid values: 'all', 'sites', 'unwalled.garden/post'.
-   * @param {number} [opts.filters.since] - Filter results to items created since the given timestamp.
+   * @param {string|string[]} [opts.datasets] - Filter results to the given datasets. Defaults to undefined. Valid values: undefined, 'dats', 'people', 'statuses', 'bookmarks'.
+   * @param {number} [opts.since] - Filter results to items created since the given timestamp.
    * @param {number} [opts.hops=1] - How many hops out in the user's follow graph should be included? Valid values: 1, 2.
    * @param {number} [opts.offset]
    * @param {number} [opts.limit = 20]
    * @returns {Promise<SearchPublicAPIResult>}
    */
   async query (opts) {
-    await assertPermission(this.sender, 'dangerousAppControl')
     var sess = globals.userSessionAPI.getFor(this.sender)
     if (!sess) return null
-    return crawler.query(sess.url, opts)
+    return search.query(sess.url, opts)
   }
 }
-
-async function assertPermission (sender, perm) {
-  if (sender.getURL().startsWith('beaker:')) {
-    return true
-  }
-  if (await globals.permsAPI.requestPermission(perm, sender)) return true
-  throw new PermissionsError()
-}
+ 

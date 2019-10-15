@@ -17,7 +17,7 @@ CREATE TABLE archives_meta (
   key TEXT PRIMARY KEY,
   title TEXT,
   description TEXT,
-  forkOf TEXT, -- deprecated
+  forkOf TEXT,
   createdByUrl TEXT, -- deprecated
   createdByTitle TEXT, -- deprecated
   mtime INTEGER,
@@ -57,14 +57,6 @@ CREATE UNIQUE INDEX visits_stats_url ON visit_stats (url);
 
 -- default profile
 INSERT INTO profiles (id) VALUES (0);
-
--- default bookmarks
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Beaker Browser', 'dat://beakerbrowser.com', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Dat Project', 'dat://datproject.org', 0);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Hashbase', 'https://hashbase.io', 0);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Documentation', 'dat://beakerbrowser.com/docs', 1);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Report an issue', 'https://github.com/beakerbrowser/beaker/issues', 0);
-INSERT INTO bookmarks (profileId, title, url, pinned) VALUES (0, 'Support Beaker', 'https://opencollective.com/beaker', 1);
 
 PRAGMA user_version = 1;
 `

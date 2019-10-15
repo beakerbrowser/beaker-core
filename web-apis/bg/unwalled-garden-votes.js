@@ -2,21 +2,22 @@ const globals = require('../../globals')
 const assert = require('assert')
 const {URL} = require('url')
 const dat = require('../../dat')
-const votesCrawler = require('../../crawler/votes')
+const votesAPI = require('../../uwg/votes')
 const sessionPerms = require('../../lib/session-perms')
 
 // typedefs
 // =
 
 /**
- * @typedef {import('../../crawler/votes').Vote} Vote
- * @typedef {import('../../crawler/votes').TabulatedVotes} TabulatedVotes
+ * @typedef {import('../../uwg/votes').Vote} Vote
+ * @typedef {import('../../uwg/votes').TabulatedVotes} TabulatedVotes
  *
  * @typedef {Object} VoteAuthorPublicAPIRecord
  * @prop {string} url
  * @prop {string} title
  * @prop {string} description
- * @prop {string[]} type
+ * @prop {string} type
+ * @prop {boolean} isOwner
  *
  * @typedef {Object} TabulatedVotesPublicAPIRecord
  * @prop {string} topic
@@ -41,10 +42,9 @@ const sessionPerms = require('../../lib/session-perms')
 module.exports = {
   /**
    * @param {Object} [opts]
-   * @param {Object} [opts.filters]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string|string[]} [opts.filters.topics]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string|string[]} [opts.topic]
+   * @param {string} [opts.visibility]
    * @param {string} [opts.sortBy]
    * @param {number} [opts.offset=0]
    * @param {number} [opts.limit]
@@ -54,38 +54,36 @@ module.exports = {
   async list (opts) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'read')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && 'sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
-    if (opts && 'offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
-    if (opts && 'limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
-    if (opts && 'reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('topics' in opts.filters) {
-        if (Array.isArray(opts.filters.topics)) {
-          assert(opts.filters.topics.every(v => typeof v === 'string'), 'Topics filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.topics === 'string', 'Topics filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('sortBy' in opts) assert(typeof opts.sortBy === 'string', 'SortBy must be a string')
+    if ('offset' in opts) assert(typeof opts.offset === 'number', 'Offset must be a number')
+    if ('limit' in opts) assert(typeof opts.limit === 'number', 'Limit must be a number')
+    if ('reverse' in opts) assert(typeof opts.reverse === 'boolean', 'Reverse must be a boolean')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
-    var votes = await votesCrawler.list(opts)
+    if ('topic' in opts) {
+      if (Array.isArray(opts.topic)) {
+        assert(opts.topic.every(v => typeof v === 'string'), 'Topic filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.topic === 'string', 'Topic filter must be a string or array of strings')
+      }
+    }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
+    var votes = await votesAPI.list(opts)
     return votes.map(massageVoteRecord)
   },
 
   /**
    * @param {string} topic
    * @param {Object} [opts]
-   * @param {string|string[]} [opts.filters.authors]
-   * @param {string} [opts.filters.visibility]
+   * @param {string|string[]} [opts.author]
+   * @param {string} [opts.visibility]
    * @returns {Promise<TabulatedVotesPublicAPIRecord>}
    */
   async tabulate (topic, opts) {
@@ -93,20 +91,18 @@ module.exports = {
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
     opts = (opts && typeof opts === 'object') ? opts : {}
-    if (opts && opts.filters) {
-      if ('authors' in opts.filters) {
-        if (Array.isArray(opts.filters.authors)) {
-          assert(opts.filters.authors.every(v => typeof v === 'string'), 'Authors filter must be a string or array of strings')
-        } else {
-          assert(typeof opts.filters.authors === 'string', 'Authors filter must be a string or array of strings')
-        }
-      }
-      if ('visibility' in opts.filters) {
-        assert(typeof opts.filters.visibility === 'string', 'Visibility filter must be a string')
+    if ('author' in opts) {
+      if (Array.isArray(opts.author)) {
+        assert(opts.author.every(v => typeof v === 'string'), 'Author filter must be a string or array of strings')
+      } else {
+        assert(typeof opts.author === 'string', 'Author filter must be a string or array of strings')
       }
     }
+    if ('visibility' in opts) {
+      assert(typeof opts.visibility === 'string', 'Visibility filter must be a string')
+    }
 
-    var tally = await votesCrawler.tabulate(topic, opts)
+    var tally = await votesAPI.tabulate(topic, opts)
     return {
       topic: tally.topic,
       upvotes: tally.upvotes,
@@ -133,12 +129,12 @@ module.exports = {
    */
   async get (author, topic) {
     await sessionPerms.assertCan(this.sender, 'unwalled.garden/api/votes', 'read')
-    return massageVoteRecord(await votesCrawler.get(author, topic))
+    return massageVoteRecord(await votesAPI.get(author, topic))
   },
 
   /**
    * @param {string} topic
-   * @param {string} emoji
+   * @param {number} vote
    * @returns {Promise<VotePublicAPIRecord>}
    */
   async set (topic, vote) {
@@ -148,8 +144,8 @@ module.exports = {
     topic = normalizeTopicUrl(topic)
     assert(topic && typeof topic === 'string', 'The `topic` parameter must be a valid URL')
 
-    await votesCrawler.set(userArchive, topic, vote)
-    return massageVoteRecord(await votesCrawler.get(userArchive.url, topic))
+    await votesAPI.set(userArchive, topic, vote)
+    return massageVoteRecord(await votesAPI.get(userArchive.url, topic))
   }
 }
 

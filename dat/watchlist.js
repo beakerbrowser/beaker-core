@@ -3,8 +3,8 @@ const emitStream = require('emit-stream')
 const logger = require('../logger').child({category: 'dat', subcategory: 'watchlist'})
 
 // dat modules
-const datLibrary = require('../dat/library')
-const datDns = require('../dat/dns')
+const datArchives = require('./archives')
+const datDns = require('./dns')
 const watchlistDb = require('../dbs/watchlist')
 
 // globals
@@ -92,7 +92,7 @@ async function watch (site) {
   }
 
   // load archive
-  var archive = await datLibrary.loadArchive(key)
+  var archive = await datArchives.loadArchive(key)
   if (site.resolved === 0) {
     watchlistEvents.emit('resolved', site)
   }

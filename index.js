@@ -3,12 +3,12 @@ const {join} = require('path')
 const debugLogger = require('./lib/debug-logger')
 const globals = require('./globals')
 const logger = require('./logger')
-const applications = require('./applications')
 const {getEnvVar} = require('./lib/env')
 const dat = require('./dat')
 const dbs = require('./dbs')
-const users = require('./users')
-const crawler = require('./crawler')
+const filesystem = require('./filesystem')
+const users = require('./filesystem/users')
+const uwg = require('./uwg')
 const webapis = require('./web-apis/bg')
 const spellChecker = require('./web-apis/bg/spell-checker')
 const spellCheckerLib = require('./lib/spell-checker')
@@ -19,8 +19,8 @@ module.exports = {
   logger,
   dat,
   dbs,
-  applications,
-  crawler,
+  uwg,
+  filesystem,
   users,
   spellChecker,
 
@@ -31,8 +31,6 @@ module.exports = {
   async setup (opts) {
     assert(typeof opts.userDataPath === 'string', 'userDataPath must be a string')
     assert(typeof opts.homePath === 'string', 'homePath must be a string')
-    assert(typeof opts.templatesPath === 'string', 'templatesPath must be a string')
-    assert(!!opts.datDaemonProcess, 'must provide datDaemonProcess')
     assert(!!opts.permsAPI, 'must provide permsAPI')
     assert(!!opts.uiAPI, 'must provide uiAPI')
     assert(!!opts.rpcAPI, 'must provide rpcAPI')
@@ -57,10 +55,9 @@ module.exports = {
 
     // start subsystems
     // (order is important)
-    await dat.library.setup(opts)
-    await dat.watchlist.setup()
-    await crawler.setup()
-    await users.setup()
+    await dat.setup(opts)
+    await uwg.setup()
+    await filesystem.setup()
     webapis.setup()
     spellCheckerLib.setup()
   }

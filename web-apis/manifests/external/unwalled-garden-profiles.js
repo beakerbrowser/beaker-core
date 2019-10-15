@@ -1,5 +1,6 @@
 module.exports = {
   me: 'promise',
   get: 'promise',
-  index: 'promise'
+  index: 'promise',
+  editProfileDialog: 'promise'
 }

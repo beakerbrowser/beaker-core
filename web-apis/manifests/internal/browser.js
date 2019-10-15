@@ -13,7 +13,6 @@ module.exports = {
   setSetting: 'promise',
   getUserSetupStatus: 'promise',
   setUserSetupStatus: 'promise',
-  getDefaultLocalPath: 'promise',
   setStartPageBackgroundImage: 'promise',
   getDefaultProtocolSettings: 'promise',
   setAsDefaultProtocolClient: 'promise',
@@ -32,6 +31,7 @@ module.exports = {
 
   openSidebar: 'promise',
   toggleSidebar: 'promise',
+  toggleSiteInfo: 'promise',
   toggleLiveReloading: 'promise',
   setWindowDimensions: 'promise',
   setWindowDragModeEnabled: 'promise',
@@ -42,6 +42,7 @@ module.exports = {
   showModal: 'promise',
   openUrl: 'promise',
   gotoUrl: 'promise',
+  refreshPage: 'promise',
   openFolder: 'promise',
   doWebcontentsCmd: 'promise',
   doTest: 'promise',

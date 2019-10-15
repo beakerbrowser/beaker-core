@@ -232,6 +232,33 @@ exports.setup = function (rpc) {
       }
     }
 
+    async symlink (target, linkname, opts = {}) {
+      var errStack = (new Error()).stack
+      try {
+        return await datRPC.symlink(this.url, target, linkname, opts)
+      } catch (e) {
+        throwWithFixedStack(e, errStack)
+      }
+    }
+
+    async mount (path, opts = {}) {
+      var errStack = (new Error()).stack
+      try {
+        return await datRPC.mount(this.url, path, opts)
+      } catch (e) {
+        throwWithFixedStack(e, errStack)
+      }
+    }
+
+    async unmount (path, opts = {}) {
+      var errStack = (new Error()).stack
+      try {
+        return await datRPC.unmount(this.url, path, opts)
+      } catch (e) {
+        throwWithFixedStack(e, errStack)
+      }
+    }
+
     createFileActivityStream (pathSpec = null) {
       console.warn('The DatArchive createFileActivityStream() API has been deprecated, use watch() instead.')
       return this.watch(pathSpec)

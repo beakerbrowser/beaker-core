@@ -7,12 +7,12 @@ const intoStream = require('into-stream')
 const {toZipStream} = require('../lib/zip')
 const slugify = require('slugify')
 const markdown = require('../lib/markdown')
+const libTools = require('@beaker/library-tools')
 
 const datDns = require('./dns')
-const datLibrary = require('./library')
+const datArchives = require('./archives')
 const datServeResolvePath = require('@beaker/dat-serve-resolve-path')
 
-const directoryListingPage = require('./directory-listing-page')
 const errorPage = require('../lib/error-page')
 const mime = require('../lib/mime')
 const {makeSafe} = require('../lib/strings')
@@ -119,7 +119,7 @@ exports.electronHandler = async function (request, respond) {
 
   try {
     // start searching the network
-    archive = await datLibrary.getOrLoadArchive(archiveKey)
+    archive = await datArchives.getOrLoadArchive(archiveKey)
   } catch (err) {
     logger.warn('Failed to open archive', {url: archiveKey, err})
     cleanup()
@@ -134,30 +134,36 @@ exports.electronHandler = async function (request, respond) {
 
   // checkout version if needed
   try {
-    var {checkoutFS} = datLibrary.getArchiveCheckout(archive, urlp.version)
-    if (urlp.version === 'preview') {
-      await checkoutFS.pda.stat('/') // run a stat to ensure preview mode exists
-    }
+    var {checkoutFS} = await datArchives.getArchiveCheckout(archive, urlp.version)
   } catch (err) {
-    if (err.noPreviewMode) {
-      // redirect to non-preview version
-      return respond({
-        statusCode: 303,
-        headers: {
-          Location: `dat://${urlp.host}${urlp.pathname || '/'}${urlp.search || ''}`
-        },
-        data: intoStream('')
-      })
-    } else {
-      logger.warn('Failed to open archive checkout', {url: archiveKey, err})
-      cleanup()
-      return respondError(500, 'Failed')
-    }
+    logger.warn('Failed to open archive checkout', {url: archiveKey, err})
+    cleanup()
+    return respondError(500, 'Failed')
   }
 
   // read the manifest (it's needed in a couple places)
   var manifest
   try { manifest = await checkoutFS.pda.readManifest() } catch (e) { manifest = null }
+
+  // read type and configure
+  var category = libTools.typeToCategory(manifest ? manifest.type : '', false) || 'files'
+  const hasViewerApp = category !== 'website'
+  const canExecuteHTML = !hasViewerApp
+
+  // render root-page applications by type
+  if (hasViewerApp && mime.acceptHeaderWantsHTML(request.headers.Accept)) {
+    return respond({
+      statusCode: 200,
+      headers: {
+        // TODO CSP
+        'Content-Type': 'text/html'
+      },
+      data: intoStream(`
+<link rel="stylesheet" href="beaker://viewers/${category}/index.css">
+<script type="module" src="beaker://viewers/${category}/index.js"></script>
+`)
+    })
+  }
 
   // read manifest CSP
   if (manifest && manifest.content_security_policy && typeof manifest.content_security_policy === 'string') {
@@ -206,24 +212,6 @@ exports.electronHandler = async function (request, respond) {
   var headers = {}
   var entry = await datServeResolvePath(checkoutFS.pda, manifest, urlp, request.headers.Accept)
 
-  // use theme template if it exists
-  var themeSettings = {
-    active: false,
-    js: false,
-    css: false
-  }
-  if (!urlp.query.disable_theme) {
-    if (entry && mime.acceptHeaderWantsHTML(request.headers.Accept) && ['.html', '.htm', '.md'].includes(extname(entry.path))) {
-      let exists = async (path) => await checkoutFS.pda.stat(path).then(() => true, () => false)
-      let [js, css] = await Promise.all([exists('/theme/index.js'), exists('/theme/index.css')])
-      if (js || css) {
-        themeSettings.active = true
-        themeSettings.css = css
-        themeSettings.js = js
-      }
-    }
-  }
-
   // handle folder
   if (entry && entry.isDirectory()) {
     cleanup()
@@ -258,7 +246,7 @@ exports.electronHandler = async function (request, respond) {
   // caching is disabled till we can figure out why
   // -prf
   // caching if-match
-  // const ETag = (checkoutFS.isLocalFS) ? false : 'block-' + entry.offset
+  // const ETag = 'block-' + entry.offset
   // if (request.headers['if-none-match'] === ETag) {
   //   return respondError(304, 'Not Modified')
   // }
@@ -296,37 +284,28 @@ exports.electronHandler = async function (request, respond) {
   // markdown rendering
   if (!range && entry.path.endsWith('.md') && mime.acceptHeaderWantsHTML(request.headers.Accept)) {
     let content = await checkoutFS.pda.readFile(entry.path, 'utf8')
+    let contentType = canExecuteHTML ? 'text/html' : 'text/plain'
+    content = canExecuteHTML ? markdown.render(content) : content
     return respond({
       statusCode: 200,
       headers: Object.assign(headers, {
-        'Content-Type': 'text/html'
+        'Content-Type': contentType
       }),
-      data: intoStream(markdown.render(content, themeSettings))
-    })
-  }
-
-  // theme wrapping
-  if (themeSettings.active) {
-    let html = await checkoutFS.pda.readFile(entry.path, 'utf8')
-    html = `
-${themeSettings.js ? `<script type="module" src="/theme/index.js"></script>` : ''}
-${themeSettings.css ? `<link rel="stylesheet" href="/theme/index.css">` : ''}
-${html}`
-    return respond({
-      statusCode: 200,
-      headers: Object.assign(headers, {
-        'Content-Type': 'text/html'
-      }),
-      data: intoStream(html)
+      data: intoStream(content)
     })
   }
 
   // fetch the entry and stream the response
-  fileReadStream = checkoutFS.createReadStream(entry.path, range)
+  fileReadStream = await checkoutFS.pda.createReadStream(entry.path, range)
   var dataStream = fileReadStream
     .pipe(mime.identifyStream(entry.path, mimeType => {
       // cleanup the timeout now, as bytes have begun to stream
       cleanup()
+
+      // disable html as needed
+      if (!canExecuteHTML && mimeType.includes('html')) {
+        mimeType = 'text/plain'
+      }
 
       // send headers, now that we can identify the data
       headersSent = true

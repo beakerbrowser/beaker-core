@@ -2,16 +2,15 @@ const { EventTarget, bindEventStream, fromEventStream } = require('./event-targe
 const errors = require('beaker-error-constants')
 
 const loggerManifest = require('../manifests/internal/logger')
-const applicationsManifest = require('../manifests/internal/applications')
 const archivesManifest = require('../manifests/internal/archives')
 const beakerBrowserManifest = require('../manifests/internal/browser')
 const downloadsManifest = require('../manifests/internal/downloads')
 const historyManifest = require('../manifests/internal/history')
 const sitedataManifest = require('../manifests/internal/sitedata')
 const watchlistManifest = require('../manifests/internal/watchlist')
-const templatesManifest = require('../manifests/internal/templates')
 const crawlerManifest = require('../manifests/internal/crawler')
 const usersManifest = require('../manifests/internal/users')
+const searchManifest = require('../manifests/internal/search')
 
 exports.setup = function (rpc) {
   const beaker = {}
@@ -20,55 +19,32 @@ exports.setup = function (rpc) {
   // internal only
   if (window.location.protocol === 'beaker:') {
     const loggerRPC = rpc.importAPI('logger', loggerManifest, opts)
-    const applicationsRPC = rpc.importAPI('applications', applicationsManifest, opts)
     const archivesRPC = rpc.importAPI('archives', archivesManifest, opts)
     const beakerBrowserRPC = rpc.importAPI('beaker-browser', beakerBrowserManifest, opts)
     const downloadsRPC = rpc.importAPI('downloads', downloadsManifest, opts)
     const historyRPC = rpc.importAPI('history', historyManifest, opts)
     const sitedataRPC = rpc.importAPI('sitedata', sitedataManifest, opts)
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
-    const templatesRPC = rpc.importAPI('templates', templatesManifest, opts)
     const crawlerRPC = rpc.importAPI('crawler', crawlerManifest, opts)
     const usersRPC = rpc.importAPI('users', usersManifest, opts)
+    const searchRPC = rpc.importAPI('search', searchManifest, opts)
+
+    // beaker.search
+    beaker.search = searchRPC
 
     // beaker.logger
     beaker.logger = {}
     beaker.logger.stream = (opts) => fromEventStream(loggerRPC.stream(opts))
     beaker.logger.query = loggerRPC.query
 
-    // beaker.applications
-    beaker.applications = {}
-    beaker.applications.getInfo = applicationsRPC.getInfo
-    beaker.applications.install = applicationsRPC.install
-    beaker.applications.requestInstall = applicationsRPC.requestInstall
-    beaker.applications.list = applicationsRPC.list
-    beaker.applications.enable = applicationsRPC.enable
-    beaker.applications.disable = applicationsRPC.disable
-    beaker.applications.uninstall = applicationsRPC.uninstall
-
     // beaker.archives
     beaker.archives = new EventTarget()
     beaker.archives.status = archivesRPC.status
-    beaker.archives.add = archivesRPC.add
-    beaker.archives.setUserSettings = archivesRPC.setUserSettings
-    beaker.archives.remove = archivesRPC.remove
-    beaker.archives.bulkRemove = archivesRPC.bulkRemove
+    beaker.archives.listTrash = archivesRPC.listTrash
+    beaker.archives.collectTrash = archivesRPC.collectTrash
     beaker.archives.delete = archivesRPC.delete
-    beaker.archives.list = archivesRPC.list
-    beaker.archives.validateLocalSyncPath = archivesRPC.validateLocalSyncPath
-    beaker.archives.setLocalSyncPath = archivesRPC.setLocalSyncPath
-    beaker.archives.ensureLocalSyncFinished = archivesRPC.ensureLocalSyncFinished
-    beaker.archives.diffLocalSyncPathListing = archivesRPC.diffLocalSyncPathListing
-    beaker.archives.diffLocalSyncPathFile = archivesRPC.diffLocalSyncPathFile
-    beaker.archives.publishLocalSyncPathListing = archivesRPC.publishLocalSyncPathListing
-    beaker.archives.revertLocalSyncPathListing = archivesRPC.revertLocalSyncPathListing
-    beaker.archives.getDraftInfo = archivesRPC.getDraftInfo
-    beaker.archives.listDrafts = archivesRPC.listDrafts
-    beaker.archives.addDraft = archivesRPC.addDraft
-    beaker.archives.removeDraft = archivesRPC.removeDraft
     beaker.archives.touch = archivesRPC.touch
     beaker.archives.clearFileCache = archivesRPC.clearFileCache
-    beaker.archives.clearGarbage = archivesRPC.clearGarbage
     beaker.archives.clearDnsCache = archivesRPC.clearDnsCache
     beaker.archives.getDebugLog = archivesRPC.getDebugLog
     beaker.archives.createDebugStream = () => fromEventStream(archivesRPC.createDebugStream())
@@ -94,7 +70,6 @@ exports.setup = function (rpc) {
     beaker.browser.setSetting = beakerBrowserRPC.setSetting
     beaker.browser.getUserSetupStatus = beakerBrowserRPC.getUserSetupStatus
     beaker.browser.setUserSetupStatus = beakerBrowserRPC.setUserSetupStatus
-    beaker.browser.getDefaultLocalPath = beakerBrowserRPC.getDefaultLocalPath
     beaker.browser.setStartPageBackgroundImage = beakerBrowserRPC.setStartPageBackgroundImage
     beaker.browser.getDefaultProtocolSettings = beakerBrowserRPC.getDefaultProtocolSettings
     beaker.browser.setAsDefaultProtocolClient = beakerBrowserRPC.setAsDefaultProtocolClient
@@ -109,6 +84,7 @@ exports.setup = function (rpc) {
     beaker.browser.imageToIco = beakerBrowserRPC.imageToIco
     beaker.browser.openSidebar = beakerBrowserRPC.openSidebar
     beaker.browser.toggleSidebar = beakerBrowserRPC.toggleSidebar
+    beaker.browser.toggleSiteInfo = beakerBrowserRPC.toggleSiteInfo
     beaker.browser.toggleLiveReloading = beakerBrowserRPC.toggleLiveReloading
     beaker.browser.setWindowDimensions = beakerBrowserRPC.setWindowDimensions
     beaker.browser.setWindowDragModeEnabled = beakerBrowserRPC.setWindowDragModeEnabled
@@ -119,6 +95,7 @@ exports.setup = function (rpc) {
     beaker.browser.showModal = beakerBrowserRPC.showModal
     beaker.browser.openUrl = beakerBrowserRPC.openUrl
     beaker.browser.gotoUrl = beakerBrowserRPC.gotoUrl
+    beaker.browser.refreshPage = beakerBrowserRPC.refreshPage
     beaker.browser.openFolder = beakerBrowserRPC.openFolder
     beaker.browser.doWebcontentsCmd = beakerBrowserRPC.doWebcontentsCmd
     beaker.browser.doTest = beakerBrowserRPC.doTest
@@ -162,13 +139,6 @@ exports.setup = function (rpc) {
     beaker.watchlist.update = watchlistRPC.update
     beaker.watchlist.remove = watchlistRPC.remove
     beaker.watchlist.createEventsStream = () => fromEventStream(watchlistRPC.createEventsStream())
-
-    // beaker.templates
-    beaker.templates = {}
-    beaker.templates.get = templatesRPC.get
-    beaker.templates.list = templatesRPC.list
-    beaker.templates.put = templatesRPC.put
-    beaker.templates.remove = templatesRPC.remove
 
     // beaker.crawler
     beaker.crawler = {}

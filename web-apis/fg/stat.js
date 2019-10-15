@@ -22,7 +22,9 @@ const Stat = module.exports = function Stat (data) {
   this.atime = new Date(data ? data.mtime : 0) // we just set this to mtime ...
   this.mtime = new Date(data ? data.mtime : 0)
   this.ctime = new Date(data ? data.ctime : 0)
-
+  this.mount = data && data.mount && data.mount.key
+    ? {key: data.mount.key.toString('hex')}
+    : null
   this.linkname = data ? data.linkname : null
 }
 

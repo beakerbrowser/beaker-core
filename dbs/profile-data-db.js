@@ -123,7 +123,13 @@ migrations = [
   migration('profile-data.v33.sql'),
   migration('profile-data.v34.sql'),
   migration('profile-data.v35.sql'),
-  migration('profile-data.v36.sql')
+  migration('profile-data.v36.sql'),
+  migration('profile-data.v37.sql'),
+  migration('profile-data.v38.sql'),
+  migration('profile-data.v39.sql'),
+  migration('profile-data.v40.sql'),
+  migration('profile-data.v41.sql'),
+  migration('profile-data.v42.sql')
 ]
 function migration (file, opts = {}) {
   return cb => {
