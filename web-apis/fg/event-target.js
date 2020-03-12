@@ -9,6 +9,10 @@ const PREP_EVENT = Symbol() // eslint-disable-line
 class EventTarget {
   constructor () {
     this[LISTENERS] = {}
+
+    this.addEventListener = this.addEventListener.bind(this)
+    this.removeEventListener = this.removeEventListener.bind(this)
+    this.dispatchEvent = this.dispatchEvent.bind(this)
   }
 
   addEventListener (type, callback) {
@@ -129,4 +133,15 @@ exports.fromAsyncEventStream = function (asyncStream) {
     asyncStream.then(stream => stream.close())
   }
   return target
+}
+
+exports.exportEventStreamFn = function (rpcObj, fnName) {
+  var orgFn = rpcObj[fnName]
+  rpcObj[fnName] = (...args) => {
+    var evts = orgFn(...args)
+    return {
+      on: evts.on.bind(evts),
+      close: evts.close ? evts.close.bind(evts) : () => {}
+    }
+  }
 }

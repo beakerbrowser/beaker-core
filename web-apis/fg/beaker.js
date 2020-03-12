@@ -24,36 +24,7 @@ exports.setup = function (rpc) {
     const watchlistRPC = rpc.importAPI('watchlist', watchlistManifest, opts)
 
     // beaker.archives
-
-  var _archivesListeners = {}
-    beaker.archives = {
-      addEventListener (type, callback) {
-        if (!(type in _archivesListeners)) {
-          _archivesListeners[type] = []
-        }
-        _archivesListeners[type].push(callback)
-      },
-    
-      removeEventListener (type, callback) {
-        if (!(type in _archivesListeners)) {
-          return
-        }
-        var stack = _archivesListeners[type]
-        var i = stack.findIndex(cb => cb === callback)
-        if (i !== -1) {
-          stack.splice(i, 1)
-        }
-      },
-    
-      dispatchEvent (event) {
-        if (!(event.type in _archivesListeners)) {
-          return
-        }
-        event.target = this
-        var stack = _archivesListeners[event.type]
-        stack.forEach(cb => cb.call(this, event))
-      }
-    }
+    beaker.archives = new EventTarget()
     beaker.archives.status = archivesRPC.status
     beaker.archives.add = archivesRPC.add
     beaker.archives.setUserSettings = archivesRPC.setUserSettings

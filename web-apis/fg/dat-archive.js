@@ -1,10 +1,13 @@
 const { contextBridge, webFrame } = require('electron')
 const errors = require('beaker-error-constants')
 const datArchiveManifest = require('../manifests/external/dat-archive')
+const { exportEventStreamFn } = require('./event-target')
 
 exports.setupAndExpose = function (rpc) {
   // create the rpc apis
   const datRPC = rpc.importAPI('dat-archive', datArchiveManifest, { timeout: false, errors })
+  exportEventStreamFn(datRPC, 'watch')
+  exportEventStreamFn(datRPC, 'createNetworkActivityStream')
   contextBridge.exposeInMainWorld('__dat', datRPC)
 
   webFrame.executeJavaScript(`
@@ -150,16 +153,11 @@ exports.setupAndExpose = function (rpc) {
 
   function fromEventStream (stream) {
     var target = new EventTarget()
-    // DISABLED
-    // The stream object returned from watch() doesnt work due
-    // to the contextBridge membrane. Because this code is a temporary patch until the
-    // next release of beaker, we're just going to disable these events.
-    // -prf
-    // bindEventStream(stream, target)
-    // target.close = () => {
-    //   target.listeners = {}
-    //   stream.close()
-    // }
+    bindEventStream(stream, target)
+    target.close = () => {
+      target.listeners = {}
+      stream.close()
+    }
     return target
   }
 
@@ -380,22 +378,15 @@ exports.setupAndExpose = function (rpc) {
         pathSpec = null
       }
 
-      // DISABLED
-      // The stream object returned from watch() doesnt work due
-      // to the contextBridge membrane. Because this code is a temporary patch until the
-      // next release of beaker, we're just going to disable these events.
-      // -prf
-      // var evts = fromEventStream(__dat.watch(this.url, pathSpec))
-      // if (onInvalidated) {
-      //   evts.addEventListener('invalidated', onInvalidated)
-      // }
-      // return evts
-      return new EventTarget()
+      var evts = fromEventStream(__dat.watch(this.url, pathSpec))
+      if (onInvalidated) {
+        evts.addEventListener('invalidated', onInvalidated)
+      }
+      return evts
     }
 
     createNetworkActivityStream () {
       console.warn('The DatArchive createNetworkActivityStream() API has been deprecated, use addEventListener() instead.')
-      return fromEventStream(__dat.createNetworkActivityStream(this.url))
     }
 
     static async resolveName (name) {
@@ -452,17 +443,13 @@ exports.setupAndExpose = function (rpc) {
   }
 
   function createNetworkActStream (archive) {
-    // DISABLED
-    // The stream object returned from createNetworkActivityStream() doesnt work due
-    // to the contextBridge membrane. Because this code is a temporary patch until the
-    // next release of beaker, we're just going to disable these events.
-    // -prf
-    // if (archive[NETWORK_ACT_STREAM]) return
-    // var s = archive[NETWORK_ACT_STREAM] = fromEventStream(__dat.createNetworkActivityStream(archive.url))
-    // s.addEventListener('network-changed', detail => archive.dispatchEvent(new Event('network-changed', {target: archive, peers: detail.connections})))
-    // s.addEventListener('download', detail => archive.dispatchEvent(new Event('download', {target: archive, feed: detail.feed, block: detail.block, bytes: detail.bytes})))
-    // s.addEventListener('upload', detail => archive.dispatchEvent(new Event('upload', {target: archive, feed: detail.feed, block: detail.block, bytes: detail.bytes})))
-    // s.addEventListener('sync', detail => archive.dispatchEvent(new Event('sync', {target: archive, feed: detail.feed})))
+    if (archive[NETWORK_ACT_STREAM]) return
+
+    var s = archive[NETWORK_ACT_STREAM] = fromEventStream(__dat.createNetworkActivityStream(archive.url))
+    s.addEventListener('network-changed', detail => archive.dispatchEvent(new Event('network-changed', {target: archive, peers: detail.connections})))
+    s.addEventListener('download', detail => archive.dispatchEvent(new Event('download', {target: archive, feed: detail.feed, block: detail.block, bytes: detail.bytes})))
+    s.addEventListener('upload', detail => archive.dispatchEvent(new Event('upload', {target: archive, feed: detail.feed, block: detail.block, bytes: detail.bytes})))
+    s.addEventListener('sync', detail => archive.dispatchEvent(new Event('sync', {target: archive, feed: detail.feed})))
   }
   `)
 }
