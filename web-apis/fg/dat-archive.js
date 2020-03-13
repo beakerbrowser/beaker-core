@@ -387,6 +387,7 @@ exports.setupAndExpose = function (rpc) {
 
     createNetworkActivityStream () {
       console.warn('The DatArchive createNetworkActivityStream() API has been deprecated, use addEventListener() instead.')
+      return fromEventStream(__dat.createNetworkActivityStream(this.url))
     }
 
     static async resolveName (name) {
