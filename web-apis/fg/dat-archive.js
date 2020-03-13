@@ -430,6 +430,7 @@ exports.setupAndExpose = function (rpc) {
       return __dat.merge(srcUrl, dstUrl, opts)
     }
   }
+  window.DatArchive = DatArchive
 
   // internal methods
   // =
