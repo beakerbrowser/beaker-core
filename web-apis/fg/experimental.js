@@ -37,7 +37,7 @@ exports.setup = function (rpc) {
       }
       try {
         if (request.compress)
-          request.headers.set('accept-encoding', 'gzip,deflate')
+          { request.headers.set('accept-encoding', 'gzip,deflate') }
         let headers = {}
         request.headers.forEach((val, name) => headers[name] = val)
         let responseData = await globalFetchRPC.fetch({headers,

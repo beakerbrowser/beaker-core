@@ -237,12 +237,11 @@ exports.electronHandler = async function (request, respond) {
 
     // make sure there's a trailing slash
     if (!hasTrailingSlash) {
+      let url = `dat://${urlp.host}${urlp.version ? ('+' + urlp.version) : ''}${urlp.pathname || ''}/${urlp.search || ''}`
       return respond({
-        statusCode: 303,
-        headers: {
-          Location: `dat://${urlp.host}${urlp.version ? ('+' + urlp.version) : ''}${urlp.pathname || ''}/${urlp.search || ''}`
-        },
-        data: intoStream('')
+        statusCode: 200,
+        headers: {'Content-Type': 'text/html'},
+        data: intoStream(`<!doctype html><meta http-equiv="refresh" content="0; url=${url}">`)
       })
     }
 

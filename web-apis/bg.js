@@ -20,11 +20,9 @@ const watchlistAPI = require('./bg/watchlist')
 
 // external manifests
 const datArchiveManifest = require('./manifests/external/dat-archive')
-const spellCheckerManifest = require('./manifests/external/spell-checker')
 
 // external apis
 const datArchiveAPI = require('./bg/dat-archive')
-const spellCheckerAPI = require('./bg/spell-checker')
 
 // experimental manifests
 const experimentalCapturePageManifest = require('./manifests/external/experimental/capture-page')
@@ -53,7 +51,6 @@ exports.setup = function () {
 
   // external apis
   globals.rpcAPI.exportAPI('dat-archive', datArchiveManifest, datArchiveAPI, secureOnly)
-  globals.rpcAPI.exportAPI('spell-checker', spellCheckerManifest, spellCheckerAPI)
 
   // experimental apis
   globals.rpcAPI.exportAPI('experimental-capture-page', experimentalCapturePageManifest, experimentalCapturePageAPI, secureOnly)
